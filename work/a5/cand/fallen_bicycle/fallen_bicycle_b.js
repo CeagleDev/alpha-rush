@@ -101,7 +101,7 @@ export default function (THREE) {
   SWEEP(0.004, [[0.20, 0.96, -0.24], [0.30, 0.85, -0.15], [0.44, 0.70, -0.06]], dark, 4, 8);   // brake cable
   B(0.62, 0.03, 0.10, -0.52, 0.015, 0, dark); B(0.62, 0.03, 0.10, 0.52, 0.015, 0, dark);      // grounding bands
 
-  bike.rotation.x = -Math.PI / 2 + 0.22;
+  bike.rotation.x = -Math.PI / 2 + 0.6;   // propped on the bar end and pedal, wheels leaning ~35° off the road
 
   g.userData.obstacle = { kind: 'jump', lanes: 1 };
 
