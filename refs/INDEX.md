@@ -40,3 +40,44 @@
 | yatai_cart | 164edccc-9847-4526-8d22-ae3f11b9fe42 |
 | parked_sedan | e56f6448-357c-4710-af19-a9bea48abd6a |
 Atlas project midnight-dash-objects-2 (batch 3): pid fcc77e80-094b-4db3-aa82-8cb9743a1a88
+
+### batch 3 (13 track/expressway/obstacles, project midnight-dash-objects-2) — awaiting user go-ahead
+| file | fid |
+|---|---|
+| litter_set | ba5f99bd-252e-41ed-b69c-19f03bbf0d29 |
+| alley_road_chunk | c7a05192-3537-4a00-ac57-f45979306d9f |
+| cable_span | 7492cb04-4ad5-450d-9af3-e1f8f84c7bd4 |
+| banner_cluster_low | d82162e9-9d2e-40f9-9237-2f96d307adf9 |
+| awning_strut_low | 2b054c52-cdbe-4c22-8a3c-0b34df9b8128 |
+| concrete_divider | 2e02b63e-6da9-4caa-9482-93841ef57d05 |
+| roadworks_barrier | 0b3a9a64-606c-4809-bb8f-69e588fd0ca0 |
+| gantry_board_low | f2df4f87-3b45-4d87-a32f-49f3ce758418 |
+| expressway_deck | 9b332eba-18e5-4f39-8a1e-7717f7b6890a |
+| sodium_lamp | d12df6cf-eaa4-48fe-8ec2-5d0cf89c6104 |
+| sign_gantry | 7a763979-73de-4cce-b438-13d831870bc1 |
+| guard_rail | e9121e8e-8434-4333-929d-672b5a3bf5b3 |
+| ramp_chunk | 0c5cc6b6-be97-4a01-9585-9cf60145659a |
+
+### batch 4 (20 detail props) — awaiting user go-ahead
+| file | fid |
+|---|---|
+| bicycle_parked | 4538ee25-949c-4534-aed9-74cd6f2906ab |
+| scooter | 1e98bfab-92b2-4441-ae41-b6263d9b3b12 |
+| beer_keg | f91da321-ed71-42c9-b759-96600234b306 |
+| gas_cylinders | 224f2b18-8b3c-4f50-98d8-6e8f5a4348be |
+| umbrella_stand | 6390ec4e-bd5d-4466-a99c-57ecf96d7719 |
+| laundry_line | 7a26aa84-e0ee-485f-8349-2362456a2ff6 |
+| menu_board | bf47d970-4002-42b6-af6d-fb316808314a |
+| plant_pots | 27a43cb0-f57a-4132-ac2b-da1b2c40b592 |
+| cardboard_boxes | 7d8c2655-8b32-4a19-bf67-d8319092337a |
+| ashtray_stand | 394dd8e6-7385-473a-8177-87ce290c3ab4 |
+| traffic_mirror | cca7d338-13ba-4811-a594-84b936dda2f0 |
+| road_cones | 714deb56-ce1a-4e83-ad8a-3e296fd42b09 |
+| post_box | 7cc616ab-c622-4652-8345-d5902d586f72 |
+| electrical_box | 13c8360d-d8c3-43fd-83a6-39eaf7951c8f |
+| vertical_sign | b41003fb-1fe1-459a-aa70-bcff0663839d |
+| stool_table_set | c914c6b1-8cdc-4561-a497-6fab3bca183d |
+| rooftop_water_tank | 0af5ee87-a773-42a7-9033-32350dd818b3 |
+| tv_antenna | f01fa4b1-70ab-4b25-870a-332a0d1bb8a4 |
+| fire_ext_box | 170976bb-495c-4245-953a-5285bd6c759d |
+| drink_cases | 4403419e-ed92-41f8-b7ae-535825593781 |

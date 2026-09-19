@@ -50,3 +50,10 @@ ctx = { THREE, scene, camera, renderer, rig, config, state, assets, textures, ev
   that the integrator can grep for; every placeholder must be gone by integration.
 - Test each module with a fixture page under work/<agent>/ that imports only your module plus stubs; keep browser runs short.
 - Telemetry `fps` from real elapsed time; `pos` = [x, z] in metres; `draws/tris` from renderer.info after rig.render.
+
+## Addendum (2026-09-19, before fan-out)
+- src/assets.js is owned by E4 (with textures.js and chamfer.js): `get(name, opts)`, `lights(group)`, prototype cache, and a
+  PLACEHOLDER fallback — when `./assets/<name>.js` is missing it returns a named Box sized from ASSETS.md/STYLE.md with
+  `userData.placeholder = true` and logs one line, so E1/E2 can build and test before the assets land. Other agents stub it in fixtures.
+- tools/GATE_CONTRACT.md is authoritative for `window.__GAME__` (adds next.id, next.lanes as per-lane null|'jump'|'roll'|'block',
+  next.len, coin:{dist,lane}, jumps, rolls). A roll row longer than 0.5·speed metres cannot be rolled under: E1 must not build one.
