@@ -9,7 +9,7 @@ export default function (THREE) {
   const R = 0.3, h = 0.035, bevel = 0.008, land = 0.005, recess = 0.0025;
   const rf = R - bevel - land;            // recess radius
   const gold = new THREE.MeshStandardMaterial({ color: 0xd8ae70, metalness: 0.85, roughness: 0.35 }); gold.name = 'gold';
-  const tarnish = new THREE.MeshStandardMaterial({ color: 0xa67c46, metalness: 0.8, roughness: 0.5 }); tarnish.name = 'gold';
+  const tarnish = new THREE.MeshStandardMaterial({ color: 0xa67c46, metalness: 0.8, roughness: 0.5 }); tarnish.name = 'gold_tarnish';
 
   // Profile from the back centre to the front centre (material on the left of travel, so the
   // lathe's normals face outward). Lathe axis is Y; the mesh is then tipped so the axis is Z.
