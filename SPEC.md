@@ -1,90 +1,84 @@
-# midnight-dash — lead spec, round 0
+# midnight-dash — lead spec v2 (yokocho direction)
 
-Read STYLE.md first. This file is the split: what the game is, what objects exist, who builds
-what, and what the gate asserts. Budgets are hard.
+Read STYLE.md, then CLAIMS.md. This is the split: the game, the objects, who builds what, what the gate asserts.
+Shipped folder is game/ (relative paths only). tools/ holds the gate. refs/ is never shipped.
 
 ## The game
-- Third-person chase camera behind a runner who auto-runs along +Z. Three lanes at x = -2, 0, +2.
-- Input: touch swipes (left/right = lane, up = jump, down = roll) and keys (arrows / WASD / space).
-  Real DOM events only. A start button `#startb` on a title screen; the tap that starts also unlocks audio.
-- Speed 9 m/s at start, +0.6 m/s every 150 m, cap 20 m/s. Lane change 0.18 s eased. Jump apex 1.1 m
-  in 0.55 s. Roll 0.5 s, hitbox height halves. Stumble on a side clip: -35 % speed, 0.4 s no input.
-- Collect coins (+1). Score = coins + metres/10. Hit a blocking obstacle head-on = game over,
-  death screen, restart without reload.
-- Zones cycle forever, each ~180 m: STREET A (neon back street) → RAMP UP → HIGHWAY (elevated,
-  wind, gantries) → RAMP DOWN → STREET B (market/arcade variant) → RAMP UP → … Zone change is a
-  chunk, not a fade.
-- Phone first: rig tier 'phone' below 700 px wide (no composer, 1 cascade, fewer practicals).
+- Third-person chase camera behind a human runner (hero orange jacket) who auto-runs along +Z through a Showa-era
+  Tokyo yokocho at blue dusk; a pack of three dogs chases 4–7 m behind (the pursuer — a hit lets them catch up;
+  two hits in 5 s and they get you). Three lanes at x = -2, 0, +2.
+- Input: touch swipes (left/right lane, up jump, down roll) and keys (arrows / WASD / space). Real DOM events only.
+  Start button `#startb` on a title screen; that tap also unlocks audio.
+- Speed 9 m/s at start, +0.6 m/s per 150 m, cap 20 m/s. Lane change 0.18 s eased. Jump apex 1.1 m in 0.55 s.
+  Roll 0.5 s, hitbox height halves. Side clip = stumble: −35 % speed, 0.4 s no input, pack closes in.
+- Coins (+1) with the τ embossed. Score = coins + metres/10. Head-on block = caught → death screen → restart in place.
+- Zones cycle forever, ~180 m each: ALLEY A (ramen/bar yokocho) → RAMP UP → EXPRESSWAY (Shuto-style, sodium lamps,
+  sound walls, sign gantries, far skyline) → RAMP DOWN → ALLEY B (market/shuttered variant, more crates and carts) → …
+- Phone first: rig tier 'phone' below 700 px wide; the phone run IS the measurement run (portrait = the bar's aspect).
 
 ## Track and chunks
-- A chunk is 30 m of world: road 6 m + kerbs + 3 m sidewalks + facades, baked per chunk with
-  `bakeStatic` at load into a pool (each variant × 2 copies), recycled ahead of the player. Nothing
-  is baked during play. Coins and obstacles are dynamic layers: coins one `InstancedMesh`,
-  obstacles pooled per type with `keepHierarchy` only for anything animated.
-- Variants: street 6, market 6, highway 6, ramp up 1, ramp down 1 = 20 variants.
-- `?seed=N` fixes the chunk sequence and obstacle pattern; `?gate=1` also fixes speed ramp
-  timing and fires the gate's photos at fixed distances. Default seed is random.
-- Far band: ONE merged mesh of distant skyline blocks with lit windows at 120–300 m, no shadows,
-  no colliders, placed closer and bigger than intuition says (rust17 #13). Highway zone shows it
-  most; street zone shows it down cross-streets.
+- A chunk is 30 m: road 6 m + 1.5 m cluttered verges + shophouse units right at the verge, cable spans and
+  lantern/banner strings overhead, baked per chunk with `bakeStatic` at load into a pool (each variant × 2), recycled
+  ahead of the player. Nothing bakes during play. Coins: one `InstancedMesh`. Obstacles: pooled per type. Litter:
+  one `InstancedMesh` of small planes per chunk. Dogs and runner: `keepHierarchy`, merged per joint.
+- Variants: alley A 6, alley B 6, expressway 6, ramp up 1, ramp down 1 = 20. `?seed=N` fixes the sequence;
+  `?gate=1` also fixes speed-ramp timing so photos at fixed distances are repeatable.
+- Far band: ONE merged mesh of skyline blocks with lit windows at 120–300 m, no shadows, no colliders; seen down
+  cross-streets in the alley, everywhere on the expressway. Alley cross-streets every other chunk, 4 m wide, ending in
+  a lit sign cluster (depth cue, and where C4's sky shows).
+- Practicals: every emitting asset publishes `userData.lights = [{x,y,z,color,intensity,range}]`; the level places
+  real point lights for the nearest N (phone N=6, desktop N=14) and emissive-only beyond. Sky: Atlas 2K panorama,
+  dusk blue with stars, replacing the rig's analytic sky (rig keeps haze + tone curve).
 
-## Object list (32) — every one a 404 code asset; sizes in STYLE.md
-Characters (jointed, `userData.joints`, pivots at joints, ~3–9k tris):
- 1 runner (hero orange jacket, big head, headphones)   2 guard pursuer (optional in round 0; slot reserved)
-Pickups: 3 coin
-Obstacles: 4 low barrier (road-works A-frame w/ blinking lamp)  5 high barrier (overhead gantry crossbar, 1.3 m clearance)
- 6 taxi (danger red, roof lamp)  7 delivery van (full block, can be run along the roof — stretch)  8 scooter (parked row, jump)
- 9 cone cluster (roll under? no — jump)  10 dumpster  11 concrete divider (highway)  12 construction fence panel
-Street furniture: 13 street lamp (sodium)  14 shop-front unit A ramen (lit interior, awning, tube signs as shapes)
- 15 shop-front unit B arcade (cyan/magenta panels)  16 shop-front unit C pharmacy (mint cross)  17 vending machine
- 18 lantern string (izakaya)  19 utility pole with transformer + cable stubs  20 bike rack with 3 bikes  21 planter box
- 22 bench  23 traffic light  24 bollard  25 building facade block A (4 storeys, AC units, balconies)
- 26 building facade block B (shutters, fire escape)  27 street road chunk slab (asphalt + kerb + drain, puddle planes)
-Highway: 28 deck slab chunk (30 × 6 × 0.8 with edge upstands)  29 guard rail section  30 overhead gantry
- 31 pylon lamp (cyan head)  32 ramp chunk (used mirrored for down)
-Far band skyline is built by E4 from facade blocks, not a separate asset.
+## Object list (38) — every one a 404 code asset; sizes and colours in STYLE.md
+Characters: 1 runner (jointed) · 2 shiba dog · 3 white spitz dog · 4 brown mutt dog (all jointed, bounding gait)
+Pickup: 5 τ coin (glyph from refs/logo/tao_symbol.png as an extruded Shape, geometry only)
+Obstacles: 6 beer-crate stack (jump) · 7 cooler box + bin (jump) · 8 fallen bicycle (jump) · 9 low banner cluster, 1.3 m clearance (roll)
+ · 10 awning strut / scaffold pole at 1.3 m (roll) · 11 kei delivery van (block) · 12 yatai noodle cart (block) · 13 vending machine (block in lane, prop on verge)
+ · 14 concrete divider (expressway block) · 15 road-works barrier (expressway jump) · 16 low gantry board at 1.3 m (expressway roll)
+Alley: 17 shophouse A ramen (timber, lanterns, lit interior) · 18 shophouse B bar (tin cladding, lightbox cluster) · 19 shophouse C shuttered (AC units, ducts, pipes)
+ · 20 shophouse D corner (two lit faces, for cross-streets) · 21 utility pole (transformer, insulators) · 22 cable-bundle span (30 m catenaries, TubeGeometry)
+ · 23 paper lantern single · 24 lantern string ×6 · 25 noren banner string ×5 · 26 wall lightbox (sprite face) · 27 standing lightbox
+ · 28 tin awning with struts · 29 AC unit + duct cluster · 30 litter set (paper, cups, cans — small, for instancing) · 31 bins + bags cluster
+ · 32 alley road chunk slab (wet asphalt, gutters, manhole, puddle planes) · 33 parked sedan
+Expressway: 34 deck slab with upstands + sound panels · 35 sodium lamp 10 m · 36 sign gantry, green boards · 37 guard rail 4 m · 38 ramp chunk (mirrored for down)
+Far band skyline is built by E4 from shophouse/facade masses, not a separate asset.
 
 ## Atlas jobs (declared in the entry)
-A. Bar frames ×4: street run, highway run, ramp transition, death moment. 16:9 AND square. These are the critic's bar.
-B. Object references ×32, one per object, STYLE.md suffix verbatim, 1:1, white background.
-C. Sign sprites ×8: emissive planes (ramen bowl + invented katakana-like strokes, arcade, pharmacy, karaoke, bar, taxi rank, exit, generic). 512 px, WebP. No real words.
-D. Textures (1K WebP, ≤3 sets): wet asphalt, concrete deck, facade brick — albedo/roughness/normal.
-E. Sky: one night panorama 2K equirect WebP.
-F. Audio: SFX coin, jump, roll, hit, whoosh, near-miss; 1 music loop; 1 street ambience; 1 highway wind.
-Every image is opened for the user's go-ahead before geometry is written from it.
+A. Bar: refs/bar-video/ (20 frames from the user's video). Secondary: refs/bar_v1_atlas/.
+B. Object references ×38, STYLE.md suffix verbatim, 1:1. Batch 1 = 12 style-definers → user go-ahead → batches 2–3.
+C. Sign sprites ×8 (512 px WebP): lightbox faces with abstract kana-like strokes, ramen, bar, karaoke, pharmacy, generic ×3, plus 2 noren stroke sprites. No real words.
+D. Textures (1K WebP, albedo/roughness/normal): wet asphalt, corrugated tin, timber plank, concrete deck. ≤ 4 sets.
+E. Sky: one 2K equirect dusk panorama with stars, WebP.
+F. Audio: SFX coin, jump, roll, hit, dog bark ×2, whoosh; 1 music loop (lo-fi city); alley ambience (chatter, sizzle, rain drip); expressway wind.
+Every image is opened for the user's go-ahead before geometry is written from it. Texture budget ≤ 2.5 MB.
 
-## Architecture (files each agent owns)
-index.html · src/main.js (boot, loop, telemetry, start) · src/config.js (budgets, seed, tuning)
-src/track.js (chunk pool, zones, spawn, recycle, far band) · src/player.js (lanes, jump, roll, stumble, run cycle, joints)
-src/camera.js (chase, fov by speed, shake on hit) · src/input.js (swipes via touch events, keys)
-src/obstacles.js (pools, collision AABB by lane) · src/coins.js (InstancedMesh, magnet later)
-src/lighting.js (rig night + practicals: sodium points on lamps, neon emissives, headlight cones; phone tier)
-src/hud.js (score, coins, distance, death screen) · src/audio.js (spatial SFX, music, unlock on tap)
-src/chamfer.js (THREE proxy: RoundedBox for boxes with min side ≥ 25 cm, rust17 #24)
+## Architecture (files each agent owns; all under game/)
+index.html · src/main.js (boot, loop, telemetry, start, audio unlock) · src/config.js (budgets, seed, tuning)
+src/track.js (chunk pool, zones, spawn, recycle, far band, cross-streets) · src/player.js (lanes, jump, roll, stumble, run cycle)
+src/pack.js (three dogs: bounding gait, follow distance, catch logic) · src/camera.js (chase, fov by speed, shake, portrait framing)
+src/input.js (swipes via touch events, keys) · src/obstacles.js (pools, AABB by lane, `next` telemetry) · src/coins.js (InstancedMesh, τ)
+src/lighting.js (rig night + practicals from userData.lights, sky panorama, phone tier) · src/hud.js · src/audio.js
+src/chamfer.js (THREE proxy: RoundedBox for boxes with min side ≥ 25 cm) · src/textures.js (WebP loader, KTX-free, applies Atlas maps by material name)
 assets/*.js + *.expect.json · textures/ · audio/ · assetlib.js · surfaces.js · rig.js (copied, never edited)
 
-## Telemetry (refreshed every frame)
+## Telemetry — the base contract plus what the gate needs (tools/GATE_CONTRACT.md is authoritative once G1 writes it)
 window.__READY__, window.__START__, window.__GAME__ = {
-  pos:[x,z], fps (real elapsed), speed, score, over, draws, tris,        // recipe contract
-  lane, airborne, rolling, distance, zone, coins, deaths,
-  next:{ dist, lane, type, kind:'jump'|'roll'|'block' },                 // the gate steers by this
-  heroBox:[sx, sy, w, h]                                                // hero scale in frame
+  pos:[x,z], fps (real elapsed), speed, score, over, draws, tris,
+  lane, airborne, rolling, distance, zone, coins, deaths, jumps, rolls,
+  next:{ dist, lane, kind:'jump'|'roll'|'block', lanes:[bool,bool,bool] },   // blocked mask for the next obstacle row
+  coinLane, heroBox:[sx, sy, w, h], packDist
 }
 
-## Gate (lives in 404-game-recipe/harness/gate-midnight.mjs; real input only)
-- Serves the folder, records 404s and console errors; 390×844 touch viewport + a desktop run.
-- Taps `#startb` with a real touch. Steers by `next`: swipe to a free lane for 'block', up for 'jump',
-  down for 'roll', decided at fixed DISTANCES (not times). Photos at 60, 150, 300, 450, 600, 800 m.
-- Asserts: distance ≥ 600 m, coins > 0, ≥1 jump and ≥1 roll performed, not dead before 400 m,
-  peak draws ≤ 900, peak tris ≤ 1.5M, weight < 5 MB, READY < 20 s under 4G. Exit non-zero, name the failure.
-- Filmstrip of the run. Run twice on an unchanged build and report the spread before any claim.
+## Gate — tools/gate.mjs (G1). Real touch, distance-based steering, photos at 60/150/300/450/600/800 m, filmstrip,
+asserts distance ≥ 600, coins > 0, ≥ 1 jump and ≥ 1 roll, alive at 400 m, draws ≤ 900, tris ≤ 1.5M, --4g: READY < 20 s, < 5 MB.
 
 ## Budgets
-900 draws, 1.5M tris peak, < 5 MB transferred, `__READY__` < 20 s at 4 Mbps, phone tier passes jam.mjs.
-Anything added must buy its headroom first (rust17 #4).
+900 draws, 1.5M tris peak, < 5 MB transferred (≤ 2.5 MB textures + ≤ 1 MB audio + code), `__READY__` < 20 s at 4 Mbps.
+Anything added buys its headroom first.
 
 ## Agents, round 0
-A1–A5 assets (6–7 objects each: 3 candidates, verify.mjs, pick by eye, expect.json beside each)
-E1 track+chunks+far band · E2 player+animation+camera · E3 input+HUD+audio · E4 lighting+sky+textures+perf
-G1 gate · I1 integrator (wires, runs gate, ship.mjs --stamp, snapshots rounds/r0/)
-Each agent gets STYLE.md, SPEC.md, asset-contract.md, traps.md, and its own work/<agent>/ scratch dir.
+A1–A6 assets (6–7 objects each: 3 candidates, verify.mjs, pick by eye, expect.json beside each)
+E1 track+chunks+far band+cross-streets · E2 runner+pack+camera · E3 input+HUD+audio · E4 lighting+sky+textures+practicals+perf
+G1 gate (running) · I1 integrator (wires, runs gate, ship.mjs --stamp, snapshots rounds/r0/)
+Each agent gets STYLE.md, SPEC.md, CLAIMS.md, asset-contract.md, traps.md, and its own work/<agent>/ scratch dir.

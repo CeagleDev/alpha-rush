@@ -1,66 +1,94 @@
-# midnight-dash — the locked style
+# midnight-dash — the locked style (v2, from "dog pack fin.mov")
 
-> Chunky stylised low-poly night-city props with softly rounded edges and clean flat colours, a
-> rain-washed Tokyo/Seoul back street rendered in deep blue-black concrete lit by warm sodium
-> lamps and cool magenta-cyan neon, finished matte with wet glossy accents, and no printed text in
-> any geometry — signage in geometry is lit shape and silhouette only.
+> A dense, near-photoreal Showa-era Tokyo yokocho at blue dusk: weathered timber and corrugated-tin
+> two-storey shophouses under a tangle of overhead cables, lit almost entirely by their own warm
+> lightbox signs and paper lanterns, wet dark asphalt throwing amber reflections, every surface
+> worn, stained and crammed with crates, bins, machines and litter — and no invented text: signage
+> is lit shape in geometry, and abstract kana-like strokes only ever in sprite textures.
 
 Every generating agent gets this file whole. Reuse the sentence verbatim. Do not restate the
-material list from memory.
+material list from memory. The bar is refs/bar-video/ (20 portrait frames of the video).
 
-## Palette (exact hex, and where each belongs)
+## Palette (sampled from the video; exact hex, and where each belongs)
 
 | role | hex | where it belongs |
 |---|---|---|
-| night base | `0x0b0f1e` | asphalt, sky zenith, the dark skirt band at the base of every object |
-| wet concrete shadow | `0x1a2238` | building masses in shade, underpasses, tunnel walls |
-| facade mid | `0x2f3a55` | building facades, shutters, highway pier faces |
-| cool concrete | `0x8a94a6` | highway deck, jersey dividers, kerbs, guard-rail posts |
-| near-white | `0xf2f4f7` | lane markings, headlights, sign faces (unlit), rail tops |
-| magenta neon | `0xff2d95` | primary signage glow, shop-front tubes, hero accent stripe |
-| cyan neon | `0x00e5ff` | secondary signage, highway lamp heads, vending machine glow |
-| sodium warm | `0xffb347` | street lamps, shop interiors seen through glass, lanterns |
-| coin gold | `0xffd23f` | coins, hazard chevrons, taxi roof light |
-| danger red | `0xff4b3e` | taxi bodies, road-works barriers, brake lights, warning strips |
-| mint neon | `0x2bd97b` | pharmacy crosses, exit lamps, a few sign accents |
-| violet under-glow | `0x7c4dff` | highway underside, pier bases, distant skyline windows |
-| dark timber | `0x3b2a22` | izakaya fronts, awning frames, crate stacks, bench slats |
-| hero orange | `0xff8a00` | the runner's jacket only — nothing else in the world is this colour |
+| blackest shade | `0x110f12` | under eaves, cable silhouettes, doorway interiors, tyre contact |
+| warm dark shade | `0x231718` | THE dominant colour: walls in shade, far road, undersides — shade is brown, never blue |
+| dark timber / rust | `0x37201b` | posts, beams, rust runs, old tin in shade |
+| mid timber | `0x4f2d21` | door frames, plank walls, crate slats, cart bodies |
+| lit timber | `0x6c4028` | awning undersides, eaves, timber in lamplight |
+| weathered plank / cardboard | `0x8b6141` | cardboard, faded plank, tin in lamplight, cart tops |
+| lamplit surface | `0xbf7c42` | walls under a lantern, asphalt under a lightbox, lit tin |
+| lightbox cream | `0xd8ae70` | lit sign faces (emissive), wet-road reflections of them |
+| lightbox yellow | `0xe5b055` / `0xf1d899` | emissive sign faces, lantern glow core |
+| paper white | `0xeee2c8` | paper lanterns lit, white plastic crates, menu boards |
+| crate yellow | `0xf8e845` | yellow beer crates, hazard accents, one sign in ten |
+| lantern red | `0xb8302a` | red lanterns (unlit body), noren, shop-front trim, tail-lights |
+| dusk sky | `0x1d406f` | sky zenith band; the ONLY large cool area in frame |
+| sky at horizon | `0x1d3150` | sky low, far-street haze |
+| blue shade | `0x212841` | the far end of the street, distant facades |
+| blue sign | `0x40559f` | one cool sign in eight, fluorescent tube housings |
+| fluorescent white | `0x9accf2` | vending machine face, a rare cool lightbox |
+| green sign | `0xa7e761` | one green sign in ten (pharmacy cross, bar sign) |
+| hero orange | `0xe8852a` | the runner's hooded jacket only — nothing else is this colour |
+| shiba fur | `0xc98a45` | dog 1; dog 2 `0xe6ddd0` white; dog 3 `0x3a2a22` dark brown |
 
-Standing rule (critic checks it every round): **two colour temperatures in every frame** — warm
-sodium `0xffb347` against cool neon `0x00e5ff`/`0xff2d95`. A frame with one temperature fails.
+Standing rule (critic checks it every round): **two colour temperatures in every frame** — the warm
+brown shade and amber lightboxes against the blue dusk sky at the top. No blue sky visible → the
+frame must carry a cool sign or fluorescent instead. Bar statistics: median luma ≈ 42, p98 ≈ 194,
+1.5–2 % of pixels above luma 200 and they are sign faces and lanterns, not sky.
 
 ## Fixed decisions
-- Metres. Lane width **2.0 m**, three lanes = 6.0 m road. Track chunk **30 m** long.
-- Runner **1.70 m** tall, stylised: big head, short legs, chunky hands. Pursuer (guard) 1.85 m, dog 0.6 m.
-- Coin **0.6 m** diameter, 0.08 m thick, hovers at 1.0 m; rings/stacks spaced 1.5 m along a lane.
-- Low barrier (jump over) **1.0 m** tall, 1.8 m wide. High barrier (slide under) **2.2 m** tall with **1.3 m** clearance beneath.
-- Taxi 4.4 × 1.7 × 1.5 m. Delivery van 5.2 × 2.0 × 2.3 m. Scooter 1.9 × 0.7 × 1.1 m.
-- Street lamp 6.0 m. Vending machine 1.0 × 0.8 × 1.83 m. Shop-front storey unit 6.0 w × 4.0 h × 3.0 d. Building facade block 8.0 w × 13.0 h × 6.0 d (four storeys).
-- Highway: guard-rail section 4.0 m, overhead gantry 8.0 m span at 5.5 m, concrete divider 3.0 × 1.0 h, pylon 12.0 m, deck slab 30 × 6 × 0.8 m.
-- Base at y = 0, centred on x and z, front faces +Z. Runner and vehicles face +Z (the direction of travel).
-- Flat colours with sensible roughness; surfaces are applied at load time by surfaces.js.
+- Metres. Lane width **2.0 m**, three lanes = 6.0 m road; the video's alley is ~3 m wide, so the crammed
+  feel comes from **1.5 m verges piled with clutter** and shophouses standing right at the verge line.
+- Chunk **30 m**. Verge clutter density: ≥ 12 props per 30 m per side. Overhead: ≥ 3 cable spans and
+  ≥ 1 lantern or banner string crossing the road per chunk.
+- Runner **1.72 m**, realistic proportions, slim, hooded orange jacket, dark trousers, white trainers.
+  Dogs: shiba 0.55 m at the shoulder, spitz 0.50 m, brown mutt 0.60 m. The pack runs 4–7 m behind.
+- Coin **0.6 m** diameter, 0.07 m thick, the Bittensor τ embossed 6 mm proud on BOTH faces, built from
+  refs/logo/tao_symbol.png as an extruded Shape (geometry, never a texture), hovers at 1.0 m.
+- Shophouse unit: **5.0 w × 7.0 h × 6.0 d**, two storeys, ground floor 3.2 m, tin awning at 3.0 m,
+  tiled or tin roof with 0.6 m eaves, upper floor 2.8 m with a balcony rail or sliding windows.
+- Lantern 0.45 m dia. Lantern string 6 × 0.35 m on a 6 m rope at 3.4 m. Noren banner 0.5 × 1.2 m,
+  five on a rope at 3.2 m. Roll obstacle: a banner cluster hung to **1.3 m** clearance.
+- Wall lightbox 0.9 × 0.6 × 0.15 m. Standing lightbox 0.6 × 1.5 m. Vending machine 1.0 × 0.8 × 1.83.
+  Beer crate 0.5 × 0.35 × 0.3 (stacks of 2–4). Cooler box 0.6 × 0.4 × 0.4. Bin 0.6 dia × 0.9.
+- Utility pole 9 m, three cross-arms, one transformer drum, six insulators. Cables sag 0.6 m over a 12 m
+  span; lowest cable ≥ 4.5 m over the road.
+- Kei delivery van 3.4 × 1.5 × 1.9 (block). Yatai noodle cart 2.4 × 1.2 × 2.1 (block). Sedan 4.4 × 1.7 × 1.5.
+- Expressway (highway zone): deck 30 × 6 × 0.8 with 1.0 m concrete upstands and 3 m translucent sound
+  panels, sodium lamps 10 m (warm `0xe5b055`), sign gantry 8 m span with green boards (lit shape), guard
+  rail 4 m sections. Concrete `0x4a4a4c` in shade, `0x8a8378` in sodium light.
+- Base at y = 0, centred on x and z, front faces +Z. Runner, dogs and vehicles face +Z.
 - Material names from the contract's list only: `plaster` | `stone` | `timber` | `tile` | `metal` | `fabric` | `foliage` | `ground`.
-- Emissive parts (neon tubes, lamp heads, screens, tail-lights): base `color: 0x0b0f1e` (near-black — surfaces.js leaves anything under 0.16 luminance untextured, and this is the only way to opt out), `emissive: <palette hex>`, `emissiveIntensity` 2.0–3.5, roughness 0.3. Do NOT name them; there is no 'glass' recipe.
-- Glass: `transparent: true, opacity: 0.9, forceSinglePass: true` — surfaces.js skips it, and the flag stops the double draw. Use sparingly: every transparent material costs a second pass.
-- Wet-gloss accents: roughness **0.25** on wet asphalt patches, taxi paint, rail tops, puddle planes. Everything else roughness 0.7–0.9.
-- No glyphs in geometry. Signage in geometry = tube shapes, boxes, discs, chevrons. Legible-looking signage comes ONLY from Atlas sprite textures on emissive planes (declared files), using invented shop names and abstract katakana/hangul-like strokes — never real words, brands or logos.
+  Name every material. Timber and tin dominate; `metal` for tin, poles, machines; `timber` for wood; `fabric` for
+  noren, lantern paper (lit lanterns are emissive, see below); `plaster` for rendered walls; `ground` for road.
+- Emissive parts (sign faces, lantern cores, fluorescents, vending faces, tail-lights): base `color: 0x110f12`
+  (near-black — surfaces.js leaves anything under 0.16 luminance untextured, which is the only opt-out),
+  `emissive: <palette hex>`, `emissiveIntensity` 1.8–3.0, roughness 0.35. Do NOT name them.
+- Glass: `transparent: true, opacity: 0.9, forceSinglePass: true`, used sparingly (sliding windows, vending fronts).
+- Wet: road and verge slabs roughness **0.18** with a `ground` name; rig practicals reflect in them. Everything
+  else roughness 0.75–0.95. Metalness 0 except tin/steel 0.3.
+- Atlas texture files are ALLOWED (jam rules) and used on: road asphalt (1K), tin cladding (1K), timber plank (1K),
+  concrete deck (1K), lightbox sign faces (8 sprites 512 px), noren strokes (2 sprites), sky panorama (2K). Budget
+  ≤ 2.5 MB of textures total, WebP. Everything else is surfaces.js procedural.
 
 ## Three signatures every object over 0.6 m carries
-1. **Rounded edges**: the loader's chamfer proxy rounds every box edge ≥ 25 cm by 1.5 cm; assets do not need to do this themselves, but must not fight it (no razor-thin boxes as trim — use ≥ 3 cm).
-2. **One lit or wet accent**: at least one part that is emissive (neon, lamp, screen, tail-light) or wet-gloss (roughness 0.25). A prop with neither reads as cardboard at night.
-3. **A grounding band**: the bottom 3–8 cm is `0x0b0f1e` (skirt, sill, tyre contact, plinth) so the object sits into the wet ground instead of standing on it.
+1. **Wear**: a rust run, a stain band, a faded panel, a dented edge or a chipped corner — as geometry or colour
+   variation, at least one per object. Nothing is new.
+2. **A grounding band**: the bottom 3–8 cm is `0x110f12` so it sits into the wet road, plus a `userData.lights`
+   entry for anything that emits, so the level can place a real point light there.
+3. **Rounded edges** via the loader's chamfer proxy (boxes ≥ 25 cm get a 1.5 cm radius); do not fight it with
+   razor-thin trim (≥ 3 cm).
 
-## Triangle bands by class (verify.mjs warns outside 150–60,000; these are our budgets)
-- small prop (cone, crate, sign, coin): 150 – 1,500
-- street furniture (lamp, vending machine, bench, bike): 500 – 3,000
-- vehicle: 2,000 – 8,000
-- facade / shop-front / gantry / chunk slab: 1,000 – 6,000
-- character (jointed): 3,000 – 9,000; joints named on `userData.joints`, pivots at the joint
+## Triangle bands by class
+small prop 150–1,500 · furniture/machine 500–3,000 · vehicle 2,000–8,000 · shophouse unit 3,000–9,000 ·
+chunk slab 500–2,000 · character (jointed, pivots at joints, `userData.joints`) 4,000–10,000 · dog 2,500–6,000.
 
 ## Reference-image prompt suffix (Atlas, every object, verbatim)
-"…, a single stylised low-poly game prop with chunky proportions and softly rounded edges, clean
-flat colours, night-city palette of deep blue-black, cool grey concrete, magenta and cyan neon and
-warm amber, centred and filling the frame, plain white background, three-quarter view from
-slightly above, soft even studio lighting, no cast shadow, no text, no logos, nothing cropped,
+"…, a single game prop rendered in a dense near-photoreal style, weathered and worn Showa-era Tokyo
+back-alley materials — aged timber, corrugated tin, faded paint, grime, a wet sheen — centred and
+filling the frame, plain white background, three-quarter view from slightly above, soft even studio
+lighting, no cast shadow, no legible text (abstract brush strokes only), no logos, nothing cropped,
 square 1:1."
