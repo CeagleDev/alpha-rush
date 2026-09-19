@@ -1,0 +1,6 @@
+node_modules/
+_verify/
+_gate/
+_jam/
+work/**/tmp/
+.DS_Store
