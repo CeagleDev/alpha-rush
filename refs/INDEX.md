@@ -7,7 +7,7 @@
 ## objects/ — v2 refs, STYLE.md v2 suffix. Atlas project midnight-dash-objects, pid 622c446f-10d2-4ef9-a3fd-ea21ee564156.
 (rows added per batch below)
 
-### batch 1 (12 style-definers, FLUX.2 Max 2K, 33 credits each) — awaiting user go-ahead
+### batch 1 (12 style-definers, FLUX.2 Max 2K, 33 credits each) — APPROVED 2026-09-19
 | file | fid |
 |---|---|
 | runner | bc3aaa72-cad1-4c3f-8d94-f92cc46a4c93 |
@@ -41,7 +41,7 @@
 | parked_sedan | e56f6448-357c-4710-af19-a9bea48abd6a |
 Atlas project midnight-dash-objects-2 (batch 3): pid fcc77e80-094b-4db3-aa82-8cb9743a1a88
 
-### batch 3 (13 track/expressway/obstacles, project midnight-dash-objects-2) — awaiting user go-ahead
+### batch 3 (13 track/expressway/obstacles, project midnight-dash-objects-2) — APPROVED 2026-09-19
 | file | fid |
 |---|---|
 | litter_set | ba5f99bd-252e-41ed-b69c-19f03bbf0d29 |
@@ -58,7 +58,7 @@ Atlas project midnight-dash-objects-2 (batch 3): pid fcc77e80-094b-4db3-aa82-8cb
 | guard_rail | e9121e8e-8434-4333-929d-672b5a3bf5b3 |
 | ramp_chunk | 0c5cc6b6-be97-4a01-9585-9cf60145659a |
 
-### batch 4 (20 detail props) — awaiting user go-ahead
+### batch 4 (20 detail props) — APPROVED 2026-09-19
 | file | fid |
 |---|---|
 | bicycle_parked | 4538ee25-949c-4534-aed9-74cd6f2906ab |
