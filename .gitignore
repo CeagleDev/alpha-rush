@@ -6,3 +6,4 @@ work/**/tmp/
 .DS_Store
 refs/**/*.png
 tools/node_modules
+refs/textures_raw/
