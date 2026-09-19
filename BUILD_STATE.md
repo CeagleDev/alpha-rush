@@ -30,3 +30,5 @@ prop chassis. Built with 404-game-recipe + Atlas MCP + the RUST 17 lessons
 ## Log
 - 2026-09-19 folder created, harness copied, git init. Floor agent launched.
 - 2026-09-19 Atlas: 8 bar frames + 8 object refs (batch 1) generated and downloaded to refs/. Awaiting user go-ahead. Style lock + spec committed.
+- 2026-09-19 DIRECTION CHANGE: user supplied "dog pack fin.mov" (Showa yokocho alley, near-photoreal, portrait) as the look. Bar = 20 frames in refs/bar-video/. Old refs snapshotted to refs/objects_v1_lowpoly + refs/bar_v1_atlas. Hero = human runner chased by dog pack. Highway kept. Coin gets TAO tau embossed as geometry (refs/logo). Shipped folder is now game/; tools/ holds the gate.
+- 2026-09-19 Floor build done in ../midnight-dash-floor (22 assets, 60 fps, 480 draws, commit 402b8a9). Gate agent G1 launched.
