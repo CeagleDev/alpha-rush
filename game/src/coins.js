@@ -5,7 +5,9 @@
  *
  * The tau_coin prototype is fetched once; its meshes are merged to ONE geometry (first material kept)
  * and recentred, so a single InstancedMesh (capacity 512, frustum culling off — the instances span
- * 200 m) draws every coin. Coins hover 1.0 m over the running surface (groundY), spin about Y, and are
+ * 200 m) draws every coin. Live coins are packed densely and `mesh.count` is the live number, because
+ * an InstancedMesh submits every instance up to `count` — hidden zero-scale slots still cost their
+ * triangles (512 × the coin's ~2k tris was 1M tris a frame). Coins hover 1.0 m over the running surface (groundY), spin about Y, and are
  * collected within 0.9 m laterally of the player (swept along z between frames so no coin is skipped
  * at low frame rates, 1.1 m vertical tolerance about the player's chest). Collecting emits
  * events 'coin' {lane, z}, increments state.coins and recomputes state.score = coins + distance / 10.
@@ -16,12 +18,12 @@
  */
 import * as THREE from 'three';
 import { mulberry32, hash32 } from './chunks.js';
-import { groundY } from './track.js';
+import { groundY, frame } from './track.js';
 
 const CAP = 512, HOVER = 1.0, SPACING = 1.5, MAGNET = 0.9;
 let ctx = null, seed = 1, mesh = null, LANE_X = [-2, 0, 2];
-const recs = new Array(CAP).fill(null);   // slot → {z, x, y, lane, chunk}
-let free = [], alive = 0, spin = 0, prevZ = null;
+let live = [];                              // dense: {z, x, y, lane, chunk}
+let spin = 0, prevZ = null, doneFrame = -1, geoTris = 0;
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _e = new THREE.Euler();
 const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
 
@@ -49,6 +51,7 @@ async function coinGeometry() {
   const c = geo.boundingBox.getCenter(new THREE.Vector3());
   geo.translate(-c.x, -c.y, -c.z);
   geo.computeBoundingSphere();
+  geoTris = Math.round((geo.index ? geo.index.count : geo.attributes.position.count) / 3);
   return { geo, mat: mat || new THREE.MeshStandardMaterial({ color: 0xd8ae70, metalness: 0.3, roughness: 0.4 }) };
 }
 
@@ -66,16 +69,14 @@ export async function init(c) {
   for (let i = 0; i < CAP; i++) mesh.setMatrixAt(i, HIDE);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.instanceMatrix.needsUpdate = true;
-  free = []; for (let i = CAP - 1; i >= 0; i--) free.push(i);
-  alive = 0; prevZ = null;
+  mesh.count = 0;
+  live = []; prevZ = null;
   ctx.scene.add(mesh);
 }
 
 function add(chunk, lane, z, lift = 0) {
-  if (!free.length) return;
-  const slot = free.pop();
-  recs[slot] = { z, x: LANE_X[lane + 1], y: groundY(z) + HOVER + lift, lane, chunk };
-  alive++;
+  if (live.length >= CAP) return;
+  live.push({ z, x: LANE_X[lane + 1], y: groundY(z) + HOVER + lift, lane, chunk });
 }
 
 /** Called by track.js after obstacles.spawnChunk; `rows` are that chunk's rows (sorted by z). */
@@ -109,15 +110,16 @@ export function spawnChunk(rec, rows) {
   });
 }
 export function releaseChunk(index) {
-  for (let i = 0; i < CAP; i++) if (recs[i] && recs[i].chunk === index) { recs[i] = null; free.push(i); alive--; mesh.setMatrixAt(i, HIDE); }
+  live = live.filter((r) => r.chunk !== index);
+  mesh.count = live.length;
   mesh.instanceMatrix.needsUpdate = true;
 }
-export const count = () => alive;
+export const count = () => live.length;
+export const geometryTris = () => geoTris;
 
 export function nearestAhead(pz) {
   let best = null;
-  for (let i = 0; i < CAP; i++) {
-    const r = recs[i]; if (!r) continue;
+  for (const r of live) {
     if (r.z < pz - 0.3 || r.z - pz > 60) continue;
     if (!best || r.z < best.z) best = r;
   }
@@ -126,6 +128,7 @@ export function nearestAhead(pz) {
 
 export function update(dt = 0.016) {
   if (!mesh || !ctx) return;
+  const f = frame(); if (f === doneFrame) return; doneFrame = f;
   const st = ctx.state;
   const pz = Number.isFinite(st.z) ? st.z : (st.distance || 0);
   const px = Number.isFinite(st.x) ? st.x : 0, py = Number.isFinite(st.y) ? st.y : groundY(pz);
@@ -134,17 +137,17 @@ export function update(dt = 0.016) {
   spin += dt * 3;
   _e.set(0, spin, 0); _q.setFromEuler(_e);
   let got = 0;
-  for (let i = 0; i < CAP; i++) {
-    const r = recs[i]; if (!r) continue;
-    if (st.running !== false && r.z >= zLo && r.z <= zHi && Math.abs(r.x - px) <= MAGNET && Math.abs(r.y - chest) <= 1.1) {
-      recs[i] = null; free.push(i); alive--; got++;
-      mesh.setMatrixAt(i, HIDE);
+  for (let i = 0; i < live.length; i++) {
+    const r = live[i];
+    if (st.running !== false && r.z >= zLo && r.z <= zHi && Math.abs(r.x - px) <= MAGNET && Math.abs(r.y - chest) <= 1.15) {
+      live[i] = live[live.length - 1]; live.pop(); i--; got++;
       if (ctx.events?.emit) ctx.events.emit('coin', { lane: r.lane, z: r.z });
       continue;
     }
     _p.set(r.x, r.y + Math.sin(spin * 0.7 + r.z) * 0.04, r.z);
     mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
   }
+  mesh.count = live.length;
   mesh.instanceMatrix.needsUpdate = true;
   if (got) st.coins = (st.coins || 0) + got;
   st.score = Math.floor((st.coins || 0) + (st.distance || 0) / 10);

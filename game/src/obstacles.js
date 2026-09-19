@@ -24,7 +24,7 @@
  */
 import * as THREE from 'three';
 import { mulberry32, hash32 } from './chunks.js';
-import { groundY, groundPitch } from './track.js';
+import { groundY, groundPitch, frame } from './track.js';
 import * as coins from './coins.js';
 
 const KINDS = {
@@ -41,7 +41,7 @@ const ROLL_CLEAR = 1.3, JUMP_CAP = 0.75, MAX_ROLL_LEN = 2.5, NEXT_RANGE = 60;
 let ctx = null, seed = 1, root = null, LANE_X = [-2, 0, 2];
 const pools = new Map();     // type → {proto, size, kind, lanes, free: []}
 let rowsList = [];           // live rows sorted by z
-let rowId = 0, nextRowZ = 0, lastChunkZ0 = -1, prevFree = [-1, 0, 1];
+let rowId = 0, nextRowZ = 0, lastChunkZ0 = -1, prevFree = [-1, 0, 1], doneFrame = -1;
 
 // ---------------------------------------------------------------- pools
 async function loadType(type, kind) {
@@ -179,6 +179,7 @@ export function hit(aabb) {
 
 export function update() {
   if (!ctx) return;
+  const f = frame(); if (f === doneFrame) return; doneFrame = f;
   const st = ctx.state;
   const pz = Number.isFinite(st.z) ? st.z : (st.distance || 0);
   const myLane = Math.max(-1, Math.min(1, Math.round(st.lane ?? 0)));

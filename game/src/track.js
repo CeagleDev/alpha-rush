@@ -1,7 +1,9 @@
 /**
  * track.js — E1. Chunk pool, seeded sequence, recycling, zones, ramps; drives obstacles, coins, far band.
  *
- * exports: init(ctx), update(dt), chunkAt(z), groundY(z), groundPitch(z), zoneAt(z), lights(), stats()
+ * exports: init(ctx), update(dt), chunkAt(z), groundY(z), groundPitch(z), zoneAt(z), lights(), stats(), frame()
+ * main.js also inits/updates obstacles.js and coins.js directly; both are idempotent (init returns when
+ * already done for this ctx, update runs once per track frame via frame()), so either order works.
  *
  * Sequence: [A×6, RU, X×6, RD, B×6] cycling (20 chunks = 600 m per cycle). Within each 6-chunk
  * segment the six variants are a seeded permutation (config.SEED) that alternates odd/even variants,
@@ -39,7 +41,9 @@ let ctx = null, seed = 1, root = null;
 const pool = new Map();        // variant id → [{group, inUse}]
 const live = new Map();        // chunk index → record
 const segOrders = new Map();   // `${cycle}:${seg}` → [variant ids]
-let lightsCache = null, lastZone = null, lastPz = 0, buildInfo = null;
+let lightsCache = null, lastZone = null, lastPz = 0, buildInfo = null, frameNo = 0;
+/** Frame stamp: obstacles/coins run once per track frame even when main.js calls their update too. */
+export const frame = () => frameNo;
 
 // ---------------------------------------------------------------- sequence
 function segmentOrder(cycle, seg) {
@@ -132,7 +136,7 @@ export function lights() {
 export function stats() {
   let liveTris = 0;
   for (const rec of live.values()) liveTris += rec.group.userData.tris || 0;
-  return { build: buildInfo, live: [...live.keys()], liveTris, rows: obstacles.rows().length, coins: coins.count(), farband: farband.stats() };
+  return { build: buildInfo, live: [...live.keys()], liveTris, rows: obstacles.rows().length, coins: coins.count(), coinTris: coins.geometryTris(), farband: farband.stats(), shadows: !!ctx.renderer?.shadowMap?.enabled };
 }
 
 // ---------------------------------------------------------------- lifecycle
@@ -164,6 +168,7 @@ export function update(dt = 0.016) {
     if (prev !== null && ctx.events?.emit) ctx.events.emit('zone', { zone, prev, z: pz });
   }
   lastPz = pz;
+  frameNo++;
   obstacles.update(dt);
   coins.update(dt);
   farband.update(dt);

@@ -29,7 +29,8 @@ const S = {
 const HERO_H = 1.72, LOOK_DOWN = 0.33;   // rad, the camera's elevation above the hero centre
 let _v, _size, _corners;
 
-function groundPitch(z) { const t = C && C.track; return t && typeof t.groundPitch === 'function' ? (t.groundPitch(z) || 0) : 0; }
+function trackMod() { return C && (C.track || (C.modules && C.modules.track)); }
+function groundPitch(z) { const t = trackMod(); return t && typeof t.groundPitch === 'function' ? (t.groundPitch(z) || 0) : 0; }
 
 export async function init(ctx) {
   C = ctx; THREE = ctx.THREE; cam = ctx.camera;
@@ -83,8 +84,7 @@ export function update(a, b) {
   }
 
   const hx = s.x || 0, hy = (s.y || 0), hz = s.z || 0;
-  const cy = hy * 0.35 + (C.track ? 0 : 0) + 0.0;   // feet height follows the ground fully, the jump only partly
-  const groundHere = C.track && typeof C.track.groundY === 'function' ? (C.track.groundY(hz) || 0) : 0;
+  const tm = trackMod(); const groundHere = tm && typeof tm.groundY === 'function' ? (tm.groundY(hz) || 0) : 0;
   const baseY = groundHere + (hy - groundHere) * 0.25;   // jumps lift the camera by a quarter
   const centreY = baseY + HERO_H * 0.5;
 

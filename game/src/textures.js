@@ -10,16 +10,28 @@
  *                    for sky.webp). Cached. Resolves null on a 404, never rejects.
  *   status()         { asphalt: 'file'|'procedural'|'loading', ... }
  *
- * FILES THE LEAD GENERATES ON ATLAS (1K WebP, one set per surface, ≤ 2.5 MB all told):
- *   textures/<set>_albedo.webp   textures/<set>_roughness.webp   textures/<set>_normal.webp
- * for set in asphalt | tin | plank | deck. Any file may be missing; a missing albedo leaves the
+ * FILES FROM ATLAS (1K WebP, one set per surface):
+ *   textures/<set>_albedo.webp   textures/<set>_rough.webp   textures/<set>_normal.webp
+ * for set in asphalt | tin | plank | deck | gold, plus sign_01..08.webp (768x512 lightbox faces),
+ * noren_01..02.webp (512^2 stroke sprites) and sky_dusk.webp (2048x864, used by lighting.js). Any file may be missing; a missing albedo leaves the
  * set procedural, a missing roughness or normal keeps that one map procedural. Each tile must be
  * authored to cover SETS[set].tile metres per repeat, because surfaces.js has already scaled the
  * UVs to that density and `texture.repeat` stays (1, 1) on purpose: a repeat per size would be a
  * material per size and the draw calls go up several times over.
  *
- * Material name -> set: ground -> asphalt, metal -> tin, timber -> plank, stone -> deck. The
- * other contract names (plaster, tile, fabric, foliage) stay on surfaces.js's own recipes.
+ * Material name -> set: ground -> asphalt, metal -> tin, timber -> plank, stone -> deck,
+ * gold | gold_tarnish -> gold. The other contract names (plaster, tile, fabric, foliage) stay on
+ * surfaces.js's own recipes.
+ *
+ *   signFace(i)   -> ONE shared emissive material per sprite (i = 1..8, wraps): near-black base,
+ *                    emissiveMap = the sprite, emissiveIntensity 2. E1 swaps it onto the face
+ *                    mesh of a placed lightbox. Shared, so faces with the same i still merge.
+ *   noren(i)      -> one shared 'fabric' material per noren sprite (i = 1..2), double sided.
+ *
+ * init() waits for the sets up to INIT_WAIT_MS so the materials an asset is built with already
+ * carry the files when E1 re-shares materials by value and bakes; anything slower than that
+ * still lands later through the registry, on the material objects apply() has seen. READY is
+ * never held past that cap.
  *
  * How the swap stays merge-safe: the same Texture OBJECTS are assigned to every material of a
  * set, so materialKey() (which hashes texture uuid + repeat) agrees across instances exactly as
@@ -29,13 +41,22 @@
 import { surface, RECIPES } from '../surfaces.js';
 
 export const SETS = {
-  asphalt: { material: 'ground', recipe: 'ground', tile: RECIPES.ground.tile },
-  tin:     { material: 'metal',  recipe: 'metal',  tile: RECIPES.metal.tile },
-  plank:   { material: 'timber', recipe: 'timber', tile: RECIPES.timber.tile },
-  deck:    { material: 'stone',  recipe: 'stone',  tile: RECIPES.stone.tile },
+  asphalt: { materials: ['ground'], recipe: 'ground', tile: RECIPES.ground.tile },
+  tin:     { materials: ['metal'],  recipe: 'metal',  tile: RECIPES.metal.tile },
+  plank:   { materials: ['timber'], recipe: 'timber', tile: RECIPES.timber.tile },
+  deck:    { materials: ['stone'],  recipe: 'stone',  tile: RECIPES.stone.tile },
+  // The coin. 'gold' is not a contract recipe, so surfaces.js classifies it by metalness as
+  // 'metal' (and scales its UVs at the metal density, 0.55 m); the gold set replaces every map and
+  // the material keeps its own metalness 0.85. It reflects scene.environment (lighting.js builds
+  // one with the amber street in it) because its envMap stays null and envMapIntensity stays 1.
+  gold:    { materials: ['gold', 'gold_tarnish'], recipe: 'metal', tile: RECIPES.metal.tile },
 };
-const BY_MATERIAL = Object.fromEntries(Object.entries(SETS).map(([set, s]) => [s.material, set]));
-const MAPS = [['map', 'albedo', true], ['roughnessMap', 'roughness', false], ['normalMap', 'normal', false]];
+const BY_MATERIAL = {};
+for (const [set, s] of Object.entries(SETS)) for (const m of s.materials) BY_MATERIAL[m] = set;
+const MAPS = [['map', 'albedo', true], ['roughnessMap', 'rough', false], ['normalMap', 'normal', false]];
+/** Lightbox sprites and noren stroke sprites the lead generated on Atlas. */
+export const SIGN_COUNT = 8, NOREN_COUNT = 2;
+const signMats = new Map(), norenMats = new Map();
 
 let ctx = null, THREE = null;
 let base = './textures/';
@@ -52,9 +73,44 @@ export function init(c) {
   for (const set of Object.keys(SETS)) registry[set] = registry[set] || new Set();
   // Kick every set off now; nobody waits on these. A set that lands re-applies itself to every
   // material registered so far, and to every one registered later.
-  for (const set of Object.keys(SETS)) loadSet(set);
+  const all = Promise.all(Object.keys(SETS).map(loadSet));
   ctx.state = ctx.state || {};
   ctx.state.textures = status();
+  await Promise.race([all, new Promise((r) => setTimeout(r, INIT_WAIT_MS))]);
+  ctx.state.textures = status();
+}
+const INIT_WAIT_MS = 6000;
+
+/** Shared emissive lightbox-face material for sprite i (1-based, wraps around SIGN_COUNT). */
+export function signFace(i = 1) {
+  const k = ((Math.round(i) - 1) % SIGN_COUNT + SIGN_COUNT) % SIGN_COUNT + 1;
+  if (signMats.has(k)) return signMats.get(k);
+  const m = new THREE.MeshStandardMaterial({ color: 0x110f12, emissive: 0xffffff, emissiveIntensity: 2.0, roughness: 0.35, metalness: 0 });
+  m.name = '';                       // unnamed on purpose: surfaces.js must leave emissive faces alone
+  m.userData.sign = k;
+  signMats.set(k, m);
+  load(`sign_${String(k).padStart(2, '0')}.webp`).then((t) => {
+    if (!t) return;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    m.emissiveMap = t; m.map = t; m.needsUpdate = true;
+  });
+  return m;
+}
+
+/** Shared noren banner material for sprite i (1-based, wraps around NOREN_COUNT). */
+export function noren(i = 1) {
+  const k = ((Math.round(i) - 1) % NOREN_COUNT + NOREN_COUNT) % NOREN_COUNT + 1;
+  if (norenMats.has(k)) return norenMats.get(k);
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
+  m.name = '';
+  m.userData.noren = k;
+  norenMats.set(k, m);
+  load(`noren_${String(k).padStart(2, '0')}.webp`).then((t) => {
+    if (!t) return;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    m.map = t; m.needsUpdate = true;
+  });
+  return m;
 }
 
 /** Load one file under textures/. Cached, never rejects. */
@@ -91,8 +147,7 @@ function loadSet(set) {
     if (Object.keys(got).length) {
       loaded[set] = got;
       for (const m of registry[set]) assign(m, set);
-      console.info(`[textures] ${set}: ${Object.keys(got).join(', ')} from file`);
-    }
+    } else console.info(`[textures] ${set}: no files, procedural stand-in`);
     settled.add(set);
     if (ctx && ctx.state) ctx.state.textures = status();
     return got;
@@ -146,7 +201,7 @@ export function apply(group) {
 export function status() {
   const out = {};
   for (const set of Object.keys(SETS)) {
-    out[set] = loaded[set] ? (loaded[set].map ? 'file' : 'file-partial') : (files.has(`${set}_albedo.webp`) ? 'loading' : 'procedural');
+    out[set] = loaded[set] ? (loaded[set].map ? 'file' : 'file-partial') : (settled.has(set) ? 'procedural' : 'loading');
   }
   return out;
 }

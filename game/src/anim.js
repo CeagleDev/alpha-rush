@@ -3,8 +3,8 @@
  *
  * Nothing here touches ctx.state. Two exports matter to the rest of the engine:
  *
- *   mergePerJoint(THREE, root)        collapse a { keepHierarchy: true } asset to one mesh per
- *                                     material PER JOINT. Everything rigid with respect to one joint
+ *   mergePerJoint(THREE, root, opts)  collapse a { keepHierarchy: true } asset to one mesh per
+ *                                     material class PER JOINT (colours baked to vertex colours). Everything rigid with respect to one joint
  *                                     becomes one mesh parented to that joint, with the offset baked
  *                                     into the vertices, so every limb still pivots at its joint and a
  *                                     ~65-draw figure becomes ~15–25. Returns { before, after }.
@@ -56,12 +56,18 @@ function normaliseForMerge(geos) {
 /**
  * Collapse `root` (an asset loaded with keepHierarchy, `root.userData.joints` resolved) to one mesh
  * per material per joint. Joints keep their transforms and children; only meshes are rebuilt.
+ *
+ * opts.bakeColors (default true): materials that differ only in colour / name / small roughness steps
+ * are merged into ONE mesh per joint, with each part's colour written to a vertex `color` attribute and
+ * the shared material cloned with vertexColors = true and a white base. Emissive, transparent and
+ * textured materials keep their own buckets. This is what takes a 77-mesh figure to ~16 draws.
  */
-export function mergePerJoint(THREE, root, extraJoints = []) {
+export function mergePerJoint(THREE, root, opts = {}) {
+  const bake = opts.bakeColors !== false;
   const jointMap = root.userData?.joints || {};
   const joints = new Set([root]);
   for (const v of Object.values(jointMap)) if (v && v.isObject3D) joints.add(v);
-  for (const v of extraJoints) if (v && v.isObject3D) joints.add(v);
+  for (const v of opts.extraJoints || []) if (v && v.isObject3D) joints.add(v);
   root.updateMatrixWorld(true);
 
   const owner = new Map();               // host joint -> [mesh]
@@ -73,6 +79,22 @@ export function mergePerJoint(THREE, root, extraJoints = []) {
     owner.get(host).push(o);
   });
 
+  // a material can be colour-baked when it is a plain opaque, untextured, non-emissive standard material
+  const bakeable = (m) => bake && m && m.isMeshStandardMaterial && !m.map && !m.roughnessMap && !m.normalMap &&
+    !m.emissiveMap && !m.transparent && (!m.emissive || m.emissive.getHex() === 0) && m.opacity === 1 && !m.vertexColors;
+  const classKey = (m) => ['baked', m.type, Math.round((m.roughness ?? 1) * 4), Math.round((m.metalness ?? 0) * 2), m.side, m.flatShading, m.name || ''].join('|');
+  const baked = new Map();               // classKey -> shared vertexColors material
+  const bakedMat = (m) => {
+    const k = classKey(m);
+    if (!baked.has(k)) { const c = m.clone(); c.color.set(0xffffff); c.vertexColors = true; c.needsUpdate = true; baked.set(k, c); }
+    return baked.get(k);
+  };
+  const writeColor = (g, color) => {
+    const n = g.attributes.position.count, arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = color.r; arr[i * 3 + 1] = color.g; arr[i * 3 + 2] = color.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  };
+
   const inv = new THREE.Matrix4(), im = new THREE.Matrix4();
   let before = 0, after = 0;
   for (const [host, meshes] of owner) {
@@ -80,21 +102,23 @@ export function mergePerJoint(THREE, root, extraJoints = []) {
     inv.copy(host.matrixWorld).invert();
     const buckets = new Map();
     for (const m of meshes) {
-      const k = materialKey(m.material) + '#' + Object.keys(m.geometry.attributes).sort().join(',');
-      if (!buckets.has(k)) buckets.set(k, { mat: m.material, geos: [] });
+      const canBake = bakeable(m.material);
+      const k = (canBake ? classKey(m.material) : materialKey(m.material)) + '#' + Object.keys(m.geometry.attributes).sort().join(',');
+      if (!buckets.has(k)) buckets.set(k, { mat: canBake ? bakedMat(m.material) : m.material, geos: [], bake: canBake });
       const b = buckets.get(k);
+      const take = (g) => { if (canBake) writeColor(g, m.material.color); b.geos.push(g); };
       if (m.isInstancedMesh) {
         for (let i = 0; i < m.count; i++) {
           m.getMatrixAt(i, im);
           const gi = m.geometry.clone();
           gi.applyMatrix4(im); gi.applyMatrix4(m.matrixWorld); gi.applyMatrix4(inv);
-          b.geos.push(gi);
+          take(gi);
         }
         continue;
       }
       const g = m.geometry.clone();
       g.applyMatrix4(m.matrixWorld); g.applyMatrix4(inv);
-      b.geos.push(g);
+      take(g);
     }
     for (const m of meshes) m.parent && m.parent.remove(m);
     for (const { mat, geos } of buckets.values()) {

@@ -56,8 +56,10 @@ function rampSpeed(d) {
   const s0 = cfgv('SPEED0', 9), st = cfgv('SPEED_STEP', 0.6), sm = cfgv('SPEED_STEP_M', 150), mx = cfgv('SPEED_MAX', 20);
   return Math.min(mx, s0 + st * Math.floor(Math.max(0, d) / sm));
 }
-function groundY(z) { const t = C && C.track; return t && typeof t.groundY === 'function' ? (t.groundY(z) || 0) : 0; }
-function groundPitch(z) { const t = C && C.track; return t && typeof t.groundPitch === 'function' ? (t.groundPitch(z) || 0) : 0; }
+function trackMod() { return C && (C.track || (C.modules && C.modules.track)); }
+function obstaclesMod() { return C && (C.obstacles || (C.modules && C.modules.obstacles)); }
+function groundY(z) { const t = trackMod(); return t && typeof t.groundY === 'function' ? (t.groundY(z) || 0) : 0; }
+function groundPitch(z) { const t = trackMod(); return t && typeof t.groundPitch === 'function' ? (t.groundPitch(z) || 0) : 0; }
 function emit(name, payload) { const e = C && C.events; if (e && typeof e.emit === 'function') e.emit(name, payload); }
 
 export function reset() {
@@ -235,8 +237,8 @@ export function update(a, b) {
   const h = s.rolling ? 0.85 : 1.7;
   aabb.min.set(s.x - 0.3, s.y, s.z - 0.25);
   aabb.max.set(s.x + 0.3, s.y + h, s.z + 0.25);
-  if (live && P.invulnT <= 0 && C.obstacles && typeof C.obstacles.hit === 'function') {
-    const r = C.obstacles.hit(aabb);
+  if (live && P.invulnT <= 0 && obstaclesMod() && typeof obstaclesMod().hit === 'function') {
+    const r = obstaclesMod().hit(aabb);
     if (r) {
       const info = classifyHit(r, aabb);
       P.invulnT = 0.7;

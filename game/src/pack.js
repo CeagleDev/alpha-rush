@@ -32,8 +32,9 @@ let drawInfo = { before: 0, after: 0 };
 
 function cfgv(k, d) { return cfg && typeof cfg[k] === 'number' ? cfg[k] : d; }
 function laneToX(l) { const lx = cfg && Array.isArray(cfg.LANE_X) ? cfg.LANE_X : [-2, 0, 2]; return lx[l + 1] ?? l * 2; }
-function groundY(z) { const t = C && C.track; return t && typeof t.groundY === 'function' ? (t.groundY(z) || 0) : 0; }
-function groundPitch(z) { const t = C && C.track; return t && typeof t.groundPitch === 'function' ? (t.groundPitch(z) || 0) : 0; }
+function trackMod() { return C && (C.track || (C.modules && C.modules.track)); }
+function groundY(z) { const t = trackMod(); return t && typeof t.groundY === 'function' ? (t.groundY(z) || 0) : 0; }
+function groundPitch(z) { const t = trackMod(); return t && typeof t.groundPitch === 'function' ? (t.groundPitch(z) || 0) : 0; }
 function emit(name, payload) { const e = C && C.events; if (e && typeof e.emit === 'function') e.emit(name, payload); }
 function rnd() { const r = C && C.state && typeof C.state.rng === 'function' ? C.state.rng() : Math.random(); return r; }
 
