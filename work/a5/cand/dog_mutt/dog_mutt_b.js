@@ -45,7 +45,7 @@ export default function (THREE) {
   B(0.045, 0.02, 0.06, -0.085, -0.02, -0.14, tan, spine);                   // tan stain on the haunch
 
   // ---- neck / head ---------------------------------------------------------
-  const neck = J(0, 0.07, 0.22, spine);
+  const neck = J(0, 0.06, 0.22, spine);
   const nk = LATHE([[0.0, -0.02], [0.075, 0.0], [0.07, 0.10], [0.058, 0.20], [0.0, 0.22]], fur, neck, 0, 0.0, 0.0, 12);
   nk.rotation.x = -0.55;
   const cl = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.016, 6, 16), rope);
@@ -54,7 +54,7 @@ export default function (THREE) {
   cl2.position.set(0, 0.075, 0.045); cl2.rotation.x = Math.PI / 2 - 0.55; neck.add(cl2);
   const fray = LATHE([[0.0, 0.0], [0.012, 0.0], [0.008, 0.06], [0.0, 0.07]], rope, neck, 0.03, -0.05, 0.11, 6);
 
-  const head = J(0, 0.19, 0.16, neck);
+  const head = J(0, 0.16, 0.16, neck);
   const sk = LATHE([[0.0, -0.085], [0.06, -0.07], [0.078, -0.02], [0.075, 0.04], [0.055, 0.075], [0.0, 0.085]], fur, head, 0, 0.0, 0.0, 12);
   sk.rotation.x = Math.PI / 2; sk.scale.set(0.95, 0.95, 1.05);
   const mz = LATHE([[0.0, 0.0], [0.05, 0.0], [0.042, 0.06], [0.032, 0.11], [0.0, 0.115]], black, head, 0, -0.02, 0.05, 10);

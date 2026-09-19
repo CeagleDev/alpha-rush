@@ -44,13 +44,13 @@ export default function (THREE) {
   B(0.045, 0.02, 0.06, -0.085, -0.03, -0.14, tan, spine);                   // tan stain
 
   // ---- neck / head ---------------------------------------------------------
-  const neck = J(0, 0.07, 0.22, spine);
+  const neck = J(0, 0.06, 0.22, spine);
   const nk = CYL(0.055, 0.08, 0.20, 0, 0.07, 0.04, fur, neck); nk.rotation.x = -0.55;
   const cl = MESH(new THREE.TorusGeometry(0.085, 0.016, 6, 16), rope, neck, 0, 0.05, 0.04); cl.rotation.x = Math.PI / 2 - 0.55;
   const cl2 = MESH(new THREE.TorusGeometry(0.086, 0.011, 5, 16), rope, neck, 0, 0.075, 0.045); cl2.rotation.x = Math.PI / 2 - 0.55;
   CYL(0.008, 0.012, 0.07, 0.03, -0.01, 0.12, rope, neck, 6);
 
-  const head = J(0, 0.19, 0.16, neck);
+  const head = J(0, 0.16, 0.16, neck);
   SPH(0.078, 0, 0.0, 0.0, fur, head).scale.set(0.95, 0.95, 1.15);           // skull
   B(0.07, 0.02, 0.03, 0, 0.055, 0.045, tan, head);                          // brow band
   B(0.075, 0.065, 0.12, 0, -0.02, 0.10, black, head);                       // box muzzle (loader rounds it)

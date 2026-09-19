@@ -38,14 +38,14 @@ export default function (THREE) {
   B(0.045, 0.02, 0.06, -0.09, -0.04, -0.16, tan, spine);                    // tan stain on the haunch
 
   // ---- neck / head ---------------------------------------------------------
-  const neck = J(0, 0.07, 0.22, spine);
+  const neck = J(0, 0.06, 0.22, spine);
   const nk = CYL(0.055, 0.08, 0.20, 0, 0.07, 0.04, fur, neck); nk.rotation.x = -0.55;
   // rope collar: a torus with three strand bumps and a hanging frayed end
   const cl = MESH(new THREE.TorusGeometry(0.085, 0.016, 6, 16), rope, neck, 0, 0.05, 0.04); cl.rotation.x = Math.PI / 2 - 0.55;
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const b = SPH(0.014, Math.cos(a) * 0.085, 0.05 + Math.sin(a) * 0.085 * 0.52, 0.04 + Math.sin(a) * 0.085 * 0.85, rope, neck, 6, 5); }
   CYL(0.008, 0.012, 0.07, 0.03, -0.01, 0.12, rope, neck, 6);                // frayed end hanging
 
-  const head = J(0, 0.19, 0.16, neck);
+  const head = J(0, 0.16, 0.16, neck);
   SPH(0.078, 0, 0.0, 0.0, fur, head).scale.set(1.0, 0.95, 1.15);            // skull
   B(0.07, 0.02, 0.03, 0, 0.055, 0.045, tan, head);                          // tan brow band
   const mz = CYL(0.032, 0.05, 0.11, 0, -0.02, 0.10, black, head); mz.rotation.x = Math.PI / 2;   // black muzzle
