@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>E2 fixture — runner / pack / camera</title>
+<link rel="icon" href="data:,">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1418; }
+  canvas#c { display: block; width: 100%; height: 100%; touch-action: none; }
+  #info { position: fixed; left: 8px; top: 8px; color: #eee; font: 11px ui-monospace, monospace; white-space: pre; pointer-events: none; text-shadow: 0 0 3px #000; }
+  #strip { position: fixed; left: 0; bottom: 0; display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info"></div>
+<canvas id="strip"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { ASSET } from '../../game/assetlib.js';
+import * as player from '../../game/src/player.js';
+import * as pack from '../../game/src/pack.js';
+import * as camera from '../../game/src/camera.js';
+
+const Q = new URLSearchParams(location.search);
+const FIXED = Q.get('fixed') === '1';          // fixed 1/60 s steps (deterministic, headless)
+const SUB = Number(Q.get('sub') || 1);         // sim steps per rendered frame
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, Number(Q.get('dpr') || 1)));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = false;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1d3150);
+scene.fog = new THREE.Fog(0x1d3150, 30, 120);
+const cam = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+scene.add(new THREE.HemisphereLight(0x1d406f, 0x231718, 1.2));
+const sun = new THREE.DirectionalLight(0xe5b055, 1.6); sun.position.set(3, 8, -4); scene.add(sun);
+
+// ---- stubs: ground, grid, assets, input, obstacles, events
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(9, 400), new THREE.MeshStandardMaterial({ color: 0x231718, roughness: 0.4 }));
+ground.rotation.x = -Math.PI / 2; ground.position.z = 180; scene.add(ground);
+const verges = new THREE.Mesh(new THREE.PlaneGeometry(40, 400), new THREE.MeshStandardMaterial({ color: 0x110f12, roughness: 0.9 }));
+verges.rotation.x = -Math.PI / 2; verges.position.set(0, -0.01, 180); scene.add(verges);
+const gridPts = [];
+for (let z = 0; z <= 400; z += 10) gridPts.push(-3, 0.005, z, 3, 0.005, z);
+for (const x of [-3, -1, 1, 3]) gridPts.push(x, 0.005, 0, x, 0.005, 400);
+const grid = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(gridPts, 3)), new THREE.LineBasicMaterial({ color: 0x8b6141 }));
+scene.add(grid);
+
+const REAL = Q.get('real') !== '0';
+const hasReal = async (name) => REAL && (await fetch(`../../game/assets/${name}.js`)).ok;
+const used = {};
+const assets = { get: async (name, opts = {}) => { const real = await hasReal(name); used[name] = real ? 'game/assets' : 'stub'; return ASSET(real ? `../../game/assets/${name}.js` : `./stubs/${name}.js`, { surfaces: false, ...opts }); } };
+const queue = [];
+const input = { consume: () => queue.shift() || null };
+const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down' };
+addEventListener('keydown', (e) => { const k = KEYS[e.key]; if (k) { queue.push(k); e.preventDefault(); } });
+window.__push = (k) => queue.push(k);
+
+// obstacles: a jump crate in lane 0 at 80 m, a roll bar over all lanes at 140 m (1.3 m clearance), a block van in lane 0 at 175 m
+const OBS = [
+  { kind: 'jump', type: 'crate_stack', box: new THREE.Box3(new THREE.Vector3(-0.6, 0, 79.5), new THREE.Vector3(0.6, 0.9, 80.5)), color: 0xf8e845 },
+  { kind: 'roll', type: 'banner_cluster_low', box: new THREE.Box3(new THREE.Vector3(-3, 1.3, 139.7), new THREE.Vector3(3, 3.2, 140.3)), color: 0xb8302a },
+  { kind: 'block', type: 'kei_van', box: new THREE.Box3(new THREE.Vector3(-0.75, 0, 174), new THREE.Vector3(0.75, 1.9, 177.4)), color: 0x8b6141 },
+  { kind: 'block', type: 'yatai_cart', box: new THREE.Box3(new THREE.Vector3(1.25, 0, 230), new THREE.Vector3(2.75, 2.1, 232.4)), color: 0x4f2d21 },
+  { kind: 'block', type: 'parked_sedan', box: new THREE.Box3(new THREE.Vector3(1.25, 0, 248), new THREE.Vector3(2.75, 1.5, 252.4)), color: 0x212841 },
+];
+for (const o of OBS) {
+  const sz = o.box.getSize(new THREE.Vector3()), c = o.box.getCenter(new THREE.Vector3());
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sz.x, sz.y, sz.z), new THREE.MeshStandardMaterial({ color: o.color, roughness: 0.8 }));
+  m.position.copy(c); scene.add(m);
+}
+const hitLog = [];
+const obstacles = { hit: (aabb) => { for (const o of OBS) if (aabb.intersectsBox(o.box)) return { kind: o.kind, type: o.type, box: o.box }; return null; } };
+
+const listeners = new Map();
+const eventLog = [];
+const events = {
+  on: (n, f) => { if (!listeners.has(n)) listeners.set(n, []); listeners.get(n).push(f); },
+  emit: (n, p) => { eventLog.push([n, p && p.z !== undefined ? +p.z.toFixed(1) : p && p.reason || '']); (listeners.get(n) || []).forEach((f) => f(p)); if (n === 'death') state.over = true; },
+};
+const state = { running: false, over: false, rng: Math.random };
+const config = { LANE_W: 2, LANES: 3, LANE_X: [-2, 0, 2], SPEED0: 9, SPEED_STEP: 0.6, SPEED_STEP_M: 150, SPEED_MAX: 20, JUMP_H: 1.1, JUMP_T: 0.55, ROLL_T: 0.5, LANE_T: 0.18, PACK_DIST: 5 };
+const ctx = { THREE, scene, camera: cam, renderer, config, state, assets, events, input, obstacles };
+
+await player.init(ctx); await pack.init(ctx); await camera.init(ctx);
+const runnerObj = player.getObject();
+const draws = { runner: player.getDrawInfo(), pack: pack.getDrawInfo() };
+
+// ---- joint checks on the merged runner: limbs pivot at joints (a rotation moves a vertex), and joints actually move over time
+const runnerRoot = runnerObj.children[0];
+const J = runnerRoot.userData.joints;
+const rotSamples = {};
+function sampleJoints() { for (const k in J) { (rotSamples[k] ||= []).push(J[k].rotation.x); } }
+function pivotCheck() {
+  const out = {}; const v = new THREE.Vector3();
+  for (const k in J) {
+    const j = J[k]; let mesh = null; j.traverse((o) => { if (!mesh && o.isMesh) mesh = o; });
+    if (!mesh) { out[k] = 'no-mesh'; continue; }
+    const pa = mesh.geometry.attributes.position;
+    const far = (into) => { runnerObj.updateMatrixWorld(true); let best = -1; for (let i = 0; i < pa.count; i += Math.max(1, (pa.count / 64) | 0)) { v.fromBufferAttribute(pa, i).applyMatrix4(mesh.matrixWorld); const d = v.distanceTo(j.getWorldPosition(new THREE.Vector3())); if (d > best) { best = d; into.copy(v); } } return best; };
+    const a = new THREE.Vector3(), b = new THREE.Vector3();
+    const ra = far(a); const r0 = j.rotation.x; j.rotation.x = r0 + 0.9; const rb = far(b); j.rotation.x = r0; runnerObj.updateMatrixWorld(true);
+    // the far vertex moves when the joint rotates, and stays the same distance from the joint (a pivot, not a tear)
+    out[k] = { moved: +a.distanceTo(b).toFixed(3), radiusDrift: +Math.abs(ra - rb).toFixed(4), meshAtJoint: +mesh.position.length().toFixed(4) };
+  }
+  return out;
+}
+
+// ---- filmstrip: capture the WebGL canvas into a 2D strip
+const strip = document.getElementById('strip'); const sctx = strip.getContext('2d');
+let shots = 0; const N = 4; const SW = 195, SH = 422;
+strip.width = SW * N; strip.height = SH + 16;
+let captureFlag = null;
+function doCapture(label) {
+  if (shots >= N) return;
+  sctx.drawImage(canvas, shots * SW, 0, SW, SH);
+  sctx.fillStyle = '#000'; sctx.fillRect(shots * SW, SH, SW, 16); sctx.fillStyle = '#fff'; sctx.font = '10px monospace'; sctx.fillText(label, shots * SW + 3, SH + 12);
+  shots++;
+}
+window.__capture = (label) => { captureFlag = label; };
+window.__strip = () => strip.toDataURL('image/png');
+
+// ---- loop
+const info = document.getElementById('info');
+let last = performance.now(), frame = 0, fps = 0;
+function step(dt) {
+  player.update(dt); pack.update(dt); camera.update(dt);
+}
+function loop(now) {
+  const real = Math.min(0.1, (now - last) / 1000); last = now;
+  fps = fps * 0.9 + (1 / Math.max(real, 1e-3)) * 0.1;
+  for (let i = 0; i < SUB; i++) step(FIXED ? 1 / 60 : real / SUB);
+  renderer.render(scene, cam);
+  frame++;
+  if (frame % 6 === 0) sampleJoints();
+  if (captureFlag !== null) { doCapture(captureFlag); captureFlag = null; }
+  const s = state;
+  window.__E2__ = {
+    frame, fps: +fps.toFixed(1), draws: renderer.info.render.calls, tris: renderer.info.render.triangles,
+    distance: +s.distance.toFixed(2), speed: +s.speed.toFixed(2), x: +s.x.toFixed(2), y: +s.y.toFixed(2), lane: s.lane,
+    airborne: s.airborne, rolling: s.rolling, jumps: s.jumps, rolls: s.rolls, hits: s.hits, stumbleT: +s.stumbleT.toFixed(2),
+    playerState: s.playerState, packDist: +s.packDist.toFixed(2), heroBox: s.heroBox, heroFrac: +s.heroFrac.toFixed(3),
+    over: s.over, running: s.running, camFov: +cam.fov.toFixed(1),
+  };
+  info.textContent = `d ${s.distance.toFixed(1)} m  v ${s.speed.toFixed(1)}  lane ${s.lane}  ${s.playerState}  pack ${s.packDist.toFixed(1)}\nhero ${(s.heroFrac * 100).toFixed(0)}%  draws ${renderer.info.render.calls}  fps ${fps.toFixed(0)}`;
+  requestAnimationFrame(loop);
+}
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+window.__start = () => { state.over = false; state.running = true; events.emit('start'); };
+window.__report = () => ({ used, draws, pivots: pivotCheck(), joints: Object.fromEntries(Object.entries(rotSamples).map(([k, a]) => [k, +(Math.max(...a) - Math.min(...a)).toFixed(3)])), events: eventLog });
+window.__READY__ = true;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+{
+  "game": "/Users/dev/Documents/Cursor.Code/midnight-dash/game",
+  "utc": "2026-09-19T16:20:39.813Z",
+  "run": 1,
+  "seed": 7,
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 3,
+    "isMobile": true,
+    "hasTouch": true
+  },
+  "desktop": false,
+  "fourg": false,
+  "network": null,
+  "budgets": {
+    "DIST_M": 600,
+    "DEATH_M": 400,
+    "DRAWS": 900,
+    "TRIS": 1500000,
+    "READY_S": 20,
+    "MB": 5
+  },
+  "lead": {
+    "jump": [
+      0.35,
+      1.5
+    ],
+    "lane": [
+      0.55,
+      2
+    ],
+    "coin": [
+      0.65,
+      2
+    ]
+  },
+  "gesture_s": 0.15,
+  "ready_s": 3.193,
+  "mb": 1.497,
+  "body_bytes": 1497405,
+  "started": "touch tap on #startb",
+  "start_fallback": false,
+  "no_next": false,
+  "distance_m": 801.4,
+  "died_at_m": null,
+  "stall": null,
+  "coins": 0,
+  "jumps": 0,
+  "rolls": 0,
+  "deaths": 0,
+  "score": 0,
+  "peak_draws": 1,
+  "peak_tris": 2208,
+  "median_fps": 60,
+  "min_fps": 60,
+  "software": false,
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)",
+  "frames": [
+    {
+      "file": "f0.png",
+      "d": 60.146099999999905,
+      "speed": 9,
+      "fps": 60,
+      "draws": 1,
+      "tris": 2208,
+      "zone": "alleyA",
+      "hero": 0,
+      "note": "",
+      "luma": 53.89603741988741
+    },
+    {
+      "file": "f1.png",
+      "d": 150.4631399999989,
+      "speed": 9.6,
+      "fps": 60,
+      "draws": 1,
+      "tris": 2208,
+      "zone": "alleyA",
+      "hero": 0,
+      "note": "",
+      "luma": 53.9015195212496
+    },
+    {
+      "file": "f2.png",
+      "d": 300.05802000000426,
+      "speed": 9.6,
+      "fps": 60,
+      "draws": 1,
+      "tris": 2208,
+      "zone": "alleyA",
+      "hero": 0,
+      "note": "",
+      "luma": 53.9048663962496
+    },
+    {
+      "file": "f3.png",
+      "d": 450.16122000000155,
+      "speed": 10.2,
+      "fps": 60,
+      "draws": 1,
+      "tris": 2208,
+      "zone": "alleyA",
+      "hero": 0,
+      "note": "",
+      "luma": 53.90125485778806
+    },
+    {
+      "file": "f4.png",
+      "d": 600.0943799999968,
+      "speed": 10.8,
+      "fps": 60,
+      "draws": 1,
+      "tris": 2208,
+      "zone": "alleyA",
+      "hero": 0,
+      "note": "",
+      "luma": 53.905585196329724
+    },
+    {
+      "file": "f5.png",
+      "d": 800.5866600000031,
+      "speed": 12,
+      "fps": 60,
+      "draws": 1,
+      "tris": 2208,
+      "zone": "alleyA",
+      "hero": 0,
+      "note": "",
+      "luma": 53.90294259817267
+    }
+  ],
+  "decisions": [
+    "started via touch tap on #startb"
+  ],
+  "missing": [
+    "404 /src/textures.js",
+    "404 /src/coins.js",
+    "404 /src/lighting.js",
+    "404 /src/obstacles.js",
+    "404 /src/assets.js",
+    "404 /src/perf.js",
+    "404 /src/camera.js",
+    "404 /src/track.js",
+    "404 /src/pack.js"
+  ],
+  "errors": [],
+  "outside": [],
+  "external": [],
+  "cdn": [
+    "cdn.jsdelivr.net"
+  ],
+  "clip": null,
+  "fails": [
+    "no jump was performed (jumps = 0)",
+    "no roll was performed (rolls = 0)",
+    "no coins collected (coins = 0)",
+    "9 file(s) 404ed, starting with 404 /src/textures.js"
+  ],
+  "result": "FAIL"
+}

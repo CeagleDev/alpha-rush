@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>E1 fixture — track</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #110f12; color: #eee2c8; font: 11px ui-monospace, Menlo, monospace; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; left: 8px; top: 8px; white-space: pre; text-shadow: 0 1px 2px #000; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">loading…</div>
+<script type="module">
+import * as THREE from 'three';
+import { createRig } from '../../game/rig.js';
+import { makeAssets } from './stub-assets.js';
+import * as track from '../../game/src/track.js';
+import * as obstacles from '../../game/src/obstacles.js';
+import * as coins from '../../game/src/coins.js';
+
+const Q = new URLSearchParams(location.search);
+const SEED = Number(Q.get('seed')) || 7;
+const STEP = Number(Q.get('step')) || 0;          // metres per frame when set (headless: fixed advance)
+const FREE = Q.get('free') === '1';
+const canvas = document.getElementById('c'), hud = document.getElementById('hud');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight, false);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+scene.add(camera);
+const rig = createRig(THREE, renderer, scene, { hour: 19.4, azimuth: 250, tier: 'phone', camera });
+
+const config = { LANE_W: 2, LANES: 3, LANE_X: [-2, 0, 2], CHUNK_LEN: 30, SPEED0: 9, SPEED_STEP: 0.6, SPEED_STEP_M: 150, SPEED_MAX: 20,
+  JUMP_H: 1.1, JUMP_T: 0.55, ROLL_T: 0.5, LANE_T: 0.18, PACK_DIST: 5, DRAW_BUDGET: 900, TRI_BUDGET: 1500000, PHONE_MAX_W: 700, SEED, GATE: true };
+const listeners = new Map();
+const events = { on(n, f) { (listeners.get(n) || listeners.set(n, new Set()).get(n)).add(f); }, emit(n, p) { for (const f of listeners.get(n) || []) f(p); } };
+const state = { running: true, over: false, distance: 0, speed: 9, z: 0, x: 0, y: 0, lane: 0, laneX: 0, airborne: false, rolling: false,
+  score: 0, coins: 0, jumps: 0, rolls: 0, deaths: 0, time: 0, zone: 'alleyA', next: null, coin: null, coinLane: null };
+const assets = makeAssets(THREE);
+const ctx = { THREE, scene, camera, renderer, rig, config, state, assets, textures: null, events };
+const log = { zones: [], coinsGot: 0, hits: 0 };
+events.on('zone', (p) => log.zones.push([Math.round(p.z), p.zone]));
+events.on('coin', () => log.coinsGot++);
+
+const t0 = performance.now();
+await track.init(ctx);
+await obstacles.init(ctx);   // main.js does this too: must be a no-op here
+await coins.init(ctx);
+const initMs = Math.round(performance.now() - t0);
+console.log('[fixture] init', initMs, 'ms', JSON.stringify(track.stats().build));
+
+// free camera (WASD + arrows) when ?free=1
+const keys = new Set();
+addEventListener('keydown', (e) => keys.add(e.key)); addEventListener('keyup', (e) => keys.delete(e.key));
+let freePos = new THREE.Vector3(0, 3, -6), yaw = 0, pitch = 0;
+
+let last = performance.now(), fpsE = 0, peak = { draws: 0, tris: 0 }, byZone = {};
+function loop(now) {
+  requestAnimationFrame(loop);
+  const raw = Math.max(1e-4, (now - last) / 1000); last = now;
+  fpsE = fpsE ? fpsE + (1 / raw - fpsE) * 0.15 : 1 / raw;
+  const dt = Math.min(raw, 0.05);
+  // auto-advancing player: speed ramps by distance per SPEC, lane 0
+  state.speed = Math.min(config.SPEED_MAX, config.SPEED0 + Math.floor(state.distance / config.SPEED_STEP_M) * config.SPEED_STEP);
+  const adv = STEP || state.speed * dt;
+  state.distance += adv; state.z = state.distance; state.x = config.LANE_X[state.lane + 1];
+  state.y = track.groundY(state.z);
+  state.time += dt;
+  // a simple auto-pilot so the fixture also exercises collection and rows: move to a free lane when next is blocked
+  if (state.next && state.next.dist < 12 && state.next.lanes[state.lane + 1] !== null) {
+    const free = [-1, 0, 1].filter((l) => state.next.lanes[l + 1] === null).sort((a, b) => Math.abs(a - state.lane) - Math.abs(b - state.lane));
+    if (free.length) state.lane = free[0];
+  } else if (state.coin && state.coin.dist < 10 && Math.abs(state.coin.lane - state.lane) === 1 && (!state.next || state.next.lanes[state.coin.lane + 1] === null || state.next.dist > state.coin.dist + 8)) state.lane = state.coin.lane;
+  track.update(dt);
+  obstacles.update(dt, ctx);   // duplicates of main.js's calls: frame-guarded
+  coins.update(dt, ctx);
+  const hit = obstacles.hit({ min: { x: state.x - 0.3, y: state.y, z: state.z - 0.25 }, max: { x: state.x + 0.3, y: state.y + 1.7, z: state.z + 0.25 } });
+  if (hit) log.hits++;
+  if (FREE) {
+    const sp = 12 * dt; if (keys.has('w')) freePos.add(new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(sp)); if (keys.has('s')) freePos.add(new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-sp));
+    if (keys.has('a')) freePos.x += Math.cos(yaw) * sp; if (keys.has('d')) freePos.x -= Math.cos(yaw) * sp; if (keys.has('q')) freePos.y -= sp; if (keys.has('e')) freePos.y += sp;
+    if (keys.has('ArrowLeft')) yaw += dt; if (keys.has('ArrowRight')) yaw -= dt; if (keys.has('ArrowUp')) pitch += dt; if (keys.has('ArrowDown')) pitch -= dt;
+    camera.position.copy(freePos); camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  } else {
+    const p = track.groundPitch(state.z);
+    camera.position.set(state.x * 0.6, state.y + 2.4 + Math.sin(p) * 2, state.z - 5.5);
+    camera.lookAt(state.x * 0.3, track.groundY(state.z + 10) + 1.3, state.z + 10);
+  }
+  rig.render(camera, dt);
+  const info = renderer.info.render;
+  peak.draws = Math.max(peak.draws, info.calls); peak.tris = Math.max(peak.tris, info.triangles);
+  const bz = byZone[state.zone] || (byZone[state.zone] = { draws: 0, tris: 0 });
+  bz.draws = Math.max(bz.draws, info.calls); bz.tris = Math.max(bz.tris, info.triangles);
+  const st = track.stats();
+  hud.textContent = `E1 fixture seed ${SEED}  ${Math.round(state.distance)} m  ${state.zone}  lane ${state.lane}\n` +
+    `draws ${info.calls}  tris ${info.triangles}  fps ${fpsE.toFixed(0)}  live ${st.live.join(',')}\n` +
+    `next ${state.next ? `#${state.next.id} ${state.next.dist.toFixed(1)}m ${state.next.kind} ${state.next.type} [${state.next.lanes.map((l) => l || '-').join(' ')}] len ${state.next.len.toFixed(1)}` : '-'}\n` +
+    `coin ${state.coin ? `${state.coin.dist.toFixed(1)}m lane ${state.coin.lane}` : '-'}  coins ${state.coins}  score ${state.score}  hits ${log.hits}`;
+  window.__GAME__ = { pos: [state.x, state.z], fps: Math.round(fpsE), speed: state.speed, score: state.score, over: false, draws: info.calls, tris: info.triangles,
+    lane: state.lane, airborne: false, rolling: false, distance: state.distance, zone: state.zone, coins: state.coins, deaths: 0, jumps: 0, rolls: 0,
+    next: state.next, coin: state.coin, coinLane: state.coinLane, heroBox: [0, 0, 0, 0], packDist: 5,
+    e1: { peak, byZone, initMs, live: st.live, liveTris: st.liveTris, rows: st.rows, coinsLive: st.coins, coinTris: st.coinTris, shadows: st.shadows, farband: st.farband, build: st.build, zones: log.zones, coinsGot: log.coinsGot, hits: log.hits, placeholders: assets.placeholders, y: state.y } };
+}
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+requestAnimationFrame(loop);
+window.__READY__ = true;
+</script>
+</body>
+</html>

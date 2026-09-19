@@ -7,3 +7,8 @@ work/**/tmp/
 refs/**/*.png
 tools/node_modules
 refs/textures_raw/
+work/**/*.png
+work/**/*.jpg
+work/**/_verify/
+work/**/out/
+work/**/clip/

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#110f12">
+<title>MIDNIGHT DASH</title>
+<link rel="icon" href="data:,">
+<!-- The one network dependency. Same CDN and version as assetlib.js / rig.js resolve their bare
+     'three' and 'three/addons/' specifiers through, so there is exactly ONE copy of three. -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<style>
+  :root {
+    /* STYLE.md palette: cream on the warm dark frame, one accent (lightbox yellow). */
+    --cream: #eee2c8; --frame: #110f12; --frame2: #231718; --accent: #e5b055; --red: #b8302a;
+    /* safe-area insets hoisted into variables so every overlay can pad by them */
+    --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--frame); color: var(--cream);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; -webkit-user-select: none; user-select: none; }
+  canvas#c { display: block; width: 100%; height: 100%; touch-action: none; position: fixed; inset: 0; }
+
+  /* ---- HUD (in play). Everything inside is built by src/hud.js. ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; display: none;
+    padding: calc(10px + var(--sat)) calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal)); }
+  #hud.on { display: block; }
+  #hud .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  #hud .score { font-size: clamp(26px, 8vw, 40px); line-height: 1; letter-spacing: .04em; text-shadow: 0 1px 0 #000, 0 0 12px rgba(0,0,0,.6); }
+  #hud .sub { font-size: 11px; letter-spacing: .18em; opacity: .7; margin-top: 4px; text-transform: uppercase; }
+  #hud .coins { display: flex; align-items: center; gap: 6px; font-size: clamp(18px, 5vw, 24px); color: var(--accent);
+    text-shadow: 0 1px 0 #000, 0 0 10px rgba(0,0,0,.6); }
+  #hud .coins svg { width: 1em; height: 1em; display: block; }
+  #hud .zone { position: absolute; left: 50%; transform: translateX(-50%); top: calc(12px + var(--sat)); font-size: 11px; letter-spacing: .22em;
+    text-transform: uppercase; opacity: .55; }
+  #hud .pack { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(22px + var(--sab)); width: min(220px, 60vw); }
+  #hud .pack .lbl { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; opacity: .65; text-align: center; margin-bottom: 4px; }
+  #hud .pack .bar { height: 5px; background: rgba(238,226,200,.18); border-radius: 3px; overflow: hidden; }
+  #hud .pack .fill { height: 100%; width: 0%; background: var(--accent); transition: width .12s linear; }
+  #hud .pack.hot .fill { background: var(--red); }
+  #hud .perf { position: absolute; right: calc(12px + var(--sar)); bottom: calc(10px + var(--sab)); font-size: 10px; opacity: .45; letter-spacing: .08em; }
+
+  /* ---- overlays: title and death ---- */
+  .screen { position: fixed; inset: 0; z-index: 20; display: none; flex-direction: column; align-items: center;
+    justify-content: flex-end; text-align: center; background: linear-gradient(180deg, rgba(17,15,18,.35) 0%, rgba(17,15,18,.78) 55%, rgba(17,15,18,.96) 100%);
+    padding: calc(24px + var(--sat)) calc(20px + var(--sar)) calc(24px + var(--sab)) calc(20px + var(--sal)); }
+  .screen.on { display: flex; }
+  .screen h1 { margin: 0 0 6px; font-weight: 400; font-size: clamp(30px, 9vw, 56px); letter-spacing: .28em; text-indent: .28em; color: var(--cream);
+    text-shadow: 0 0 18px rgba(229,176,85,.35); }
+  .screen .tag { font-size: 12px; letter-spacing: .26em; text-indent: .26em; color: var(--accent); text-transform: uppercase; opacity: .9; }
+  .screen .help { font-size: 12px; letter-spacing: .1em; opacity: .7; margin: 14px 0 0; line-height: 1.7; }
+  .screen .stats { display: flex; gap: 26px; justify-content: center; margin: 12px 0 0; }
+  .screen .stats div { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; opacity: .65; }
+  .screen .stats b { display: block; font-weight: 400; font-size: clamp(22px, 6vw, 34px); letter-spacing: .04em; color: var(--cream); opacity: 1; margin-bottom: 4px; }
+  .screen .stats .c b { color: var(--accent); }
+  /* Thumb-reachable: the button lives in the lower third, full width minus the gutters, tall. */
+  .btn { display: block; width: min(320px, 82vw); min-height: 64px; margin: 28px auto calc(6vh); padding: 18px 28px;
+    border: 2px solid var(--accent); border-radius: 8px; background: rgba(35,23,24,.85); color: var(--accent);
+    font: inherit; font-size: 18px; letter-spacing: .32em; text-indent: .32em; text-transform: uppercase; cursor: pointer;
+    touch-action: manipulation; box-shadow: 0 0 22px rgba(229,176,85,.18) inset, 0 6px 24px rgba(0,0,0,.5); }
+  .btn:active { background: rgba(229,176,85,.22); }
+  .btn[disabled] { opacity: .55; }
+  #loadline { font-size: 10px; letter-spacing: .2em; opacity: .5; height: 14px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+
+<div class="screen on" id="title">
+  <h1>MIDNIGHT DASH</h1>
+  <div class="tag">yokocho at blue dusk</div>
+  <p class="help" id="help">swipe left / right to change lane<br>swipe up to jump &nbsp;·&nbsp; swipe down to roll<br>don't let the pack catch you</p>
+  <button class="btn" id="startb" type="button">Run</button>
+  <div id="loadline">loading</div>
+</div>
+
+<div class="screen" id="dead">
+  <h1>CAUGHT</h1>
+  <div class="tag">the pack got you</div>
+  <div class="stats">
+    <div><b id="d-score">0</b>score</div>
+    <div><b id="d-dist">0 m</b>distance</div>
+    <div class="c"><b id="d-coins">0</b>coins</div>
+  </div>
+  <button class="btn" id="restartb" type="button">Run again</button>
+  <div id="loadline2"></div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
