@@ -94,7 +94,7 @@ export default function (THREE) {
   // mudguards: half-torus arcs over each wheel
   const mg1 = MESH(new THREE.TorusGeometry(R + 0.015, 0.012, 5, 16, 2.6), rust, bike, -0.52, R, 0); mg1.rotation.z = 0.3; mg1.scale.set(1, 1, 3.5);
   const mg2 = MESH(new THREE.TorusGeometry(R + 0.015, 0.012, 5, 16, 2.4), rust, bike, 0.52, R, 0); mg2.rotation.z = 0.5; mg2.scale.set(1, 1, 3.5);
-  B(0.035, 0.03, 0.05, -0.83, 0.42, 0, tail);                                  // rear reflector / tail lamp
+  const lamp = B(0.035, 0.03, 0.05, -0.83, 0.42, 0, tail);                     // rear reflector / tail lamp
   // kickstand hanging out, and a bent brake cable
   TUBE(0.007, [-0.30, 0.26, 0.05], [-0.36, 0.05, 0.16], rust);
   TUBE(0.004, [0.20, 0.96, -0.24], [0.44, 0.70, -0.06], dark);
@@ -102,12 +102,9 @@ export default function (THREE) {
   B(0.62, 0.03, 0.10, -0.52, 0.015, 0, dark); B(0.62, 0.03, 0.10, 0.52, 0.015, 0, dark);
 
   // ---- lay it down on its left side: the bike's +z (its right) becomes up ----
-  bike.rotation.x = -Math.PI / 2;
-  // bike's -z side (left) now touches the ground; wheels lie flat at ~0.05 above the road
-  bike.rotation.y = 0.0;
+  bike.rotation.x = -Math.PI / 2 + 0.22;   // not quite flat: it rests on the bar end and the pedal, wheels leaning
 
   g.userData.obstacle = { kind: 'jump', lanes: 1 };
-  g.userData.lights = [{ x: -0.83, y: 0.05, z: -0.42, color: 0xb8302a, intensity: 0.4, range: 1.0 }];
 
   const box = new THREE.Box3(), v = new THREE.Vector3();
   g.updateMatrixWorld(true);
@@ -115,6 +112,8 @@ export default function (THREE) {
     for (let i = 0; i < p.count; i++) box.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(n.matrixWorld)); });
   const c = box.getCenter(new THREE.Vector3());
   g.children.forEach((o) => { o.position.x -= c.x; o.position.y -= box.min.y; o.position.z -= c.z; });
-  g.userData.lights.forEach((l) => { l.x -= c.x; l.y -= box.min.y; l.z -= c.z; });
+  g.updateMatrixWorld(true);
+  const lp = lamp.getWorldPosition(new THREE.Vector3());
+  g.userData.lights = [{ x: lp.x, y: lp.y, z: lp.z, color: 0xb8302a, intensity: 0.4, range: 1.0 }];
   return g;
 }

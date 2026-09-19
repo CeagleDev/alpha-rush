@@ -6,8 +6,9 @@
  * state fields OWNED here (defaults in init): packDist — metres from the pack's lead dog to the player.
  * NEW state field: packDraws (dogs' draw calls after the per-joint merge, informational).
  *
- * Behaviour (SPEC): the pack runs PACK_DIST (5 m) behind, weaving lanes with a lag behind the runner's
- * lane changes; every 'hit' closes it 2 m and a 'stumble' 1 m; it recovers at 1 m/s back to PACK_DIST;
+ * Behaviour (SPEC + lead call 2026-09-19): the pack runs PACK_DIST (2.6 m) behind with per-dog offsets
+ * (~2.2 / 2.75 / 3.3 m), weaving lanes with a lag behind the runner's lane changes; every 'hit' closes
+ * it 1.4 m (to ~1.2 m) and a 'stumble' 0.7 m; it recovers at 1 m/s back to PACK_DIST;
  * when packDist < 0.8 m the pack has caught the runner → emits 'death' {reason:'caught', distance}.
  * A bark timer per dog emits 'bark' {dog, index, x, z, dist}. On 'death' (any cause) the dogs run up
  * to the fallen runner and bounce around it ('excited').
@@ -22,12 +23,14 @@ const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * d
 
 let C, cfg;
 const DOGS = [
-  { name: 'dog_shiba', xOff: -0.6, zOff: 0.0, lag: 0.30, weave: 0.9 },
-  { name: 'dog_spitz', xOff: 0.65, zOff: -0.8, lag: 0.45, weave: 1.3 },
-  { name: 'dog_mutt', xOff: 0.05, zOff: -1.6, lag: 0.60, weave: 1.1 },
+  // zOff is relative to PACK_DIST (2.6): the three dogs sit ~2.2 / 2.75 / 3.3 m behind the runner
+  { name: 'dog_shiba', xOff: -0.4, zOff: 0.4, lag: 0.30, weave: 0.9 },
+  { name: 'dog_spitz', xOff: 0.4, zOff: -0.15, lag: 0.45, weave: 1.3 },
+  { name: 'dog_mutt', xOff: 0.0, zOff: -0.7, lag: 0.60, weave: 1.1 },
 ];
 const dogs = [];        // { name, obj, root, anim, x, z, y, dist, barkT, laneHist: [] , prevX, laneX }
-let packDist = 5, caught = false, dead = false, deadT = 0, clock = 0;
+const HIT_CLOSE = 1.4;
+let packDist = 2.6, caught = false, dead = false, deadT = 0, clock = 0;
 let drawInfo = { before: 0, after: 0 };
 
 function cfgv(k, d) { return cfg && typeof cfg[k] === 'number' ? cfg[k] : d; }
@@ -43,7 +46,7 @@ function resetPack() {
   packDist = cfgv('PACK_DIST', 5); caught = false; dead = false; deadT = 0;
   s.packDist = packDist;
   for (const d of dogs) {
-    d.x = d.def.xOff; d.z = -packDist + d.def.zOff; d.y = groundY(d.z); d.dist = 0; d.prevX = d.x; d.laneX = 0;
+    d.x = d.def.xOff; d.rel = -packDist + d.def.zOff; d.z = d.rel; d.y = groundY(d.z); d.dist = 0; d.prevX = d.x; d.laneX = 0;
     d.laneHist.length = 0; d.barkT = 1.5 + rnd() * 3;
     d.obj.position.set(d.x, d.y, d.z); d.obj.rotation.set(0, 0, 0);
   }
@@ -64,7 +67,7 @@ export async function init(ctx) {
     after += countMeshes(asset);
     const obj = new THREE.Group(); obj.name = def.name; obj.add(asset);
     ctx.scene.add(obj);
-    dogs.push({ name: def.name, def, obj, root: asset, anim: new DogAnim(THREE, asset, i), x: 0, y: 0, z: 0, dist: 0, barkT: 2, laneHist: [], prevX: 0, laneX: 0 });
+    dogs.push({ name: def.name, def, obj, root: asset, anim: new DogAnim(THREE, asset, i), x: 0, y: 0, z: 0, rel: 0, dist: 0, barkT: 2, laneHist: [], prevX: 0, laneX: 0 });
   }
   drawInfo = { before, after };
   ctx.state.packDraws = after;
@@ -72,8 +75,9 @@ export async function init(ctx) {
   const ev = ctx.events;
   if (ev && typeof ev.on === 'function') {
     ev.on('start', () => resetPack());
-    ev.on('hit', () => { packDist = Math.max(0, packDist - 2); for (const d of dogs) d.barkT = Math.min(d.barkT, 0.1 + rnd() * 0.3); });
-    ev.on('stumble', () => { packDist = Math.max(0, packDist - 1); });
+    // a hit closes the pack to ~1.2 m (PACK_DIST − 1.4), a stumble half that; catch stays at < 0.8 m
+    ev.on('hit', () => { packDist = Math.max(0, packDist - HIT_CLOSE); for (const d of dogs) d.barkT = Math.min(d.barkT, 0.1 + rnd() * 0.3); });
+    ev.on('stumble', () => { packDist = Math.max(0, packDist - HIT_CLOSE * 0.5); });
     ev.on('death', () => { dead = true; deadT = 0; });
   }
 }
@@ -106,12 +110,16 @@ export function update(a, b) {
     d.laneHist.push([clock, lane]);
     while (d.laneHist.length > 2 && d.laneHist[1][0] <= clock - def.lag) d.laneHist.shift();
     const lagLane = d.laneHist[0][1];
-    const weave = live ? Math.sin(clock * def.weave + i * 2.1) * 0.25 : 0;
+    const weave = live ? Math.sin(clock * def.weave + i * 2.1) * 0.15 : 0;
     const tx = laneToX(lagLane) + def.xOff + weave;
-    const tz = pz - packDist + def.zOff - (dead ? 0.4 * i : 0);
+    // z is followed as an offset RELATIVE to the runner (damping toward a target that moves at 10–20 m/s
+    // would settle v/rate metres short); only changes of packDist are smoothed
+    const relT = -packDist + def.zOff - (dead ? 0.4 * i : 0);
     const nx = damp(d.x, tx, 6.5, dt);
     const prevZ = d.z;
-    const nz = live ? damp(d.z, tz, 9, dt) : (dead ? damp(d.z, tz, 3, dt) : tz);
+    const rel = live ? damp(d.rel, relT, 9, dt) : (dead ? damp(d.rel, relT, 3, dt) : relT);
+    d.rel = rel;
+    const nz = pz + rel;
     d.x = nx; d.z = nz;
     const vz = dt > 0 ? (d.z - prevZ) / dt : 0;
     d.dist += Math.max(0, vz) * dt;

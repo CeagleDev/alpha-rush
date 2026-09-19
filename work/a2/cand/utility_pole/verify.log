@@ -1,0 +1,7 @@
+ok    utility_pole_a           2828 tris  106 meshes  3.069x9.03x0.769m
+ok    utility_pole_b           4012 tris  83 meshes  3.069x9x0.769m
+ok    utility_pole_c           2892 tris  115 meshes  3.072x9.025x1.923m
+
+3/3 clean
+sheet:  /Users/dev/Documents/Cursor.Code/midnight-dash/work/a2/cand/utility_pole/_verify/sheet.png
+report: /Users/dev/Documents/Cursor.Code/midnight-dash/work/a2/cand/utility_pole/_verify/report.json

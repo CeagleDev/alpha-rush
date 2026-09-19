@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>e4 fixture — lighting / assets / textures</title>
+<!--
+  E4's fixture: only E4's modules plus the harness (rig, assetlib, surfaces). A wet road of
+  alley_road_chunk placeholders, shophouse placeholders as walls, rows of emitting placeholders
+  (wall_lightbox, standing_lightbox, paper_lantern, vending_machine, lantern_string), a real
+  tau_coin and runner from game/assets/, a static camera at E2's chase position (0, 2.6, -6.5)
+  looking at (0, 1.2, 12), portrait. Chunk groups carry userData.lights aggregated with
+  assets.lights(inst) exactly as chunks.js does, and a track stub exposes lights()/groundY().
+  ?q=phone|high  ?fill=  ?lights=  ?pools=0  ?sky=0  ?chamfer=0
+-->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #110f12; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #log { position: fixed; left: 6px; bottom: 6px; color: #eee2c8; font: 10px ui-monospace, monospace; opacity: .8; pointer-events: none; white-space: pre; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three';
+import { createRig } from '../../game/rig.js';
+import * as assets from '../../game/src/assets.js';
+import * as textures from '../../game/src/textures.js';
+import * as lighting from '../../game/src/lighting.js';
+import * as perf from '../../game/src/perf.js';
+
+const Q = new URLSearchParams(location.search);
+const canvas = document.getElementById('c');
+const phone = Q.get('q') ? Q.get('q') === 'phone' : innerWidth < 700;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !phone, powerPreference: 'high-performance', stencil: false, alpha: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.setClearColor(0x110f12, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+camera.position.set(0, 2.6, -6.5);
+camera.lookAt(0, 1.2, 12);
+scene.add(camera);
+const rig = createRig(THREE, renderer, scene, { hour: 19.4, azimuth: 250, tier: phone ? 'phone' : 'high', camera });
+
+const state = { z: 0, x: 0 };
+const config = { PHONE_MAX_W: 700, DRAW_BUDGET: 900, TRI_BUDGET: 1500000, phone };
+const chunks = [];
+const trackStub = {
+  lights() {
+    if (trackStub._cache) return trackStub._cache;
+    const out = [];
+    for (const g of chunks) for (const l of g.userData.lights) out.push({ x: l.x + g.position.x, y: l.y + g.position.y, z: l.z + g.position.z, color: l.color, intensity: l.intensity, range: l.range });
+    return (trackStub._cache = out);
+  },
+  groundY() { return 0; },
+};
+const ctx = { THREE, scene, camera, renderer, rig, config, state, assets, textures, modules: { track: trackStub } };
+
+const log = [];
+const say = (s) => { log.push(s); document.getElementById('log').textContent = log.slice(-8).join('\n'); };
+
+async function build() {
+  await textures.init(ctx);
+  assets.init(ctx);
+  perf.init(ctx);
+  await lighting.init(ctx);
+
+  // four chunks of road with walls and emitters, built the way chunks.js builds: instances placed
+  // under a chunk root, lights aggregated with assets.lights(inst) in chunk space
+  const put = async (root, name, x, y, z, ry = 0, opts) => {
+    const inst = await assets.get(name, opts);
+    inst.position.set(x, y, z); inst.rotation.y = ry;
+    root.add(inst);
+    return inst;
+  };
+  const SHOP_X = 4.5;
+  for (let ci = -1; ci < 4; ci++) {
+    const root = new THREE.Group();
+    const placed = [];
+    placed.push(await put(root, 'alley_road_chunk', 0, 0, 15));
+    for (const s of [-1, 1]) {
+      for (let k = 0; k < 6; k++) {
+        const name = ['shophouse_a', 'shophouse_b', 'shophouse_c', 'shophouse_d'][(k + (s > 0 ? 1 : 0) + ci + 9) % 4];
+        placed.push(await put(root, name, s * (SHOP_X + 3), 0, k * 5 + 2.5, s > 0 ? Math.PI / 2 : -Math.PI / 2));
+      }
+      placed.push(await put(root, 'wall_lightbox', s * (SHOP_X - 0.08), 2.6, 4 + (s > 0 ? 9 : 0), s > 0 ? -Math.PI / 2 : Math.PI / 2));
+      placed.push(await put(root, 'wall_lightbox', s * (SHOP_X - 0.08), 4.2, 19 + (s > 0 ? 6 : 0), s > 0 ? -Math.PI / 2 : Math.PI / 2));
+      placed.push(await put(root, 'standing_lightbox', s * (SHOP_X - 0.6), 0, 11 + (s > 0 ? 5 : 0), s > 0 ? -Math.PI / 2 : Math.PI / 2));
+      placed.push(await put(root, 'paper_lantern', s * (SHOP_X - 0.5), 0, 7 + (s > 0 ? 12 : 0)));
+      placed.push(await put(root, 'utility_pole', s * (SHOP_X - 0.3), 0, 26 - (s > 0 ? 14 : 0)));
+      placed.push(await put(root, 'bins_bags', s * (SHOP_X - 0.9), 0, 24 + (s > 0 ? -8 : 0)));
+      placed.push(await put(root, 'crate_stack', s * (SHOP_X - 0.7), 0, 1.5 + (s > 0 ? 20 : 0)));
+    }
+    placed.push(await put(root, 'vending_machine', (ci % 2 ? 1 : -1) * (SHOP_X - 0.55), 0, 15, (ci % 2 ? -1 : 1) * Math.PI / 2));
+    placed.push(await put(root, 'lantern_string', 0, 0, 9 + (ci % 2) * 12, 0));
+    placed.push(await put(root, 'cable_span', 0, 0, 15));
+    root.updateMatrixWorld(true);
+    const lights = [];
+    for (const inst of placed) for (const l of assets.lights(inst)) lights.push({ x: l.x, y: l.y, z: l.z, color: l.color, intensity: l.intensity, range: l.range });
+    root.userData.lights = lights;
+    root.position.set(0, 0, ci * 30);
+    root.updateMatrixWorld(true);
+    scene.add(root);
+    chunks.push(root);
+  }
+  trackStub._cache = null;
+
+  // the hero and a coin from the real assets
+  const runner = await assets.get('runner', { keepHierarchy: true });
+  runner.position.set(0, 0, 0); scene.add(runner);
+  const coin = await assets.get('tau_coin');
+  coin.position.set(2, 0.7, 6); scene.add(coin);
+  const coin2 = await assets.get('tau_coin');
+  coin2.position.set(2, 0.7, 7.5); scene.add(coin2);
+  say(`runner placeholder=${runner.userData.placeholder} coin placeholder=${coin.userData.placeholder} lights/chunk=${chunks[1].userData.lights.length}`);
+  say(`textures ${JSON.stringify(textures.status())}`);
+  rig.refresh();
+  await Promise.race([rig.ready, new Promise((r) => setTimeout(r, 8000))]);
+}
+
+let last = performance.now(), frames = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  lighting.update(dt);
+  perf.update(dt);
+  rig.render(camera, dt);
+  frames++;
+  if (frames % 30 === 0) {
+    const r = perf.report(), l = lighting.report();
+    document.getElementById('log').textContent = `${r.tier} ${r.draws} draws ${(r.tris / 1000).toFixed(0)}k tris ${r.fps} fps · lights ${l.active}/${l.pool} warm ${l.warm} cool ${l.cool} · sky ${l.sky}\n` + log.slice(-4).join('\n');
+  }
+  window.__FRAMES__ = frames;
+}
+
+build().then(() => {
+  requestAnimationFrame(loop);
+  window.__CTX__ = ctx;
+  window.__perf = perf; window.__lighting = lighting; window.__assets = assets; window.__textures = textures;
+  window.__READY__ = true;
+}).catch((e) => { console.error(e); say('ERROR ' + e.message); window.__ERROR__ = String(e && e.stack || e); });
+</script>
+</body>
+</html>

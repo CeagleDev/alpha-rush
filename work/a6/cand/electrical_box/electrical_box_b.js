@@ -15,7 +15,7 @@ export default function (THREE) {
     s.lineTo(x + rad, y + h); s.quadraticCurveTo(x, y + h, x, y + h - rad);
     s.lineTo(x, y + rad); s.quadraticCurveTo(x, y, x + rad, y); return s; };
   const ext = (shape, depth, mat, p, r) => put(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 4 }), mat, p, r);
-  const tube = (pts, rad, mat, seg = 6) => put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((q) => new THREE.Vector3(q[0], q[1], q[2])), false, 'catmullrom', 0.2), pts.length * 6, rad, seg, false), mat);
+  const tube = (pts, rad, mat, seg = 6) => put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((q) => new THREE.Vector3(q[0], q[1], q[2])), false, 'catmullrom', 0.2), pts.length * 3, rad, seg, false), mat);
 
   const timber = M(0x4f2d21, 'timber', { roughness: 0.92 });
   const timber2 = M(0x37201b, 'timber', { roughness: 0.92 });
@@ -59,7 +59,7 @@ export default function (THREE) {
     ext(rrect(0.53, 0.82, 0.025), 0.02, steel, [0.02, BY, BD]);            // door leaf
     // hood: an L-section extruded across the top
     const L = new THREE.Shape(); L.moveTo(0, 0); L.lineTo(0.29, 0); L.lineTo(0.29, -0.03); L.lineTo(0.02, -0.03); L.lineTo(0.02, -0.06); L.lineTo(0, -0.06); L.lineTo(0, 0);
-    ext(L, BW + 0.04, steelDk, [-BW / 2 - 0.02, BY + BH / 2 + 0.03, 0], [0, Math.PI / 2, 0]);
+    ext(L, BW + 0.04, steelDk, [BW / 2 + 0.02, BY + BH / 2 + 0.03, 0], [0, -Math.PI / 2, 0]);
   }
   const F = BD + 0.02;                                                     // door face plane
   box(0.006, 0.82, 0.03, [-0.245, BY, F - 0.01], dark);                    // hinge seam
@@ -75,9 +75,9 @@ export default function (THREE) {
 
   // --- conduits, swept -----------------------------------------------------------
   const CR = 0.022, ZC = BD / 2;
-  tube([[-0.15, BY + BH / 2, ZC], [-0.15, BY + BH / 2 + 0.25, ZC], [-0.15, BY + BH / 2 + 0.34, ZC - 0.02]], CR, galv, 8);
-  tube([[0.12, BY + BH / 2, ZC], [0.12, BY + BH / 2 + 0.08, ZC], [0.16, BY + BH / 2 + 0.14, ZC], [0.24, BY + BH / 2 + 0.16, ZC], [0.46, BY + BH / 2 + 0.16, ZC]], CR, galv, 8);
-  tube([[0.05, BY - BH / 2, ZC], [0.05, BY - BH / 2 - 0.10, ZC], [0.02, BY - BH / 2 - 0.16, ZC - 0.02], [-0.06, BY - BH / 2 - 0.18, ZC - 0.03], [-0.46, BY - BH / 2 - 0.18, ZC - 0.03]], CR, galv, 8);
+  tube([[-0.15, BY + BH / 2, ZC], [-0.15, BY + BH / 2 + 0.16, ZC], [-0.15, BY + BH / 2 + 0.22, ZC - 0.02]], CR, galv, 6);
+  tube([[0.12, BY + BH / 2, ZC], [0.12, BY + BH / 2 + 0.08, ZC], [0.16, BY + BH / 2 + 0.14, ZC], [0.24, BY + BH / 2 + 0.16, ZC], [0.46, BY + BH / 2 + 0.16, ZC]], CR, galv, 6);
+  tube([[0.05, BY - BH / 2, ZC], [0.05, BY - BH / 2 - 0.10, ZC], [0.02, BY - BH / 2 - 0.16, ZC - 0.02], [-0.06, BY - BH / 2 - 0.18, ZC - 0.03], [-0.46, BY - BH / 2 - 0.18, ZC - 0.03]], CR, galv, 6);
   for (const p of [[-0.15, BY + BH / 2 + 0.02, ZC], [0.12, BY + BH / 2 + 0.02, ZC], [0.05, BY - BH / 2 - 0.02, ZC]]) put(new THREE.CylinderGeometry(CR + 0.007, CR + 0.007, 0.03, 8), rust, p);
   put(new THREE.CylinderGeometry(CR + 0.007, CR + 0.007, 0.04, 8), rust, [0.36, BY + BH / 2 + 0.16, ZC], [0, 0, Math.PI / 2]);
   box(0.03, 0.06, 0.03, [-0.30, BY - BH / 2 - 0.18, ZC - 0.07], rust);

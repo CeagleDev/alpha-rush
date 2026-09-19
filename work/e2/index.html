@@ -88,11 +88,15 @@ const events = {
   emit: (n, p) => { eventLog.push([n, p && p.z !== undefined ? +p.z.toFixed(1) : p && p.reason || '']); (listeners.get(n) || []).forEach((f) => f(p)); if (n === 'death') state.over = true; },
 };
 const state = { running: false, over: false, rng: Math.random };
-const config = { LANE_W: 2, LANES: 3, LANE_X: [-2, 0, 2], SPEED0: 9, SPEED_STEP: 0.6, SPEED_STEP_M: 150, SPEED_MAX: 20, JUMP_H: 1.1, JUMP_T: 0.55, ROLL_T: 0.5, LANE_T: 0.18, PACK_DIST: 5 };
+const config = { LANE_W: 2, LANES: 3, LANE_X: [-2, 0, 2], SPEED0: 9, SPEED_STEP: 0.6, SPEED_STEP_M: 150, SPEED_MAX: 20, JUMP_H: 1.1, JUMP_T: 0.55, ROLL_T: 0.5, LANE_T: 0.18, PACK_DIST: 2.6 };
 const ctx = { THREE, scene, camera: cam, renderer, config, state, assets, events, input, obstacles };
 
 await player.init(ctx); await pack.init(ctx); await camera.init(ctx);
 const runnerObj = player.getObject();
+const dogObjs = pack.getDogs().map((d) => d.obj);
+const vis = { frames: 0, all3: 0, per: [0, 0, 0] };
+const _fr = new THREE.Frustum(), _pm = new THREE.Matrix4(), _dp = new THREE.Vector3();
+function dogVisibility() { if (!state.running) return; cam.updateMatrixWorld(); _fr.setFromProjectionMatrix(_pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); let n = 0; dogObjs.forEach((o, i) => { _dp.copy(o.position); _dp.y += 0.3; if (_fr.containsPoint(_dp)) { n++; vis.per[i]++; } }); vis.frames++; if (n === 3) vis.all3++; }
 const draws = { runner: player.getDrawInfo(), pack: pack.getDrawInfo() };
 
 // ---- joint checks on the merged runner: limbs pivot at joints (a rotation moves a vertex), and joints actually move over time
@@ -142,6 +146,7 @@ function loop(now) {
   renderer.render(scene, cam);
   frame++;
   if (frame % 6 === 0) sampleJoints();
+  dogVisibility();
   if (captureFlag !== null) { doCapture(captureFlag); captureFlag = null; }
   const s = state;
   window.__E2__ = {
@@ -149,7 +154,9 @@ function loop(now) {
     distance: +s.distance.toFixed(2), speed: +s.speed.toFixed(2), x: +s.x.toFixed(2), y: +s.y.toFixed(2), lane: s.lane,
     airborne: s.airborne, rolling: s.rolling, jumps: s.jumps, rolls: s.rolls, hits: s.hits, stumbleT: +s.stumbleT.toFixed(2),
     playerState: s.playerState, packDist: +s.packDist.toFixed(2), heroBox: s.heroBox, heroFrac: +s.heroFrac.toFixed(3),
-    over: s.over, running: s.running, camFov: +cam.fov.toFixed(1),
+    over: s.over, running: s.running, camFov: +cam.fov.toFixed(1), camDist: +(s.camDist || 0).toFixed(2), camY: +cam.position.y.toFixed(2),
+    dogsRel: dogObjs.map((o) => [+(o.position.x - s.x).toFixed(2), +(o.position.z - s.z).toFixed(2), +o.position.y.toFixed(2)]), camPos: [+cam.position.x.toFixed(2), +cam.position.y.toFixed(2), +(cam.position.z - s.z).toFixed(2)],
+    dogVis: vis.frames ? +(vis.all3 / vis.frames).toFixed(3) : 0, dogVisEach: vis.per.map((n) => vis.frames ? +(n / vis.frames).toFixed(2) : 0),
   };
   info.textContent = `d ${s.distance.toFixed(1)} m  v ${s.speed.toFixed(1)}  lane ${s.lane}  ${s.playerState}  pack ${s.packDist.toFixed(1)}\nhero ${(s.heroFrac * 100).toFixed(0)}%  draws ${renderer.info.render.calls}  fps ${fps.toFixed(0)}`;
   requestAnimationFrame(loop);

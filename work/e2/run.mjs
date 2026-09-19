@@ -15,7 +15,7 @@ const server = http.createServer((rq, rs) => {
   const p = path.join(ROOT, decodeURIComponent(new URL(rq.url, 'http://x').pathname));
   let f = p; if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, 'index.html');
   if (!fs.existsSync(f)) { rs.writeHead(404); rs.end(); return; }
-  rs.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' }); if (rq.method === 'HEAD') { rs.end(); return; } fs.createReadStream(f).pipe(rs);
+  rs.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream', 'cache-control': 'no-store' }); if (rq.method === 'HEAD') { rs.end(); return; } fs.createReadStream(f).pipe(rs);
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const REAL = process.argv.includes('--stub') ? 0 : 1;
@@ -23,6 +23,7 @@ const url = `http://127.0.0.1:${server.address().port}/work/e2/?fixed=1&sub=4&dp
 const browser = await puppeteer.launch({ headless: true, args: ['--enable-unsafe-swiftshader', '--no-sandbox', `--window-size=390,844`] });
 const page = await browser.newPage();
 await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+await page.setCacheEnabled(false);
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push('pageerror ' + e.message));
@@ -58,6 +59,7 @@ fs.writeFileSync(path.join(OUT, REAL ? 'filmstrip.png' : 'filmstrip-stub.png'), 
 const out = { wall_s: +((Date.now() - t0) / 1000).toFixed(1), idle, at200, afterHit, final, decisions: dec, ...report, errors };
 fs.writeFileSync(path.join(OUT, REAL ? 'report.json' : 'report-stub.json'), JSON.stringify(out, null, 2));
 console.log(JSON.stringify({ used: report.used, wall_s: out.wall_s, at200, afterHit, final, draws: report.draws, decisions: dec, events: report.events, errors }, null, 1));
+console.log(`hero fraction ${at200.heroFrac} (band 0.26–0.32)  dogs all-in-frustum ${final.dogVis} of frames (each ${final.dogVisEach})  cam dist ${at200.camDist} m, cam y ${at200.camY}, fov ${at200.camFov}`);
 console.log('joint rotation ranges (rad):', JSON.stringify(report.joints));
 console.log('pivot check:', JSON.stringify(report.pivots));
 await browser.close(); server.close(); process.exit(0);

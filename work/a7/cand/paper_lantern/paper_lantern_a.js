@@ -41,8 +41,8 @@ export default function (THREE) {
   add(new THREE.CylinderGeometry(0.105, 0.10, 0.06, 16, 1, true), RING2, 0, 0.445, 0);
   add(new THREE.CircleGeometry(0.105, 16), RING2, 0, 0.474, 0, -Math.PI / 2, 0, 0);
   // rivet dots on the rings
-  for (const [y, mat] of [[0.02, RING2], [0.45, RING]]) for (let k = 0; k < 4; k++) {
-    const a = k * Math.PI / 2 + 0.4;
+  for (const [y, mat] of [[0.02, RING2], [0.45, RING]]) for (let k = 0; k < 2; k++) {
+    const a = k * Math.PI + 0.4;
     add(new THREE.CylinderGeometry(0.006, 0.006, 0.006, 6), mat, Math.sin(a) * 0.105, y, Math.cos(a) * 0.105, Math.PI / 2, 0, a);
   }
   // wire bail: an arc over the top, and a loop at the crown

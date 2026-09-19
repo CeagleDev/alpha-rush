@@ -1,0 +1,7 @@
+ok    lantern_string_a         2952 tris  52 meshes  6.008x0.869x0.325m
+ok    lantern_string_b         2952 tris  38 meshes  6.008x0.874x0.344m
+ok    lantern_string_c         2952 tris  87 meshes  6.006x0.879x0.342m
+
+3/3 clean
+sheet:  /Users/dev/Documents/Cursor.Code/midnight-dash/work/a2/cand/lantern_string/_verify/sheet.png
+report: /Users/dev/Documents/Cursor.Code/midnight-dash/work/a2/cand/lantern_string/_verify/report.json

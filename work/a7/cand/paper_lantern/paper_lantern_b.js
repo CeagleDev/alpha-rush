@@ -23,7 +23,7 @@ export default function (THREE) {
   };
 
   // ribbed body profile: y from 0.045 to 0.445, radius = ellipse * (1 + rib wobble)
-  const R = 0.225, RY = 0.20, CY = 0.245, N = 34, RIBS = 11;
+  const R = 0.225, RY = 0.20, CY = 0.245, N = 26, RIBS = 9;
   const pts = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
@@ -32,7 +32,7 @@ export default function (THREE) {
     const rib = 1 + 0.022 * Math.cos(t * Math.PI * 2 * RIBS);
     pts.push(new THREE.Vector2(Math.max(0.095, e * R * rib), y));
   }
-  add(new THREE.LatheGeometry(pts, 16), BODY, 0, 0, 0);
+  add(new THREE.LatheGeometry(pts, 12), BODY, 0, 0, 0);
   // bright core
   add(new THREE.SphereGeometry(0.06, 8, 6), CORE, 0, CY, 0);
   // rings with a rolled lip: bottom (grounding band) and top
@@ -40,11 +40,11 @@ export default function (THREE) {
     const p = [new THREE.Vector2(0, 0), new THREE.Vector2(0.098, 0), new THREE.Vector2(0.104, 0.008), new THREE.Vector2(0.104, 0.042), new THREE.Vector2(0.110, 0.05), new THREE.Vector2(0.098, 0.05)];
     return p.map((q) => new THREE.Vector2(q.x, flip ? y0 + 0.05 - q.y : y0 + q.y));
   };
-  add(new THREE.LatheGeometry(ringProfile(0, false), 16), RING, 0, 0, 0);
-  add(new THREE.LatheGeometry(ringProfile(0.435, true), 16), RING2, 0, 0, 0);
+  add(new THREE.LatheGeometry(ringProfile(0, false), 12), RING, 0, 0, 0);
+  add(new THREE.LatheGeometry(ringProfile(0.435, true), 12), RING2, 0, 0, 0);
   // rivets
-  for (const [y, mat] of [[0.02, RING2], [0.46, RING]]) for (let k = 0; k < 4; k++) {
-    const a = k * Math.PI / 2 + 0.6;
+  for (const [y, mat] of [[0.02, RING2], [0.46, RING]]) for (let k = 0; k < 2; k++) {
+    const a = k * Math.PI + 0.6;
     add(new THREE.CylinderGeometry(0.006, 0.006, 0.006, 6), mat, Math.sin(a) * 0.106, y, Math.cos(a) * 0.106, Math.PI / 2, 0, a);
   }
   // bail: a tube arc from ring to ring over the crown, then a stem and a loop

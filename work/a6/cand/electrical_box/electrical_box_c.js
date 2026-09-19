@@ -69,9 +69,9 @@ export default function (THREE) {
 
   // --- conduits with pipe clips -----------------------------------------------------
   const CR = 0.022, ZC = Z0 + BD / 2;
-  cyl(CR, CR, 0.24, 8, [-0.10, BY + BH / 2 + 0.16, ZC], galv);
-  cyl(CR, CR, 0.24, 8, [0.06, BY + BH / 2 + 0.16, ZC], galv);
-  for (const x of [-0.10, 0.06]) { cyl(CR + 0.007, CR + 0.007, 0.03, 8, [x, BY + BH / 2 + 0.05, ZC], rust); box(0.07, 0.03, 0.05, [x, BY + BH / 2 + 0.22, ZC - 0.02], rust); }
+  cyl(CR, CR, 0.20, 8, [-0.10, BY + BH / 2 + 0.12, ZC], galv);
+  cyl(CR, CR, 0.20, 8, [0.06, BY + BH / 2 + 0.12, ZC], galv);
+  for (const x of [-0.10, 0.06]) { cyl(CR + 0.007, CR + 0.007, 0.03, 8, [x, BY + BH / 2 + 0.05, ZC], rust); box(0.07, 0.03, 0.05, [x, BY + BH / 2 + 0.18, ZC - 0.02], rust); }
   cyl(CR, CR, 0.16, 8, [0.18, BY - BH / 2 - 0.08, ZC], galv);
   put(new THREE.TorusGeometry(0.05, CR, 6, 8, Math.PI / 2), galv, [0.13, BY - BH / 2 - 0.16, ZC], [0, 0, -Math.PI]);
   cyl(CR, CR, 0.50, 8, [-0.12, BY - BH / 2 - 0.21, ZC], galv, [0, 0, Math.PI / 2]);
