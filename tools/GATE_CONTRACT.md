@@ -64,19 +64,25 @@ the gate makes one decision about.
 |---|---|---|
 | `next.id` | integer, NEW | unique per row, monotonically increasing as rows are spawned. The gate acts **once per id**; without it a slow poll would swipe twice for one row |
 | `next.dist` | metres | from the player's z to the row's near edge, `≥ 0`. The gate decides when this crosses a threshold that is a function of `speed` only, so the decision distance is repeatable between runs |
+| `next.len` | metres, NEW | the row's extent along z, near edge to far edge, over every lane in the row (a taxi makes its row ~3 m long even for the crossbar beside it). Default 1 if absent. A roll lasts 0.5 s and must still be active at the far edge, so this decides when the roll starts |
 | `next.lanes` | `[k_left, k_mid, k_right]`, NEW | per lane, index `lane + 1`: `null` = free, `'jump'` = can be cleared by a jump (low barrier, cones, scooter…), `'roll'` = can be cleared by a roll (overhead crossbar), `'block'` = cannot be passed (taxi, van, dumpster, divider…). A lane with two things at the same z reports the stricter one (`block > roll > jump`) |
 | `next.lane` | `-1\|0\|1` | the obstacle in the player's **current** target lane if there is one, else the one nearest the player's lane |
 | `next.kind` | `'jump'\|'roll'\|'block'` | kind of that obstacle |
 | `next.type` | string | asset name of that obstacle, for the log (`'low_barrier'`, `'taxi'`…) |
 
 Decisions the gate takes from it, all at distances that scale with speed (constants at the top of
-`gate.mjs`):
+`gate.mjs`). `g` is the gesture allowance: 0.15·speed on phone (a swipe takes ~0.15 s to arrive),
+~0 on desktop (a key press is immediate), so the game receives each input at the same distance
+either way:
 
-- my lane is `'jump'` → swipe up when `dist ≤ 0.45·speed + 1.0`
-- my lane is `'roll'` → swipe down when `dist ≤ 0.22·speed + 0.6`
+- my lane is `'jump'` → swipe up when `dist ≤ 0.35·speed + 1.5 + g`
+- my lane is `'roll'` → swipe down when `dist ≤ max(0.02·speed, (0.5·speed − len)/2 + 0.025·speed) + g`:
+  a 0.5 s roll covers `0.5·speed` metres and must span the row from near edge to far edge, so it may
+  start only inside a window `0.5·speed − len` wide that ends at the near edge; the gate aims at the
+  middle of it. A row longer than `0.5·speed` cannot be rolled under at all: do not build one
 - my lane is `'block'` → pick the nearest lane whose entry is `null` (tie: toward the coin lane,
   then toward centre); if none is `null`, the nearest `'jump'`/`'roll'` lane and then do that;
-  first swipe when `dist ≤ 0.70·speed + 2.0`, second swipe (two lanes over) as soon as `|x - lane·2| < 0.2`
+  first swipe when `dist ≤ 0.55·speed + 2.0 + g`, second swipe (two lanes over) as soon as `|x - lane·2| < 0.2`
 - my lane is `null` → no obstacle action
 
 ## `coin` — opportunistic coin collection (NEW)
@@ -88,7 +94,7 @@ Decisions the gate takes from it, all at distances that scale with speed (consta
 | `coin.lane` | `-1\|0\|1` | its lane |
 
 The gate swipes toward `coin.lane` only when: `coin.lane ≠ lane`, `|coin.lane - lane| = 1`,
-`coin.dist ≤ 0.8·speed + 2`, no obstacle decision is pending, and either `next` is `null` or
+`coin.dist ≤ 0.65·speed + 2 + g`, no obstacle decision is pending, and either `next` is `null` or
 `next.lanes[coin.lane + 1] === null` or `next.dist > coin.dist + 0.8·speed`. Coins are what
 asserts `coins > 0`, so a build that spawns coins only in lanes the gate never visits fails.
 

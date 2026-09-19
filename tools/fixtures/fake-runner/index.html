@@ -161,7 +161,7 @@
       for (const r of rows) {
         if (P.z < r.z || P.z > r.z + r.len) continue;
         const k = r.lanes[P.lane + 1];
-        if (!k || Math.abs(P.x - P.lane * LANE_W) > 1.0 && false) continue;
+        if (!k) continue;
         if (k === 'jump' && P.y > 0.45) continue;
         if (k === 'roll' && P.rollT >= 0) continue;
         die(); break;
@@ -227,7 +227,7 @@
       const mine = nr.lanes[P.lane + 1];
       let lane = P.lane;
       if (!mine) { lane = [-1, 0, 1].filter((L) => nr.lanes[L + 1]).sort((a, b) => Math.abs(a - P.lane) - Math.abs(b - P.lane))[0]; }
-      T.next = { id: nr.id, dist: Math.max(0, nr.z - P.z), lane, kind: nr.lanes[lane + 1], type: nr.types[lane + 1], lanes: nr.lanes.slice() };
+      T.next = { id: nr.id, dist: Math.max(0, nr.z - P.z), len: nr.len, lane, kind: nr.lanes[lane + 1], type: nr.types[lane + 1], lanes: nr.lanes.slice() };
     } else T.next = null;
     const nc = coins.find((c) => !c.taken && c.z >= P.z && c.z - P.z <= MAXZ);
     T.coin = nc ? { dist: nc.z - P.z, lane: nc.lane } : null;

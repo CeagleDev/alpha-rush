@@ -60,8 +60,12 @@ const SHOTS = opt('at', '') ? opt('at', '').split(',').map(Number).filter((n) =>
 const FFMPEG = '/Users/dev/.local/bin/ffmpeg';
 
 // ------------------------------------------------------------------ constants (one place)
-// Action distances: metres = a * speed + b. Decided by DISTANCE so the line is repeatable.
-const LEAD = { jump: [0.45, 1.0], roll: [0.22, 0.6], lane: [0.70, 2.0], coin: [0.80, 2.0] };
+// Action distances, as the GAME sees them: metres = a * speed + b before the row's near edge. Decided by
+// DISTANCE so the line is repeatable. A touch gesture takes ~0.15 s to arrive (four touch moves over
+// ~100 ms plus the CDP round trip), a key press ~0, so GESTURE_S * speed is added on top: at 20 m/s a
+// swipe costs 3 m of road before the game even sees it.
+const LEAD = { jump: [0.35, 1.5], lane: [0.55, 2.0], coin: [0.65, 2.0] };   // roll: see rollLead below
+const GESTURE_S = DESKTOP ? 0.01 : 0.15;
 const BUDGET = { DIST_M: 600, DEATH_M: 400, DRAWS: 900, TRIS: 1_500_000, READY_S: 20, MB: 5 };
 const POLL_MS = 40;
 const START_WAIT_MS = 3000;
@@ -228,17 +232,22 @@ async function runOnce(runNo, outDir) {
 
   // 4. drive
   const swipe = async (dir) => {
-    if (DESKTOP) { await page.keyboard.press({ left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown' }[dir]); return; }
+    const t = Date.now();
+    if (DESKTOP) { await page.keyboard.press({ left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown' }[dir]); return Date.now() - t; }
     const cx = VIEWPORT.width / 2, cy = VIEWPORT.height * 0.58;
     const dx = dir === 'left' ? -1 : dir === 'right' ? 1 : 0, dy = dir === 'up' ? -1 : dir === 'down' ? 1 : 0;
     const STEPS = 4, PX = 22;
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy, id: 1 }] });
+    // CDP replies only once the renderer has handled each event, ~50 ms at 3x, so awaiting every step
+    // stretched a 110 ms gesture to 350 ms. The socket keeps them in order; only the end is awaited.
+    const send = (params) => cdp.send('Input.dispatchTouchEvent', params).catch(() => {});
+    send({ type: 'touchStart', touchPoints: [{ x: cx, y: cy, id: 1 }] });
     for (let i = 1; i <= STEPS; i++) {
       await sleep(22);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx + dx * PX * i, y: cy + dy * PX * i, id: 1 }] });
+      send({ type: 'touchMove', touchPoints: [{ x: cx + dx * PX * i, y: cy + dy * PX * i, id: 1 }] });
     }
     await sleep(20);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await send({ type: 'touchEnd', touchPoints: [] });
+    return Date.now() - t;
   };
   const frames = [];          // { file, d, speed, fps, draws, tris, zone, hero, note }
   const samples = [];
@@ -251,7 +260,12 @@ async function runOnce(runNo, outDir) {
   const laneOf = (g) => (Number.isInteger(g.lane) ? g.lane : Math.max(-1, Math.min(1, Math.round((g.pos ? g.pos[0] : 0) / 2))));
   const settled = (g, lane) => !g.pos || Math.abs(g.pos[0] - lane * 2) < 0.2;
   const rowKey = (g, d) => (g.next.id != null ? `id${g.next.id}` : `z${Math.round(d + g.next.dist)}`);
-  const lead = (k, sp) => LEAD[k][0] * sp + LEAD[k][1];
+  const lead = (k, sp) => LEAD[k][0] * sp + LEAD[k][1] + GESTURE_S * sp;
+  // A roll lasts 0.5 s (0.5 * speed metres) and must be active from the row's near edge to its FAR edge,
+  // so it may start anywhere in a window (0.5 * speed - len) wide ending at the near edge. Aim at the
+  // middle of that window, plus half a poll interval because the decision fires at the first poll past it.
+  const rowLen = (n) => (typeof n.len === 'number' && n.len > 0 ? n.len : 1);
+  const rollLead = (n, sp) => Math.max(0.02 * sp, (0.5 * sp - rowLen(n)) / 2 + 0.025 * sp) + GESTURE_S * sp;
   const caption = (g, d, note) => ({ d, speed: g.speed, fps: g.fps, draws: g.draws, tris: g.tris, zone: g.zone ?? '',
     hero: g.heroBox ? Math.round(100 * g.heroBox[3] / VIEWPORT.height) : null, note });
   const shoot = async (g, d, note) => {
@@ -265,7 +279,7 @@ async function runOnce(runNo, outDir) {
     const mine = Array.isArray(n.lanes) ? n.lanes[lane + 1] : (n.lane === lane ? n.kind : null);
     if (!mine) return false;
     const sp = Math.max(g.speed || 0, 1);
-    return n.dist <= lead(mine === 'block' ? 'lane' : mine, sp) + 0.2 * sp;
+    return n.dist <= (mine === 'roll' ? rollLead(n, sp) : lead(mine === 'block' ? 'lane' : mine, sp)) + 0.2 * sp;
   };
 
   if (readyS !== null) {
@@ -306,21 +320,21 @@ async function runOnce(runNo, outDir) {
           const mine = lanes[lane + 1] || null;
           if (mine === 'jump' && !done.clear && n.dist <= lead('jump', sp)) {
             done.clear = true; acted.set(key, done);
-            await swipe('up');
-            say(`${d.toFixed(1).padStart(6)} m  swipe up     jump ${n.type || 'obstacle'} in lane ${lane} at ${n.dist.toFixed(1)} m (speed ${sp.toFixed(1)}, lead ${lead('jump', sp).toFixed(1)})`);
-          } else if (mine === 'roll' && !done.clear && n.dist <= lead('roll', sp)) {
+            const ms = await swipe('up');
+            say(`${d.toFixed(1).padStart(6)} m  swipe up     jump ${n.type || 'obstacle'} in lane ${lane} at ${n.dist.toFixed(1)} m (speed ${sp.toFixed(1)}, lead ${lead('jump', sp).toFixed(1)}, gesture ${ms} ms)`);
+          } else if (mine === 'roll' && !done.clear && n.dist <= rollLead(n, sp)) {
             done.clear = true; acted.set(key, done);
-            await swipe('down');
-            say(`${d.toFixed(1).padStart(6)} m  swipe down   roll under ${n.type || 'obstacle'} in lane ${lane} at ${n.dist.toFixed(1)} m (speed ${sp.toFixed(1)}, lead ${lead('roll', sp).toFixed(1)})`);
+            const ms = await swipe('down');
+            say(`${d.toFixed(1).padStart(6)} m  swipe down   roll under ${n.type || 'obstacle'} in lane ${lane} at ${n.dist.toFixed(1)} m, row ${rowLen(n)} m long (speed ${sp.toFixed(1)}, lead ${rollLead(n, sp).toFixed(1)}, gesture ${ms} ms)`);
           } else if (mine === 'block' && !done.lane && n.dist <= lead('lane', sp)) {
             done.lane = true; acted.set(key, done);
             const coinLane = g.coin && Number.isInteger(g.coin.lane) ? g.coin.lane : null;
             const score = (L) => (lanes[L + 1] === null ? 0 : lanes[L + 1] === 'block' ? 100 : 10) + Math.abs(L - lane) * 2 + (L === coinLane ? -1 : 0) + Math.abs(L) * 0.5;
             const target = [-1, 0, 1].filter((L) => L !== lane).sort((a, b) => score(a) - score(b))[0];
             const dir = target > lane ? 'right' : 'left';
-            await swipe(dir);
+            const ms = await swipe(dir);
             if (Math.abs(target - lane) > 1) plan = { key, target };
-            say(`${d.toFixed(1).padStart(6)} m  swipe ${dir.padEnd(5)}  ${n.type || 'obstacle'} blocks lane ${lane} at ${n.dist.toFixed(1)} m; lanes [${lanes.map((k) => k || '-').join(' ')}] -> lane ${target} (speed ${sp.toFixed(1)}, lead ${lead('lane', sp).toFixed(1)})`);
+            say(`${d.toFixed(1).padStart(6)} m  swipe ${dir.padEnd(5)}  ${n.type || 'obstacle'} blocks lane ${lane} at ${n.dist.toFixed(1)} m; lanes [${lanes.map((k) => k || '-').join(' ')}] -> lane ${target} (speed ${sp.toFixed(1)}, lead ${lead('lane', sp).toFixed(1)}, gesture ${ms} ms)`);
           } else if (mine === null && g.coin && Number.isInteger(g.coin.lane) && g.coin.lane !== lane && Math.abs(g.coin.lane - lane) === 1
             && g.coin.dist <= lead('coin', sp) && (coinLock === null || d > coinLock) && settled(g, lane)
             && (lanes[g.coin.lane + 1] === null || n.dist > g.coin.dist + 0.8 * sp)) {
@@ -470,7 +484,7 @@ ${f.draws} draws  ${Number(f.tris || 0).toLocaleString('en-US')} tris${f.hero !=
   fs.writeFileSync(path.join(outDir, 'decisions.log'), decisions.join('\n') + '\n');
   fs.writeFileSync(path.join(outDir, 'verdict.json'), JSON.stringify({
     game: target, utc: new Date().toISOString(), run: runNo, seed: SEED, viewport: VIEWPORT, desktop: DESKTOP, fourg: FOURG, network: FOURG ? NET : null,
-    budgets: BUDGET, lead: LEAD, ready_s: readyS, mb: Number(mb.toFixed(3)), body_bytes: bodyBytes, started: startHow, start_fallback: startFallback,
+    budgets: BUDGET, lead: LEAD, gesture_s: GESTURE_S, ready_s: readyS, mb: Number(mb.toFixed(3)), body_bytes: bodyBytes, started: startHow, start_fallback: startFallback,
     no_next: noNext, distance_m: Number(distance.toFixed(1)), died_at_m: diedAt, stall: stall || null, coins, jumps, rolls, deaths: last.deaths ?? null,
     score: last.score ?? null, peak_draws: peakDraws, peak_tris: peakTris, median_fps: medianFps, min_fps: minFps, software, renderer: gpu,
     frames: frames.map((f, i) => ({ ...f, file: path.basename(f.file), luma: lumas[i] ?? null })), decisions, missing, errors,
