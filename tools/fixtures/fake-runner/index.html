@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>fake-runner (gate fixture)</title>
+<!--
+  A stand-in for midnight-dash that implements tools/GATE_CONTRACT.md exactly, on a 2D canvas, with no
+  assets. It exists so the gate's steering path can be tested before the real engine exists. Rules match
+  SPEC.md: lanes at x = -2/0/+2, lane change 0.18 s eased, jump apex 1.1 m in 0.55 s, roll 0.5 s, speed
+  9 m/s +0.6 every 150 m capped at 20, ?seed fixes the rows and coins. Real DOM input only: touch swipes
+  on the canvas, arrow keys / WASD / space.
+-->
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07080d; color: #eee; font: 14px ui-monospace, Menlo, monospace; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #hud.on { display: block; }
+  #score { position: absolute; top: 16px; left: 0; right: 0; text-align: center; font-size: 30px; text-shadow: 0 0 10px #f28; }
+  #coins { position: absolute; top: 20px; right: 16px; color: #fc3; }
+  #dist { position: absolute; top: 20px; left: 16px; color: #8ad; font-size: 11px; }
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: rgba(4,5,9,.85); text-align: center; }
+  .screen.on { display: flex; }
+  .screen h1 { margin: 0; font-weight: 400; letter-spacing: .15em; font-size: 28px; text-shadow: 0 0 16px #f28; }
+  .btn { padding: 16px 40px; border: 2px solid #2ef; border-radius: 6px; background: rgba(10,14,24,.85); color: #2ef; font: inherit; font-size: 16px; letter-spacing: .2em; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><div id="score">0</div><div id="coins">0</div><div id="dist">0 m</div></div>
+<div class="screen on" id="start"><h1>FAKE RUNNER</h1><p>swipe to steer · up jump · down roll</p><button class="btn" id="startb">RUN</button></div>
+<div class="screen" id="over"><h1>WIPED OUT</h1><div id="final">0</div><button class="btn" id="overb">RUN AGAIN</button></div>
+<script>
+(() => {
+  const Q = new URLSearchParams(location.search);
+  const SEED = Number(Q.get('seed')) || (Math.random() * 1e9 | 0);
+  const LANE_W = 2, MAXZ = 60;
+  const ZONES = ['street_a', 'ramp_up', 'highway', 'ramp_down', 'street_b', 'ramp_up', 'highway', 'ramp_down'];
+  const ZONE_LEN = 180;
+  const ZONE_BG = { street_a: ['#1a0f2a', '#3a1450'], ramp_up: ['#141a2e', '#2a2f55'], highway: ['#0a1424', '#12305a'], ramp_down: ['#141a2e', '#2a2f55'], street_b: ['#2a0f1a', '#5a1440'] };
+  const TYPES = { jump: ['low_barrier', 'cone_cluster', 'scooter'], roll: ['high_barrier', 'overhead_gantry'], block: ['taxi', 'delivery_van', 'dumpster'] };
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(3, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  // seeded world: rows of obstacles and coin runs, generated ahead by distance
+  function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  let rnd, rows, coins, genZ, rowId;
+  function resetWorld() {
+    rnd = mulberry32(SEED); rows = []; coins = []; genZ = 24; rowId = 0;
+  }
+  function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+  function generateTo(z) {
+    while (genZ < z) {
+      const lanes = [null, null, null];
+      const n = rnd() < 0.55 ? 1 : 2;
+      const order = [-1, 0, 1].sort(() => rnd() - 0.5);
+      for (let i = 0; i < n; i++) lanes[order[i] + 1] = rnd() < 0.4 ? 'block' : rnd() < 0.5 ? 'jump' : 'roll';
+      const types = lanes.map((k) => (k ? pick(TYPES[k]) : null));
+      rows.push({ id: rowId++, z: genZ, lanes, types, len: lanes.includes('block') ? 3 : 1 });
+      // a run of coins after the row, in a lane that is passable at the row (so the gate has a safe move)
+      const cz = genZ + 6, cl = pick([-1, 0, 1]);
+      const cnt = 4 + Math.floor(rnd() * 3);
+      for (let i = 0; i < cnt; i++) coins.push({ z: cz + i * 1.6, lane: cl, taken: false });
+      genZ += 15 + rnd() * 12;
+    }
+  }
+
+  // player
+  const P = { z: 0, x: 0, y: 0, lane: 0, laneFrom: 0, laneT: 1, jumpT: -1, rollT: -1, speed: 0 };
+  const G = { running: false, over: false, distance: 0, score: 0, coins: 0, deaths: 0, jumps: 0, rolls: 0 };
+  const T = window.__GAME__ = { pos: [0, 0], fps: 0, speed: 0, score: 0, over: false, draws: 0, tris: 0,
+    lane: 0, airborne: false, rolling: false, distance: 0, zone: 'street_a', coins: 0, deaths: 0, jumps: 0, rolls: 0,
+    next: null, coin: null, heroBox: [0, 0, 0, 0] };
+  const zoneAt = (d) => ZONES[Math.floor(d / ZONE_LEN) % ZONES.length];
+  const speedAt = (d) => Math.min(20, 9 + 0.6 * Math.floor(d / 150));
+
+  function onLeft() { if (G.running && P.lane > -1) { P.laneFrom = P.x; P.lane -= 1; P.laneT = 0; } }
+  function onRight() { if (G.running && P.lane < 1) { P.laneFrom = P.x; P.lane += 1; P.laneT = 0; } }
+  function onUp() { if (G.running && P.jumpT < 0 && P.rollT < 0) { P.jumpT = 0; G.jumps++; } }
+  function onDown() { if (G.running && P.rollT < 0 && P.jumpT < 0) { P.rollT = 0; G.rolls++; } }
+
+  // input: real touch swipes on the canvas, keys on desktop. Mouse drags go through pointer events only
+  // when pointerType is 'mouse', so a touch is never counted twice.
+  let sx = 0, sy = 0, tracking = false;
+  const begin = (x, y) => { sx = x; sy = y; tracking = true; };
+  const end = (x, y) => {
+    if (!tracking) return; tracking = false;
+    const dx = x - sx, dy = y - sy;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) (dx < 0 ? onLeft : onRight)(); else (dy < 0 ? onUp : onDown)();
+  };
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); const t = e.changedTouches[0]; begin(t.clientX, t.clientY); }, { passive: false });
+  canvas.addEventListener('touchend', (e) => { e.preventDefault(); const t = e.changedTouches[0]; end(t.clientX, t.clientY); }, { passive: false });
+  canvas.addEventListener('touchcancel', () => { tracking = false; });
+  canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') begin(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') end(e.clientX, e.clientY); });
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const k = e.key;
+    if (k === 'ArrowLeft' || k === 'a') onLeft(); else if (k === 'ArrowRight' || k === 'd') onRight();
+    else if (k === 'ArrowUp' || k === 'w' || k === ' ') onUp(); else if (k === 'ArrowDown' || k === 's') onDown();
+    else return;
+    e.preventDefault();
+  });
+
+  function start() {
+    if (!window.__READY__) return;
+    resetWorld();
+    Object.assign(P, { z: 0, x: 0, y: 0, lane: 0, laneFrom: 0, laneT: 1, jumpT: -1, rollT: -1, speed: 9 });
+    Object.assign(G, { running: true, over: false, distance: 0, score: 0, coins: 0, jumps: 0, rolls: 0 });
+    $('start').classList.remove('on'); $('over').classList.remove('on'); $('hud').classList.add('on');
+  }
+  function die() {
+    G.running = false; G.over = true; G.deaths++;
+    $('final').textContent = Math.floor(G.score);
+    $('over').classList.add('on'); $('hud').classList.remove('on');
+  }
+  $('startb').addEventListener('click', start);
+  $('overb').addEventListener('click', start);
+  window.__START__ = start;
+  resetWorld();
+  setTimeout(() => { window.__READY__ = true; }, 300);   // pretend to load
+
+  // projection: chase camera 6 m behind, 3 m up
+  const F = () => Math.min(W, H) * 0.95;
+  function project(x, y, z) {
+    const camZ = P.z - 6, camY = 3.2, dz = Math.max(0.5, z - camZ);
+    const s = F() / dz;
+    return { x: W / 2 + (x - P.x * 0.5) * s, y: H * 0.42 + (camY - y) * s, s };
+  }
+
+  let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dtReal = (now - last) / 1000; last = now;
+    fpsAcc += dtReal; fpsN++;
+    if (fpsAcc >= 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
+    const dt = Math.min(dtReal, 0.05);
+
+    if (G.running) {
+      P.speed = speedAt(G.distance);
+      P.z += P.speed * dt; G.distance = P.z;
+      G.score = G.coins + G.distance / 10;
+      if (P.laneT < 1) { P.laneT = Math.min(1, P.laneT + dt / 0.18); const e = 1 - Math.pow(1 - P.laneT, 3); P.x = P.laneFrom + (P.lane * LANE_W - P.laneFrom) * e; }
+      else P.x = P.lane * LANE_W;
+      if (P.jumpT >= 0) { P.jumpT += dt; const u = P.jumpT / 1.1; P.y = u >= 1 ? 0 : 1.1 * (1 - Math.pow(2 * u - 1, 2)); if (u >= 1) P.jumpT = -1; }
+      if (P.rollT >= 0) { P.rollT += dt; if (P.rollT >= 0.5) P.rollT = -1; }
+      generateTo(P.z + MAXZ + 30);
+      // collisions
+      for (const r of rows) {
+        if (P.z < r.z || P.z > r.z + r.len) continue;
+        const k = r.lanes[P.lane + 1];
+        if (!k || Math.abs(P.x - P.lane * LANE_W) > 1.0 && false) continue;
+        if (k === 'jump' && P.y > 0.45) continue;
+        if (k === 'roll' && P.rollT >= 0) continue;
+        die(); break;
+      }
+      for (const c of coins) {
+        if (c.taken || c.lane !== P.lane || Math.abs(c.z - P.z) > 0.8 || P.y > 1.6) continue;
+        c.taken = true; G.coins++;
+      }
+      while (rows.length && rows[0].z < P.z - 20) rows.shift();
+      while (coins.length && coins[0].z < P.z - 20) coins.shift();
+    }
+
+    // draw
+    const zone = zoneAt(G.distance);
+    const bg = ZONE_BG[zone];
+    const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, bg[0]); sky.addColorStop(1, bg[1]);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    let visible = 0;
+    // buildings either side, so the frame changes as we move
+    for (let i = 0; i < 14; i++) {
+      const bz = Math.floor((P.z - 4) / 8) * 8 + i * 8;
+      const side = i % 2 ? 1 : -1;
+      const hgt = 6 + ((bz * 7) % 11);
+      const a = project(side * 6, 0, bz), b = project(side * 6, hgt, bz + 7);
+      ctx.fillStyle = zone === 'highway' ? 'rgba(20,40,80,.6)' : `hsl(${(bz * 13) % 360} 60% ${28 + (bz % 5) * 4}%)`;
+      ctx.fillRect(Math.min(a.x, b.x), b.y, Math.abs(b.x - a.x) + 2, a.y - b.y); visible++;
+    }
+    // road
+    const r0 = project(-3.2, 0, P.z - 5), r1 = project(3.2, 0, P.z - 5), r2 = project(3.2, 0, P.z + MAXZ), r3 = project(-3.2, 0, P.z + MAXZ);
+    ctx.fillStyle = zone === 'highway' ? '#2a3140' : '#23242c';
+    ctx.beginPath(); ctx.moveTo(r0.x, r0.y); ctx.lineTo(r1.x, r1.y); ctx.lineTo(r2.x, r2.y); ctx.lineTo(r3.x, r3.y); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1;
+    for (const lx of [-1, 1]) { const a = project(lx, 0, P.z - 5), b = project(lx, 0, P.z + MAXZ); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    // obstacles and coins, far to near
+    const items = [];
+    for (const r of rows) if (r.z > P.z - 8 && r.z < P.z + MAXZ) for (let L = -1; L <= 1; L++) if (r.lanes[L + 1]) items.push({ z: r.z, lane: L, kind: r.lanes[L + 1] });
+    for (const c of coins) if (!c.taken && c.z > P.z - 8 && c.z < P.z + MAXZ) items.push({ z: c.z, lane: c.lane, kind: 'coin' });
+    items.sort((a, b) => b.z - a.z);
+    for (const it of items) {
+      visible++;
+      if (it.kind === 'coin') { const p = project(it.lane * LANE_W, 1.0, it.z); ctx.fillStyle = '#ffd23c'; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, 0.3 * p.s), 0, Math.PI * 2); ctx.fill(); continue; }
+      const h = it.kind === 'jump' ? 0.7 : it.kind === 'roll' ? 0.5 : 2.2, y0 = it.kind === 'roll' ? 1.3 : 0;
+      const a = project(it.lane * LANE_W - 0.9, y0, it.z), b = project(it.lane * LANE_W + 0.9, y0 + h, it.z);
+      ctx.fillStyle = it.kind === 'jump' ? '#ff8a2a' : it.kind === 'roll' ? '#2ee6ff' : '#ff2d78';
+      ctx.fillRect(a.x, b.y, b.x - a.x, a.y - b.y);
+    }
+    // hero
+    const hh = P.rollT >= 0 ? 0.9 : 1.8;
+    const ha = project(P.x - 0.4, P.y, P.z), hb = project(P.x + 0.4, P.y + hh, P.z);
+    ctx.fillStyle = '#ff7a1a'; ctx.fillRect(ha.x, hb.y, hb.x - ha.x, ha.y - hb.y);
+    ctx.fillStyle = '#ffd7b0'; ctx.fillRect(ha.x + 4, hb.y, hb.x - ha.x - 8, Math.max(4, (ha.y - hb.y) * 0.25));
+
+    // hud
+    $('score').textContent = Math.floor(G.score); $('coins').textContent = G.coins; $('dist').textContent = `${Math.floor(G.distance)} m  ${zone}  ${fps} fps`;
+
+    // telemetry (tools/GATE_CONTRACT.md)
+    T.pos[0] = P.x; T.pos[1] = P.z; T.fps = fps; T.speed = G.running ? P.speed : 0; T.score = Math.floor(G.score); T.over = G.over;
+    T.draws = 40 + visible; T.tris = 150000 + visible * 1200;
+    T.lane = P.lane; T.airborne = P.jumpT >= 0; T.rolling = P.rollT >= 0; T.distance = G.distance; T.zone = zone;
+    T.coins = G.coins; T.deaths = G.deaths; T.jumps = G.jumps; T.rolls = G.rolls;
+    const nr = rows.find((r) => r.z + r.len >= P.z - 0.5 && r.z - P.z <= MAXZ);
+    if (nr) {
+      const mine = nr.lanes[P.lane + 1];
+      let lane = P.lane;
+      if (!mine) { lane = [-1, 0, 1].filter((L) => nr.lanes[L + 1]).sort((a, b) => Math.abs(a - P.lane) - Math.abs(b - P.lane))[0]; }
+      T.next = { id: nr.id, dist: Math.max(0, nr.z - P.z), lane, kind: nr.lanes[lane + 1], type: nr.types[lane + 1], lanes: nr.lanes.slice() };
+    } else T.next = null;
+    const nc = coins.find((c) => !c.taken && c.z >= P.z && c.z - P.z <= MAXZ);
+    T.coin = nc ? { dist: nc.z - P.z, lane: nc.lane } : null;
+    T.heroBox = [ha.x, hb.y, hb.x - ha.x, ha.y - hb.y];
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
