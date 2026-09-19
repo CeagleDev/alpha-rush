@@ -109,11 +109,11 @@ const meta = new Map();        // name -> { lights, offset:[x,y,z], size:[w,h,d]
 const wrappers = new Map();    // name -> blob url
 const existence = new Map();   // name -> Promise<boolean>
 const said = new Set();
-let assetsBase = './assets/';
+let assetsBase = '../assets/';   // resolved against this module (game/src/), not the page
 
 export function init(c) {
   ctx = c; THREE = c.THREE;
-  try { assetsBase = new URL('./assets/', globalThis.document ? document.baseURI : location.href).href; } catch (e) { /* relative */ }
+  try { assetsBase = new URL('../assets/', import.meta.url).href; } catch (e) { /* relative */ }
 }
 
 /** Called by the blob wrapper right after the asset function ran, before the loader merges. */

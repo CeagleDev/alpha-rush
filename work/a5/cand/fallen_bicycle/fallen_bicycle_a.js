@@ -102,7 +102,7 @@ export default function (THREE) {
   B(0.62, 0.03, 0.10, -0.52, 0.015, 0, dark); B(0.62, 0.03, 0.10, 0.52, 0.015, 0, dark);
 
   // ---- lay it down on its left side: the bike's +z (its right) becomes up ----
-  bike.rotation.x = -Math.PI / 2 + 0.6;   // propped on the bar end and pedal, wheels leaning ~35° off the road
+  bike.rotation.x = -Math.PI / 2 + 0.2;   // almost flat: it rests on the bar end and the pedal, wheels leaning ~11°
 
   g.userData.obstacle = { kind: 'jump', lanes: 1 };
 

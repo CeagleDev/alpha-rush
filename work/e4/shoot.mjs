@@ -36,6 +36,7 @@ await page.setViewport(DESKTOP ? { width: 1280, height: 720, deviceScaleFactor: 
 const logs = [];
 page.on('console', (m) => logs.push(m.text()));
 page.on('pageerror', (e) => logs.push('PAGEERROR ' + e.message));
+page.on('response', (r) => { if (r.status() >= 400) logs.push(`HTTP ${r.status()} ${r.url()}`); });
 const t0 = Date.now();
 await page.goto(`${BASE}/work/e4/${QUERY}`, { waitUntil: 'load', timeout: 60000 });
 try {
@@ -50,6 +51,7 @@ const result = await page.evaluate(() => ({
   sources: window.__lighting ? window.__lighting.sources().length : 0,
   ground: window.__lighting ? window.__lighting.groundCheck() : null,
   textures: window.__textures ? window.__textures.status() : null,
+  dump: (window.__DUMP__ = new URLSearchParams(location.search).get('dump')) ? window.__lighting.sources().map((l) => [l.x.toFixed(1), l.y.toFixed(2), l.z.toFixed(1), l.color.toString(16), l.intensity, l.range]) : null,
 }));
 await page.screenshot({ path: OUT });
 console.log(JSON.stringify({ readyMs: ready, out: OUT, ...result }, null, 1));

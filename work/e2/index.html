@@ -124,9 +124,15 @@ const strip = document.getElementById('strip'); const sctx = strip.getContext('2
 let shots = 0; const N = 4; const SW = 195, SH = 422;
 strip.width = SW * N; strip.height = SH + 16;
 let captureFlag = null;
+const skyShares = [];
+const SKY = [0x1d, 0x31, 0x50];
 function doCapture(label) {
   if (shots >= N) return;
   sctx.drawImage(canvas, shots * SW, 0, SW, SH);
+  // sky share of the top fifth: pixels within tolerance of the clear colour (the fixture has no buildings)
+  const img = sctx.getImageData(shots * SW, 0, SW, Math.round(SH / 5)).data; let sky = 0, tot = 0;
+  for (let i = 0; i < img.length; i += 4) { tot++; if (Math.abs(img[i] - SKY[0]) < 14 && Math.abs(img[i + 1] - SKY[1]) < 14 && Math.abs(img[i + 2] - SKY[2]) < 14) sky++; }
+  skyShares.push(+(sky / tot).toFixed(3));
   sctx.fillStyle = '#000'; sctx.fillRect(shots * SW, SH, SW, 16); sctx.fillStyle = '#fff'; sctx.font = '10px monospace'; sctx.fillText(label, shots * SW + 3, SH + 12);
   shots++;
 }
@@ -156,6 +162,7 @@ function loop(now) {
     playerState: s.playerState, packDist: +s.packDist.toFixed(2), heroBox: s.heroBox, heroFrac: +s.heroFrac.toFixed(3),
     over: s.over, running: s.running, camFov: +cam.fov.toFixed(1), camDist: +(s.camDist || 0).toFixed(2), camY: +cam.position.y.toFixed(2),
     dogsRel: dogObjs.map((o) => [+(o.position.x - s.x).toFixed(2), +(o.position.z - s.z).toFixed(2), +o.position.y.toFixed(2)]), camPos: [+cam.position.x.toFixed(2), +cam.position.y.toFixed(2), +(cam.position.z - s.z).toFixed(2)],
+    camPitchDeg: +(Math.asin(-cam.getWorldDirection(_dp).y) * 180 / Math.PI).toFixed(1), horizonPx: +(((1 - _dp.set(cam.position.x, cam.position.y, cam.position.z + 1000).project(cam).y) * 0.5 * innerHeight)).toFixed(0), skyTopFifth: +Math.min(1, Math.max(0, ((1 - _dp.set(cam.position.x, cam.position.y, cam.position.z + 1000).project(cam).y) * 0.5 * innerHeight) / (innerHeight / 5))).toFixed(2),
     dogVis: vis.frames ? +(vis.all3 / vis.frames).toFixed(3) : 0, dogVisEach: vis.per.map((n) => vis.frames ? +(n / vis.frames).toFixed(2) : 0),
   };
   info.textContent = `d ${s.distance.toFixed(1)} m  v ${s.speed.toFixed(1)}  lane ${s.lane}  ${s.playerState}  pack ${s.packDist.toFixed(1)}\nhero ${(s.heroFrac * 100).toFixed(0)}%  draws ${renderer.info.render.calls}  fps ${fps.toFixed(0)}`;
@@ -163,7 +170,7 @@ function loop(now) {
 }
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
 window.__start = () => { state.over = false; state.running = true; events.emit('start'); };
-window.__report = () => ({ used, draws, pivots: pivotCheck(), joints: Object.fromEntries(Object.entries(rotSamples).map(([k, a]) => [k, +(Math.max(...a) - Math.min(...a)).toFixed(3)])), events: eventLog });
+window.__report = () => ({ used, skyShares, draws, pivots: pivotCheck(), joints: Object.fromEntries(Object.entries(rotSamples).map(([k, a]) => [k, +(Math.max(...a) - Math.min(...a)).toFixed(3)])), events: eventLog });
 window.__READY__ = true;
 requestAnimationFrame(loop);
 </script>

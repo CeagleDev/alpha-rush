@@ -59,17 +59,17 @@ export const SIGN_COUNT = 8, NOREN_COUNT = 2;
 const signMats = new Map(), norenMats = new Map();
 
 let ctx = null, THREE = null;
-let base = './textures/';
+let base = '../textures/';   // resolved against this module, so a fixture page elsewhere still finds game/textures/
 const files = new Map();       // file -> Promise<Texture|null>
 const loaded = {};             // set -> { map?, roughnessMap?, normalMap? } (only files that arrived)
 const pending = {};            // set -> Promise
 const registry = {};           // set -> Set<Material>
 let maxAniso = 8;
 
-export function init(c) {
+export async function init(c) {
   ctx = c; THREE = c.THREE;
   try { maxAniso = Math.min(8, c.renderer.capabilities.getMaxAnisotropy()); } catch (e) { /* headless */ }
-  try { base = new URL('./textures/', globalThis.document ? document.baseURI : location.href).href; } catch (e) { /* keep relative */ }
+  try { base = new URL('../textures/', import.meta.url).href; } catch (e) { /* keep relative */ }
   for (const set of Object.keys(SETS)) registry[set] = registry[set] || new Set();
   // Kick every set off now; nobody waits on these. A set that lands re-applies itself to every
   // material registered so far, and to every one registered later.

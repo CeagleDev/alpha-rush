@@ -6,13 +6,15 @@
  * state fields OWNED here (defaults in init): heroBox = [sx, sy, w, h] — the runner's AABB projected to
  * CSS px (top-left origin). NEW: heroFrac — heroBox height / frame height; camDist — camera to hero centre, m (both informational).
  *
- * Framing (lead call 2026-09-19): the hero's screen box is held at 29 % of frame height in portrait
+ * Framing (lead calls 2026-09-19): the hero's screen box is held at 29 % of frame height in portrait
  * (band 26–32 %) and 25 % in landscape (22–28 %): the follow distance is solved from the fov each frame
- * and then corrected slowly from the measured box so the band holds on ramps and jumps. The camera sits
- * low behind (elevation ~14°) and aims at the runner's feet just ahead, so the runner sits in the upper
- * half and the pack (2.2–3.3 m behind) reads in the lower third like refs/bar-video/. Lag on x/y (z
- * follows exactly); fov 64 → 70 with speed; pitch follows track.groundPitch(z) clamped ±14°;
- * shake on 'hit' (and a small one on 'stumble'); a slow settle to a higher three-quarter view on 'death'.
+ * and then corrected slowly from the measured box so the band holds on ramps and jumps. The camera is
+ * LOW like the bar video — ~1.3 m above the ground (elevation ~5°) and nearly level (pitch ~4° down,
+ * aimed at the runner's mid-torso), so the sky fills the top fifth of a portrait frame and the pack
+ * (2.2–3.3 m behind) reads large in the lower third. x is followed fully with lag (the portrait
+ * horizontal half-fov is only ~16°); z follows exactly; fov 64 → 70 with speed; on ramps the pitch
+ * follows track.groundPitch(z) clamped ±10°; shake on 'hit' (and a small one on 'stumble'); a slow
+ * settle to a higher three-quarter view on 'death'.
  *
  * Reads: state.x/y/z/speed/running/over, ctx.camera, ctx.renderer, ctx.track.groundPitch (optional),
  * player.getAABB()/getObject(). Listens: 'hit', 'stumble', 'death', 'start'.
@@ -28,8 +30,9 @@ const S = {
   dead: false, deadT: 0, first: true,
   px: 0, py: 0, pz: 0, ax: 0, ay: 0, az: 0, t: 0,
 };
-const HERO_H = 1.72, LOOK_DOWN = 0.24;   // rad, the camera's elevation above the hero centre
-const AIM_DY = -0.86, AIM_DZ = 0.6;       // aim point relative to the hero centre: the feet, just ahead
+const HERO_H = 1.72, LOOK_DOWN = 0.09;   // rad, the camera's elevation above the hero centre (~1.3 m up)
+const AIM_DY = 0.10, AIM_DZ = 0.3;        // aim point relative to the hero centre: mid-torso, just ahead
+const PITCH_MAX = 10 * Math.PI / 180;
 let _v, _size, _corners;
 
 function trackMod() { return C && (C.track || (C.modules && C.modules.track)); }
@@ -74,7 +77,7 @@ export function update(a, b) {
   if (Math.abs(cam.fov - S.fov) > 0.01) { cam.fov = S.fov; cam.updateProjectionMatrix(); }
 
   // ground pitch, clamped, lagged
-  const gp = clamp(groundPitch(s.z || 0), -0.25, 0.25);
+  const gp = clamp(groundPitch(s.z || 0), -PITCH_MAX, PITCH_MAX);
   S.pitch = damp(S.pitch, gp, 3, dt);
 
   // follow distance from the fov so the hero's height lands on targetFrac of the frame
@@ -95,12 +98,12 @@ export function update(a, b) {
   if (S.dead) {
     S.deadT += dt;
     const e = 1 - Math.exp(-S.deadT * 1.2);
-    elev = LOOK_DOWN + 0.32 * e; yaw = 0.6 * e; aheadZ = 0.4; aheadY = AIM_DY + 0.4 * e; lagX = 1.6; lagY = 1.6;
+    elev = LOOK_DOWN + 0.40 * e; yaw = 0.6 * e; aheadZ = 0.4; aheadY = AIM_DY - 0.5 * e; lagX = 1.6; lagY = 1.6;
     dist *= 1 + 0.25 * e;
   }
-  // offset in the slope frame, rotated by −pitch·0.7 about X so ramps tilt the view
+  // offset in the slope frame, rotated by −pitch about X so ramps tilt the view
   const back = dist * Math.cos(elev), up = dist * Math.sin(elev);
-  const pr = -S.pitch * 0.7, cp = Math.cos(pr), sp = Math.sin(pr);
+  const pr = -S.pitch, cp = Math.cos(pr), sp = Math.sin(pr);
   let oy = up * cp - (-back) * sp, oz = up * sp + (-back) * cp;
   const ox = Math.sin(yaw) * back;
   oz *= Math.cos(yaw);

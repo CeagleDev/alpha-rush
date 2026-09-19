@@ -59,7 +59,7 @@ fs.writeFileSync(path.join(OUT, REAL ? 'filmstrip.png' : 'filmstrip-stub.png'), 
 const out = { wall_s: +((Date.now() - t0) / 1000).toFixed(1), idle, at200, afterHit, final, decisions: dec, ...report, errors };
 fs.writeFileSync(path.join(OUT, REAL ? 'report.json' : 'report-stub.json'), JSON.stringify(out, null, 2));
 console.log(JSON.stringify({ used: report.used, wall_s: out.wall_s, at200, afterHit, final, draws: report.draws, decisions: dec, events: report.events, errors }, null, 1));
-console.log(`hero fraction ${at200.heroFrac} (band 0.26–0.32)  dogs all-in-frustum ${final.dogVis} of frames (each ${final.dogVisEach})  cam dist ${at200.camDist} m, cam y ${at200.camY}, fov ${at200.camFov}`);
+console.log(`hero fraction ${at200.heroFrac} (band 0.26–0.32)  dogs all-in-frustum ${final.dogVis} of frames (each ${final.dogVisEach})  cam dist ${at200.camDist} m, cam y ${at200.camY}, pitch ${at200.camPitchDeg} deg, fov ${at200.camFov}, horizon at ${at200.horizonPx} px → sky share of top fifth ${at200.skyTopFifth} (geometric), ${JSON.stringify(report.skyShares)} (pixels, 4 frames)`);
 console.log('joint rotation ranges (rad):', JSON.stringify(report.joints));
 console.log('pivot check:', JSON.stringify(report.pivots));
 await browser.close(); server.close(); process.exit(0);
