@@ -40,7 +40,9 @@ sodium `0xffb347` against cool neon `0x00e5ff`/`0xff2d95`. A frame with one temp
 - Highway: guard-rail section 4.0 m, overhead gantry 8.0 m span at 5.5 m, concrete divider 3.0 × 1.0 h, pylon 12.0 m, deck slab 30 × 6 × 0.8 m.
 - Base at y = 0, centred on x and z, front faces +Z. Runner and vehicles face +Z (the direction of travel).
 - Flat colours with sensible roughness; surfaces are applied at load time by surfaces.js.
-- Material names from the contract's list only: `plaster` | `stone` | `timber` | `tile` | `metal` | `fabric` | `foliage` | `ground`. Emissive neon and glass parts: `name = 'glass'` so surfaces.js leaves them alone; set `emissive` to the palette hex, `emissiveIntensity` 2.0–3.5, roughness 0.3.
+- Material names from the contract's list only: `plaster` | `stone` | `timber` | `tile` | `metal` | `fabric` | `foliage` | `ground`.
+- Emissive parts (neon tubes, lamp heads, screens, tail-lights): base `color: 0x0b0f1e` (near-black — surfaces.js leaves anything under 0.16 luminance untextured, and this is the only way to opt out), `emissive: <palette hex>`, `emissiveIntensity` 2.0–3.5, roughness 0.3. Do NOT name them; there is no 'glass' recipe.
+- Glass: `transparent: true, opacity: 0.9, forceSinglePass: true` — surfaces.js skips it, and the flag stops the double draw. Use sparingly: every transparent material costs a second pass.
 - Wet-gloss accents: roughness **0.25** on wet asphalt patches, taxi paint, rail tops, puddle planes. Everything else roughness 0.7–0.9.
 - No glyphs in geometry. Signage in geometry = tube shapes, boxes, discs, chevrons. Legible-looking signage comes ONLY from Atlas sprite textures on emissive planes (declared files), using invented shop names and abstract katakana/hangul-like strokes — never real words, brands or logos.
 
