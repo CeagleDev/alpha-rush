@@ -22,3 +22,21 @@
 | crate_stack | 58368df7-f8c5-45c6-bed5-6220ae6620b8 |
 | tau_coin | ea4fc48e-f771-4fd6-87ad-1b2b3ef4851d |
 | kei_van | 1eacf17e-521e-4bad-8efe-749b675335a8 |
+
+### batch 2 (13, FLUX.2 Max 2K) — batch 1 APPROVED by user 2026-09-19 (coin glyph to be built from refs/logo, not the render)
+| file | fid |
+|---|---|
+| dog_spitz | c16f328a-6796-457a-922a-0d1a0fe5c545 |
+| dog_mutt | 2ff36810-1bc7-46ef-a504-bf7464e77292 |
+| shophouse_c | 6e89e0dc-58ba-4e19-8e3a-e70c84670876 |
+| shophouse_d | e0b371c0-186d-42ec-ba44-d5d60c946698 |
+| paper_lantern | fb4ea05d-60b9-4751-81b2-fc0d899b3c96 |
+| standing_lightbox | b45e3ce4-a048-4ff5-b8ec-27353d4ea174 |
+| tin_awning | 39ccb9a1-d2d9-4b40-b2ac-4de973239558 |
+| ac_duct_cluster | e499c2a2-5494-47db-a895-3ebe3d0786a2 |
+| bins_bags | da58bc80-735d-4171-adfc-afaddaf2902d |
+| cooler_bin | 1dc4929c-46a0-41c1-8020-f833ba46fe0d |
+| fallen_bicycle | 6225590a-cdd0-4a75-b41f-45e509db58fb |
+| yatai_cart | 164edccc-9847-4526-8d22-ae3f11b9fe42 |
+| parked_sedan | e56f6448-357c-4710-af19-a9bea48abd6a |
+Atlas project midnight-dash-objects-2 (batch 3): pid fcc77e80-094b-4db3-aa82-8cb9743a1a88

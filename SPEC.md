@@ -42,6 +42,9 @@ Alley: 17 shophouse A ramen (timber, lanterns, lit interior) · 18 shophouse B b
  · 28 tin awning with struts · 29 AC unit + duct cluster · 30 litter set (paper, cups, cans — small, for instancing) · 31 bins + bags cluster
  · 32 alley road chunk slab (wet asphalt, gutters, manhole, puddle planes) · 33 parked sedan
 Expressway: 34 deck slab with upstands + sound panels · 35 sodium lamp 10 m · 36 sign gantry, green boards · 37 guard rail 4 m · 38 ramp chunk (mirrored for down)
+Detail set (batch 4, +20, per user: 'make the street as detailed as possible'): bicycle_parked, scooter, beer_keg, gas_cylinders,
+ umbrella_stand, laundry_line, menu_board, plant_pots, cardboard_boxes, ashtray_stand, traffic_mirror, road_cones, post_box, electrical_box,
+ vertical_sign, stool_table_set, rooftop_water_tank, tv_antenna, fire_ext_box, drink_cases. Total 58 assets. Names in ASSETS.md.
 Far band skyline is built by E4 from shophouse/facade masses, not a separate asset.
 
 ## Atlas jobs (declared in the entry)

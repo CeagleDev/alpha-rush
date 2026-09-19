@@ -1,0 +1,109 @@
+{
+  "game": "/Users/dev/Documents/Cursor.Code/midnight-dash-floor",
+  "utc": "2026-09-19T15:43:14.645Z",
+  "run": 1,
+  "seed": 7,
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 3,
+    "isMobile": true,
+    "hasTouch": true
+  },
+  "desktop": false,
+  "fourg": false,
+  "network": null,
+  "budgets": {
+    "DIST_M": 600,
+    "DEATH_M": 400,
+    "DRAWS": 900,
+    "TRIS": 1500000,
+    "READY_S": 20,
+    "MB": 5
+  },
+  "lead": {
+    "jump": [
+      0.5,
+      1.5
+    ],
+    "roll": [
+      0.4,
+      0
+    ],
+    "lane": [
+      0.7,
+      2
+    ],
+    "coin": [
+      0.8,
+      2
+    ]
+  },
+  "ready_s": 1.5,
+  "mb": 1.524,
+  "body_bytes": 1524409,
+  "started": "touch tap on #startb",
+  "start_fallback": false,
+  "no_next": true,
+  "distance_m": 72.4,
+  "died_at_m": 72.43027763999994,
+  "stall": null,
+  "coins": 0,
+  "jumps": 0,
+  "rolls": 0,
+  "deaths": null,
+  "score": 112,
+  "peak_draws": 524,
+  "peak_tris": 226352,
+  "median_fps": 60,
+  "min_fps": 36,
+  "software": false,
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)",
+  "frames": [
+    {
+      "file": "f0.png",
+      "d": 60.13172473999996,
+      "speed": 9.6,
+      "fps": 60,
+      "draws": 518,
+      "tris": 224700,
+      "zone": "",
+      "hero": null,
+      "note": "",
+      "luma": 52.14192332732448
+    },
+    {
+      "file": "f1.png",
+      "d": 72.43027763999994,
+      "speed": 0,
+      "fps": 60,
+      "draws": 472,
+      "tris": 195504,
+      "zone": "",
+      "hero": null,
+      "note": "DEAD at 72 m",
+      "luma": 18.842639352965833
+    }
+  ],
+  "decisions": [
+    "started via touch tap on #startb",
+    "no __GAME__.next: driving straight with no steering, no jumps, no rolls (see tools/GATE_CONTRACT.md)",
+    "  72.4 m  over=true: the player died"
+  ],
+  "missing": [],
+  "errors": [],
+  "outside": [],
+  "external": [],
+  "cdn": [
+    "cdn.jsdelivr.net"
+  ],
+  "clip": null,
+  "fails": [
+    "no __GAME__.next telemetry, so the gate could not steer: expose next/coin/jumps/rolls as in tools/GATE_CONTRACT.md",
+    "the player died at 72 m, before 400 m",
+    "distance 72 m, needs 600 m",
+    "no __GAME__.jumps / __GAME__.rolls counters, so the gate cannot prove a jump or a roll happened",
+    "no coins collected (coins = not exposed)"
+  ],
+  "result": "FAIL"
+}

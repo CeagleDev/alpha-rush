@@ -1,0 +1,36 @@
+
+run 1: loading ../midnight-dash-floor at 390x844 @3x phone (real touch), seed 7
+  ready 1.5 s   renderer ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)
+  started via touch tap on #startb
+  no __GAME__.next: driving straight with no steering, no jumps, no rolls (see tools/GATE_CONTRACT.md)
+  photo f0  60.1 m  speed 9.6  fps 60  draws 518  tris 224700  zone ?
+  photo f1  72.4 m  speed 0  fps 60  draws 472  tris 195504  zone ?  DEAD at 72 m
+    72.4 m  over=true: the player died
+
+=== MIDNIGHT DASH GATE  run 1 ===
+game            /Users/dev/Documents/Cursor.Code/midnight-dash-floor
+viewport        390x844 @3x phone, real touch   seed 7
+network         unshaped (pass --4g for the load budget)
+ready           1.5 s   budget 20 s   (not judged without --4g)
+weight          1.52 MB   budget 5 MB   (not judged without --4g)
+started         touch tap on #startb   PASS
+steering        none: no __GAME__.next   FAIL
+distance        72 m   needs 600 m   FAIL
+death           at 72 m   must be after 400 m   FAIL
+coins           not exposed   needs > 0   FAIL
+jumps / rolls   not exposed   needs ≥ 1 each   FAIL
+peak draws      524   budget 900   PASS
+peak tris       226,352   budget 1,500,000   PASS
+fps             median 60, min 36   ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version): reported, never gated
+404s            0   PASS
+errors          0   PASS
+outside folder  none   PASS   (cdn, warning only: cdn.jsdelivr.net)
+frames          2 at 60, 72 m   filmstrip /private/tmp/claude-501/-Users-dev-Documents-Cursor-Code/9c2e450a-e004-4d03-84ab-197c6fdf35f1/scratchpad/floor/filmstrip.png
+RESULT: FAIL: no __GAME__.next telemetry, so the gate could not steer: expose next/coin/jumps/rolls as in tools/GATE_CONTRACT.md
+  also: the player died at 72 m, before 400 m
+  also: distance 72 m, needs 600 m
+  also: no __GAME__.jumps / __GAME__.rolls counters, so the gate cannot prove a jump or a roll happened
+  also: no coins collected (coins = not exposed)
+=== END ===
+
+1 of 1 run(s) failed.

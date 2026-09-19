@@ -1,0 +1,138 @@
+
+run 1: loading tools/fixtures/fake-runner at 390x844 @3x phone (real touch), seed 7
+  ready 0.3 s   renderer ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)
+  started via touch tap on #startb
+    21.1 m  swipe down   roll under high_barrier in lane 0 at 2.9 m, row 1 m long (speed 9.0, lead 3.1, gesture 139 ms)
+    39.9 m  swipe up     jump low_barrier in lane 0 at 5.7 m (speed 9.0, lead 6.0, gesture 148 ms)
+    61.9 m  swipe down   roll under high_barrier in lane 0 at 1.7 m, row 3 m long (speed 9.0, lead 2.1, gesture 143 ms)
+  photo f0  66.3 m  speed 9  fps 60  draws 73  tris 189600  zone street_a
+    78.9 m  swipe right  delivery_van blocks lane 0 at 7.9 m; lanes [jump block -] -> lane 1 (speed 9.0, lead 8.3, gesture 130 ms)
+   119.4 m  swipe left   dumpster blocks lane 1 at 8.2 m; lanes [- block block] -> lane -1 (speed 9.0, lead 8.3, gesture 128 ms)
+   121.6 m  swipe left   second step toward lane -1 (speed 9.0)
+   147.6 m  swipe down   roll under overhead_gantry in lane -1 at 2.9 m, row 1 m long (speed 9.0, lead 3.1, gesture 123 ms)
+  photo f1  152.4 m  speed 9.6  fps 60  draws 76  tris 193200  zone street_a
+   172.1 m  swipe down   roll under overhead_gantry in lane -1 at 3.2 m, row 1 m long (speed 9.6, lead 3.3, gesture 132 ms)
+   186.8 m  swipe right  taxi blocks lane -1 at 8.7 m; lanes [block block -] -> lane 1 (speed 9.6, lead 8.7, gesture 124 ms)
+   189.2 m  swipe right   second step toward lane 1 (speed 9.6)
+   234.0 m  swipe left   taxi blocks lane 1 at 8.7 m; lanes [roll - block] -> lane 0 (speed 9.6, lead 8.7, gesture 124 ms)
+   260.5 m  swipe up     jump scooter in lane 0 at 5.9 m (speed 9.6, lead 6.3, gesture 128 ms)
+   268.4 m  swipe right  coin in lane 1 at 4.1 m (speed 9.6)
+   282.1 m  swipe up     jump low_barrier in lane 1 at 6.0 m (speed 9.6, lead 6.3, gesture 117 ms)
+  photo f2  300.1 m  speed 9.6  fps 60  draws 75  tris 192000  zone ramp_up
+   300.1 m  swipe left   coin in lane 0 at 9.4 m (speed 9.6)
+   323.9 m  swipe down   roll under overhead_gantry in lane 0 at 3.4 m, row 1 m long (speed 10.2, lead 3.6, gesture 116 ms)
+   328.8 m  swipe right  coin in lane 1 at 4.4 m (speed 10.2)
+   386.8 m  swipe up     jump scooter in lane 1 at 6.4 m (speed 10.2, lead 6.6, gesture 132 ms)
+   394.9 m  swipe left   coin in lane 0 at 4.2 m (speed 10.2)
+   410.0 m  swipe up     jump scooter in lane 0 at 6.5 m (speed 10.2, lead 6.6, gesture 117 ms)
+   423.6 m  swipe right  dumpster blocks lane 0 at 8.9 m; lanes [block block -] -> lane 1 (speed 10.2, lead 9.1, gesture 131 ms)
+  photo f3  450.3 m  speed 10.8  fps 60  draws 76  tris 193200  zone highway
+   461.5 m  swipe left   coin in lane 0 at 2.0 m (speed 10.8)
+   473.4 m  swipe up     jump cone_cluster in lane 0 at 6.6 m (speed 10.8, lead 6.9, gesture 122 ms)
+   487.6 m  swipe right  dumpster blocks lane 0 at 9.2 m; lanes [- block -] -> lane 1 (speed 10.8, lead 9.6, gesture 131 ms)
+  photo f4  600.1 m  speed 10.8  fps 60  draws 74  tris 190800  zone ramp_down
+   613.4 m  swipe left   dumpster blocks lane 1 at 10.0 m; lanes [jump - block] -> lane 0 (speed 11.4, lead 10.0, gesture 124 ms)
+   626.9 m  swipe right  coin in lane 1 at 2.5 m (speed 11.4)
+   658.0 m  swipe down   roll under overhead_gantry in lane 1 at 4.0 m, row 1 m long (speed 11.4, lead 4.1, gesture 132 ms)
+   752.8 m  swipe left   coin in lane 0 at 2.2 m (speed 12.0)
+   767.6 m  swipe down   roll under overhead_gantry in lane 0 at 3.9 m, row 1 m long (speed 12.0, lead 4.3, gesture 133 ms)
+   784.2 m  swipe down   roll under overhead_gantry in lane 0 at 3.1 m, row 3 m long (speed 12.0, lead 3.3, gesture 119 ms)
+   790.8 m  swipe left   coin in lane -1 at 2.5 m (speed 12.0)
+   794.4 m  swipe right  taxi blocks lane -1 at 10.0 m; lanes [block - -] -> lane 0 (speed 12.0, lead 10.4, gesture 118 ms)
+  photo f5  800.2 m  speed 12  fps 60  draws 74  tris 190800  zone street_b
+
+=== MIDNIGHT DASH GATE  run 1 ===
+game            /Users/dev/Documents/Cursor.Code/midnight-dash/tools/fixtures/fake-runner
+viewport        390x844 @3x phone, real touch   seed 7
+network         unshaped (pass --4g for the load budget)
+ready           0.3 s   budget 20 s   (not judged without --4g)
+weight          0.01 MB   budget 5 MB   (not judged without --4g)
+started         touch tap on #startb   PASS
+steering        32 decision(s) from __GAME__.next   PASS
+distance        801 m   needs 600 m   PASS
+death           none   must be after 400 m   PASS
+coins           102   needs > 0   PASS
+jumps / rolls   6 / 8   needs ≥ 1 each   PASS
+peak draws      81   budget 900   PASS
+peak tris       199,200   budget 1,500,000   PASS
+fps             median 60, min 60   ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version): reported, never gated
+404s            0   PASS
+errors          0   PASS
+outside folder  none   PASS
+frames          6 at 66, 152, 300, 450, 600, 800 m   filmstrip /private/tmp/claude-501/-Users-dev-Documents-Cursor-Code/9c2e450a-e004-4d03-84ab-197c6fdf35f1/scratchpad/fx5/filmstrip.png
+RESULT: PASS
+=== END ===
+
+run 2: loading tools/fixtures/fake-runner at 390x844 @3x phone (real touch), seed 7
+  ready 0.3 s   renderer ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)
+  started via touch tap on #startb
+    21.1 m  swipe down   roll under high_barrier in lane 0 at 2.9 m, row 1 m long (speed 9.0, lead 3.1, gesture 134 ms)
+    39.9 m  swipe up     jump low_barrier in lane 0 at 5.7 m (speed 9.0, lead 6.0, gesture 120 ms)
+    61.9 m  swipe down   roll under high_barrier in lane 0 at 1.7 m, row 3 m long (speed 9.0, lead 2.1, gesture 114 ms)
+  photo f0  66.4 m  speed 9  fps 60  draws 73  tris 189600  zone street_a
+    78.7 m  swipe right  delivery_van blocks lane 0 at 8.0 m; lanes [jump block -] -> lane 1 (speed 9.0, lead 8.3, gesture 128 ms)
+   119.4 m  swipe left   dumpster blocks lane 1 at 8.2 m; lanes [- block block] -> lane -1 (speed 9.0, lead 8.3, gesture 131 ms)
+   121.6 m  swipe left   second step toward lane -1 (speed 9.0)
+   147.4 m  swipe down   roll under overhead_gantry in lane -1 at 3.0 m, row 1 m long (speed 9.0, lead 3.1, gesture 119 ms)
+  photo f1  152.1 m  speed 9.6  fps 60  draws 76  tris 193200  zone street_a
+   172.4 m  swipe down   roll under overhead_gantry in lane -1 at 2.9 m, row 1 m long (speed 9.6, lead 3.3, gesture 127 ms)
+   186.8 m  swipe right  taxi blocks lane -1 at 8.6 m; lanes [block block -] -> lane 1 (speed 9.6, lead 8.7, gesture 116 ms)
+   189.0 m  swipe right   second step toward lane 1 (speed 9.6)
+   234.0 m  swipe left   taxi blocks lane 1 at 8.7 m; lanes [roll - block] -> lane 0 (speed 9.6, lead 8.7, gesture 120 ms)
+   260.4 m  swipe up     jump scooter in lane 0 at 6.1 m (speed 9.6, lead 6.3, gesture 118 ms)
+   268.4 m  swipe right  coin in lane 1 at 4.1 m (speed 9.6)
+   282.1 m  swipe up     jump low_barrier in lane 1 at 6.0 m (speed 9.6, lead 6.3, gesture 136 ms)
+   299.9 m  swipe left   coin in lane 0 at 9.5 m (speed 9.6)
+  photo f2  301.6 m  speed 10.2  fps 60  draws 76  tris 193200  zone ramp_up
+   323.7 m  swipe down   roll under overhead_gantry in lane 0 at 3.5 m, row 1 m long (speed 10.2, lead 3.6, gesture 132 ms)
+   329.0 m  swipe right  coin in lane 1 at 4.3 m (speed 10.2)
+   386.6 m  swipe up     jump scooter in lane 1 at 6.5 m (speed 10.2, lead 6.6, gesture 126 ms)
+   394.7 m  swipe left   coin in lane 0 at 4.4 m (speed 10.2)
+   410.2 m  swipe up     jump scooter in lane 0 at 6.3 m (speed 10.2, lead 6.6, gesture 128 ms)
+   423.5 m  swipe right  dumpster blocks lane 0 at 9.1 m; lanes [block block -] -> lane 1 (speed 10.2, lead 9.1, gesture 119 ms)
+  photo f3  450.3 m  speed 10.8  fps 60  draws 76  tris 193200  zone highway
+   461.1 m  swipe left   coin in lane 0 at 2.4 m (speed 10.8)
+   473.6 m  swipe up     jump cone_cluster in lane 0 at 6.4 m (speed 10.8, lead 6.9, gesture 127 ms)
+   487.4 m  swipe right  dumpster blocks lane 0 at 9.4 m; lanes [- block -] -> lane 1 (speed 10.8, lead 9.6, gesture 130 ms)
+  photo f4  600.5 m  speed 11.4  fps 60  draws 74  tris 190800  zone ramp_down
+   613.8 m  swipe left   dumpster blocks lane 1 at 9.6 m; lanes [jump - block] -> lane 0 (speed 11.4, lead 10.0, gesture 118 ms)
+   627.1 m  swipe right  coin in lane 1 at 2.3 m (speed 11.4)
+   658.0 m  swipe down   roll under overhead_gantry in lane 1 at 4.0 m, row 1 m long (speed 11.4, lead 4.1, gesture 120 ms)
+   752.8 m  swipe left   coin in lane 0 at 2.2 m (speed 12.0)
+   767.4 m  swipe down   roll under overhead_gantry in lane 0 at 4.1 m, row 1 m long (speed 12.0, lead 4.3, gesture 145 ms)
+   784.2 m  swipe down   roll under overhead_gantry in lane 0 at 3.1 m, row 3 m long (speed 12.0, lead 3.3, gesture 121 ms)
+   791.2 m  swipe left   coin in lane -1 at 2.1 m (speed 12.0)
+   794.2 m  swipe right  taxi blocks lane -1 at 10.2 m; lanes [block - -] -> lane 0 (speed 12.0, lead 10.4, gesture 122 ms)
+  photo f5  800.2 m  speed 12  fps 60  draws 74  tris 190800  zone street_b
+
+=== MIDNIGHT DASH GATE  run 2 ===
+game            /Users/dev/Documents/Cursor.Code/midnight-dash/tools/fixtures/fake-runner
+viewport        390x844 @3x phone, real touch   seed 7
+network         unshaped (pass --4g for the load budget)
+ready           0.3 s   budget 20 s   (not judged without --4g)
+weight          0.01 MB   budget 5 MB   (not judged without --4g)
+started         touch tap on #startb   PASS
+steering        32 decision(s) from __GAME__.next   PASS
+distance        801 m   needs 600 m   PASS
+death           none   must be after 400 m   PASS
+coins           101   needs > 0   PASS
+jumps / rolls   6 / 8   needs ≥ 1 each   PASS
+peak draws      81   budget 900   PASS
+peak tris       199,200   budget 1,500,000   PASS
+fps             median 60, min 58   ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version): reported, never gated
+404s            0   PASS
+errors          0   PASS
+outside folder  none   PASS
+frames          6 at 66, 152, 302, 450, 600, 800 m   filmstrip /private/tmp/claude-501/-Users-dev-Documents-Cursor-Code/9c2e450a-e004-4d03-84ab-197c6fdf35f1/scratchpad/fx5/run2/filmstrip.png
+RESULT: PASS
+=== END ===
+
+noise floor over 2 runs (mean luma 0..255 per frame index, phone frames are the measurement frames):
+  f0 @66 m   median 47.1   spread 0.8   (46.7 47.5)
+  f1 @152 m   median 42.6   spread 0.7   (42.9 42.2)
+  f2 @300 m   median 44.6   spread 0.2   (44.4 44.7)
+  f3 @450 m   median 39.8   spread 0.1   (39.9 39.8)
+  f4 @600 m   median 41.6   spread 0.1   (41.6 41.7)
+  f5 @800 m   median 41.7   spread 0.1   (41.8 41.7)
+
+all 2 run(s) passed. now LOOK at the filmstrip.
