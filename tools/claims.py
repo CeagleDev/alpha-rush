@@ -73,9 +73,10 @@ def main():
             v = np.array([r[k] for r in rows]); q1, q3 = np.percentile(v, [25, 75]); row += f'{np.median(v):11.1f} ±{(q3 - q1) / 2:7.1f}     '
         print(row)
     if sep and ',' in sep:
-        A, B = sep.split(','); print(f'\nseparation test ({A} vs {B}): share of pairs on opposite sides of the {A} median; keep >= 70 %')
+        A, B = sep.split(','); print(f'\nseparation test ({A} vs {B}): direction = sign of the median difference; share of ({A} frame, {B} frame) pairs')
+        print('ordered in that direction, i.e. the two sets are on opposite sides of a threshold between them. Keep a claim only if >= 70 %.')
         for k in keys:
-            va = np.array([r[k] for r in sets[A]]); vb = np.array([r[k] for r in sets[B]]); m = np.median(va)
-            side_a = va >= m; opp = np.mean([(sa != (b >= m)) for sa in side_a for b in vb]) * 100
-            print(f'  {k:28s} {opp:5.1f} %  {"KEEP" if opp >= 70 else "drop"}')
+            va = np.array([r[k] for r in sets[A]]); vb = np.array([r[k] for r in sets[B]]); d = np.sign(np.median(va) - np.median(vb)) or 1
+            opp = np.mean([((a - b) * d) > 0 for a in va for b in vb]) * 100
+            print(f'  {k:28s} {A} {np.median(va):7.1f}  {B} {np.median(vb):7.1f}   pairs ordered {opp:5.1f} %  {"KEEP" if opp >= 70 else "drop"}')
 main()

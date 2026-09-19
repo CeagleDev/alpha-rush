@@ -12,10 +12,21 @@ floor fall on different sides of it on ≥ 70 % of frames.
 | C2 | But it has real brights: p98 luma ≈ 194 and 1.5–2 % of pixels above 200, and those pixels are lit sign faces and lanterns, not sky | p98 193.9, 1.75 % | a white HUD or a bright sky — exclude HUD, check the bright pixels sit on sign geometry |
 | C3 | The shade is WARM: the dominant dark cluster has R − B ≥ 8 (brown-black `0x231718`, not blue-black) | R−B = 11 | a global warm tint — pair with C4 |
 | C4 | The sky is COOL: in the top fifth, a blue class with B − R ≥ 60 covers ≥ 20 % | `0x1d406f` 24 %, `0x1d3150` 23 % | painting a blue rectangle — the critic checks it is sky, above the eaves |
-| C5 | The sides are crammed: interior edge density in the left and right thirds ≥ 2× the centre third | eye: every frame | noise textures — the critic checks the edges are objects |
+| C5 | The sides are crammed: edge density in the left and right thirds is at least EQUAL to the centre third (measured 0.9 on the bar — the wet road's litter and reflections put edges in the centre too, so the original ≥ 2× claim was wrong); the floor measured 0.3 | 0.9 ±0.1 | noise textures — the critic checks the edges are objects |
 | C6 | Cables cross the top third: ≥ 3 dark thin catenary lines | eye: every frame | stripes drawn on the sky |
 | C7 | The road reflects the signs: the bottom quarter contains an amber class (luma > 100, R > B + 40) covering 4–8 %, positioned below a lit sign | `0xa16f43` 6 % | painting the road orange — position test |
 | C8 | Hero scale: the hero's screen box is 22–40 % of frame height | dogs in video 15–25 %; ours is a standing human, so 28–38 % | camera so close the world disappears — pair with C5 |
 
 Eye checks that never get a number: speed is visible (motion streaks on litter/coins, camera bob); ≥ 6 lit sign
 faces in frame; lanterns in frame; litter on the road; the pack is visible behind the runner.
+
+## Measured 2026-09-19 with tools/claims.py (20 bar frames, 540 px wide, 8 % HUD band excluded; floor = 2 playtest frames)
+| statistic | bar median ± IQR/2 | floor | separates? |
+|---|---|---|---|
+| C1 median luma | 39.6 ± 3.2 | 12.0 | yes — the floor is far too dark |
+| C2 p98 luma / % over 200 | 224.5 ± 12.6 / 3.2 ± 0.9 | 85 / 0.7 | yes |
+| C3 dark cluster R − B (warm shade) | +7.0 ± 6.7 | −5.6 (blue shade) | yes |
+| C4 top-fifth blue share | 39.6 ± 13.4 % | 0 % | yes — the floor shows no sky |
+| C5 side / centre edge density | 0.9 ± 0.1 | 0.3 | yes |
+| C7 bottom-quarter amber share | 6.1 ± 2.7 % | 0 % | yes — no wet-road reflections in the floor |
+Run: `python3 tools/claims.py bar=refs/bar-video floor=<frames> build=<frames> --sep=bar,build`. Two samples before you believe a column.
