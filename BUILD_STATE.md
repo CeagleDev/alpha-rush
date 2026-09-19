@@ -29,3 +29,4 @@ prop chassis. Built with 404-game-recipe + Atlas MCP + the RUST 17 lessons
 
 ## Log
 - 2026-09-19 folder created, harness copied, git init. Floor agent launched.
+- 2026-09-19 Atlas: 8 bar frames + 8 object refs (batch 1) generated and downloaded to refs/. Awaiting user go-ahead. Style lock + spec committed.

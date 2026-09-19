@@ -4,3 +4,4 @@ _gate/
 _jam/
 work/**/tmp/
 .DS_Store
+refs/**/*.png
