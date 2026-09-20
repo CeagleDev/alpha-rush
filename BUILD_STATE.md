@@ -65,3 +65,27 @@ Filmstrip observations (round 0, 35/58 assets): the alley reads — shophouses b
 cables, wet road with reflections, runner and shiba in frame at hero 29 %. The large pale boxes
 near the camera are the placeholder dog_spitz and dog_mutt (A5 will replace them). Expressway and
 ramp zones are nearly empty pending A9's deck/ramp and A8's steel.
+
+## Round 0 complete, 2026-09-20 — ALL 58 ASSETS IN, GATE PASSES CLEAN
+node tools/gate.mjs game --seed=7 : 802 m, 92 coins, 14 jumps, 8 rolls, 60 fps median,
+468 draws (budget 900), 1,322,458 tris (budget 1.5M), 4.38 MB, 0 x 404, 0 console errors. RESULT PASS.
+
+Fixes this session, each a silent failure that the gate alone would not have caught:
+ 1. assets.init was never called -> the whole world built EMPTY while the gate passed on 8 draws.
+ 2. road / expressway deck / ramp were each placed at the wrong height (buried, 5.2 m airborne, sunk).
+ 3. the 8 Atlas sign sprites + 2 noren were generated but never applied to any sign face.
+ 4. bakeStatic merged nothing (~185 materials per chunk): vertex-colour tinting per recipe family
+    took track draws 1,121 -> 267 and the whole frame 1,187 -> 462.
+ 5. three dogs sat between the low camera and the hero, masking the road: spread to the lane edges.
+ 6. gate gained --nohud, because a HUD in the corner identifies our frame in a blind pair.
+
+Claims vs the bar after E4's lighting pass (tools/claims.py, 6 frames vs 20):
+  C1 median luma      bar 39.6   build 51.5   still separates (77.5 %) - we are too bright
+  C2 p98 / % over 200 bar 224.5 / 3.2   build 215.0 / 3.8   MATCHES (dropped as a claim)
+  C3 dark R - B       bar +7.0   build +2.6   MATCHES within noise (was -6.5)
+  C4 top-fifth blue   bar 39.6 % build 63.2 % separates 100 % - THE strongest remaining signal
+  C5 side/centre edge bar 0.9    build 1.0    MATCHES
+  C7 bottom amber     bar 6.1 %  build 6.5 %  MATCHES (was 23.2 % - overshot and corrected)
+
+Critic round 1 running on 4 blind pairs (work/critic1/bar) against 4 bar frames, HUD off.
+Stopping rule: 3 critic rounds, then ship and write down what is still wrong.

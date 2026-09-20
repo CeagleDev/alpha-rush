@@ -1,0 +1,16 @@
+C2_p98_luma                       224.5 ±   12.6           215.0 ±    5.4     
+C2_pct_over_200                     3.2 ±    0.9             3.8 ±    0.7     
+C3_dark_R_minus_B                   7.0 ±    6.7             2.6 ±   17.2     
+C4_top_blue_pct                    39.6 ±   13.4            63.2 ±    3.6     
+C5_side_over_centre_edges           0.9 ±    0.1             1.0 ±    0.1     
+C7_bottom_amber_pct                 6.1 ±    2.7             6.5 ±    6.5     
+
+separation test (bar vs build): direction = sign of the median difference; share of (bar frame, build frame) pairs
+ordered in that direction, i.e. the two sets are on opposite sides of a threshold between them. Keep a claim only if >= 70 %.
+  C1_median_luma               bar    39.6  build    51.5   pairs ordered  77.5 %  KEEP
+  C2_p98_luma                  bar   224.5  build   215.0   pairs ordered  67.5 %  drop
+  C2_pct_over_200              bar     3.2  build     3.8   pairs ordered  54.2 %  drop
+  C3_dark_R_minus_B            bar     7.0  build     2.6   pairs ordered  55.8 %  drop
+  C4_top_blue_pct              bar    39.6  build    63.2   pairs ordered 100.0 %  KEEP
+  C5_side_over_centre_edges    bar     0.9  build     1.0   pairs ordered  55.0 %  drop
+  C7_bottom_amber_pct          bar     6.1  build     6.5   pairs ordered  55.0 %  drop
