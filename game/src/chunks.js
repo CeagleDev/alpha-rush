@@ -25,6 +25,7 @@
  */
 import * as THREE from 'three';
 import { signFace, noren } from './textures.js';
+import * as perf from './perf.js';
 import { bakeStatic } from '../assetlib.js';
 
 export const CHUNK_LEN = 30;
@@ -433,6 +434,12 @@ async function finish(ctx, B, litterCount) {
   }
   shareMaterials(B.root);
   tintByVertexColor(B.root);     // colour into the vertices, one material per recipe family: see above
+  // The SECOND, coarser bake (traps.md "when one view holds the whole level, trimming assets is not
+  // the fix"): the same chunk with every part under ~25 cm dropped, swapped in beyond a measured
+  // distance by perf.js. E4 measured the swap at 40 m with a 0.000 mean pixel difference, so it is
+  // invisible in a filmstrip, and it is the triangle headroom the road work is about to spend.
+  let coarse = null;
+  try { coarse = perf.coarseBake ? perf.coarseBake(B.root) : null; } catch (e) { coarse = null; }
   const baked = bakeStatic(B.root);
   baked.name = 'static';
   let tris = 0; baked.traverse((o) => { if (o.isMesh && o.geometry) { const p = o.geometry.attributes.position; tris += (o.geometry.index ? o.geometry.index.count : p.count) / 3; } });
@@ -440,6 +447,7 @@ async function finish(ctx, B, litterCount) {
   const chunk = new THREE.Group();
   chunk.name = 'chunk_' + B.variant.id;
   chunk.add(baked);
+  if (coarse && coarse.group) { coarse.group.visible = false; chunk.add(coarse.group); chunk.userData.coarse = coarse.group; }
   // litter: InstancedMesh per litter_set piece (≤ 4 per chunk), on the road and verges
   let litter = 0;
   if (litterCount > 0) {
