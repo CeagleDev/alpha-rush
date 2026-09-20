@@ -45,7 +45,7 @@ let drawInfo = { before: 0, after: 0 };
 const P = {
   mode: 'idle', modeT: 0, modeLen: 0,
   laneFrom: 0, laneTo: 0, laneT: 1, laneVel: 0, prevX: 0,
-  jumpT: -1, rollT: -1,
+  jumpT: -1, rollT: -1, wall: null,
   stumbleAnimT: 0, stumbleHard: false,
   invulnT: 0, lastHitAt: -1e9, clock: 0, deathT: 0,
 };
@@ -67,7 +67,7 @@ export function reset() {
   s.distance = 0; s.z = 0; s.speed = 0; s.speedMul = 1;
   s.lane = 0; s.laneX = 0; s.x = 0; s.y = groundY(0);
   s.airborne = false; s.rolling = false; s.stumbleT = 0;
-  s.jumps = 0; s.rolls = 0; s.hits = 0; s.hitT = -1;
+  s.jumps = 0; s.rolls = 0; s.hits = 0; s.hitT = -1; P.wall = null;
   s.playerState = 'idle';
   P.mode = 'idle'; P.modeT = 0; P.modeLen = 0;
   P.laneFrom = 0; P.laneTo = 0; P.laneT = 1; P.laneVel = 0; P.prevX = 0;
@@ -233,6 +233,16 @@ export function update(a, b) {
   if (P.mode === 'run' && P.laneT < 1) s.playerState = 'laneChange';
   else s.playerState = P.mode;
 
+  // ---- the wall (a block item the runner has bounced off): he cannot advance into it; he can
+  // dodge out of its lane; if he is still pinned after 0.6 s the pack catches him
+  if (P.wall && live) {
+    if (Math.abs(s.x - P.wall.x) > 1.05) P.wall = null;                       // dodged clear
+    else {
+      if (s.z > P.wall.z) { s.z = P.wall.z; s.distance = s.z; }
+      P.wall.t += dt;
+      if (P.wall.t > 0.6) { P.wall = null; emit('hit', { x: s.x, z: s.z, kind: 'block', type: 'wall', hits: s.hits, fatal: true }); enterDead('block'); }
+    }
+  }
   // ---- AABB and collision
   const h = s.rolling ? 0.85 : 1.7;
   aabb.min.set(s.x - 0.3, s.y, s.z - 0.25);
@@ -247,6 +257,15 @@ export function update(a, b) {
         const dtHit = P.clock - P.lastHitAt;
         P.lastHitAt = P.clock;
         s.hits = (s.hits | 0) + 1; s.hitT = 0;
+        // CONTACT. Before this the runner (and 0.4 s later the camera) passed straight through
+        // whatever he hit - the critic's death sheet opens inside a crate stack. Now a light JUMP
+        // item is knocked over (obstacles.knock: it tumbles off the lane and stops being solid) and
+        // the runner takes a small check-step back; a BLOCK item is a WALL: he bounces to just in
+        // front of it and cannot run into it, and unless he dodges out of the lane within ~0.6 s
+        // the pack has him. That is the spec's "head-on block = caught", made physical.
+        const bx = r && r.box ? (r.box.min.x + r.box.max.x) / 2 : s.x;
+        if (info.kind === 'jump' && r && obstaclesMod().knock) { obstaclesMod().knock(r, s.x <= bx ? -1 : 1); s.z -= 0.3; s.distance = s.z; }
+        if (info.kind === 'block' && r && r.box) { P.wall = { z: r.box.min.z - 0.55, x: bx, t: 0 }; s.z = Math.min(s.z, P.wall.z); s.distance = s.z; }
         if (dtHit < 5) {
           emit('hit', { x: s.x, z: s.z, kind: info.kind, type: info.type, hits: s.hits, fatal: true });
           enterDead(info.kind === 'block' ? 'block' : 'hit');

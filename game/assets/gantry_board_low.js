@@ -85,5 +85,9 @@ export default function (THREE) {
   const c = box.getCenter(new THREE.Vector3());
   g.children.forEach((o) => { o.position.x -= c.x; o.position.y -= box.min.y; o.position.z -= c.z; });
   g.userData.lights.forEach((l) => { l.x -= c.x; l.y -= box.min.y; l.z -= c.z; });
+  // narrowed to 1.86 m: authored at 2.66 m the columns stood at +-1.3 m of the lane centre, inside
+  // the neighbouring lanes' space, and the flank dogs ran through the left column on every pass
+  // (Fable critic #18). At 0.7 the columns sit at +-0.9, inside a 2 m lane.
+  g.scale.x = 0.7;
   return g;
 }

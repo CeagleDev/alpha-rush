@@ -186,6 +186,7 @@ export function hit(aabb) {
     if (row.z > aabb.max.z + 0.01) break;
     if (row.z + row.len < aabb.min.z) continue;
     for (const it of row.items) {
+      if (it.knocked) continue;                 // knocked over: no longer solid
       const b = it.box;
       if (aabb.min.x <= b.max.x && aabb.max.x >= b.min.x && aabb.min.y <= b.max.y && aabb.max.y >= b.min.y &&
           aabb.min.z <= b.max.z && aabb.max.z >= b.min.z) return it;
@@ -194,8 +195,37 @@ export function hit(aabb) {
   return null;
 }
 
+// KNOCK-OVER. Before this, a head-on hit on a crate stack left the runner (and 0.4 s later the
+// camera) passing straight through it - the first four frames of the critic's death sheet are the
+// inside of a crate. Light items (JUMP kind: crates, coolers, a bicycle, a barrier) now get knocked
+// over: they tumble sideways off the lane, sink, and are released, and the row's lane is freed so
+// `next` and the dogs stop treating it as solid. BLOCK items are not knockable - a van stops you.
+const knocked = [];
+export function knock(item, dir = 1) {
+  if (!item || item.knocked || item.kind === 'block') return false;
+  item.knocked = true;
+  knocked.push({ it: item, t: 0, dir: dir >= 0 ? 1 : -1, x0: item.inst.position.x, y0: item.inst.position.y });
+  const row = item.row;
+  if (row && Array.isArray(row.lanes)) for (const l of item.lanes) row.lanes[l + 1] = null;
+  return true;
+}
+function tumble(dt) {
+  for (let i = knocked.length - 1; i >= 0; i--) {
+    const k = knocked[i]; k.t += dt; const inst = k.it.inst; const u = k.t / 0.9;
+    inst.rotation.z += -k.dir * dt * 6.5;                       // rolls over sideways
+    inst.rotation.x += dt * 2.0;
+    inst.position.x = k.x0 + k.dir * Math.min(1.4, k.t * 2.6);  // slides off the lane
+    inst.position.y = k.y0 + (u < 0.35 ? 0.25 * Math.sin(u / 0.35 * Math.PI) : -Math.max(0, (u - 0.35)) * 3);   // a hop, then sinks
+    if (k.t >= 0.9) {
+      const row = k.it.row; if (row) row.items = row.items.filter((x) => x !== k.it);
+      releaseInst(k.it.type, inst); inst.rotation.set(0, 0, 0); knocked.splice(i, 1);
+    }
+  }
+}
+let lastTumbleT = 0;
 export function update() {
   if (!ctx) return;
+  { const now = performance.now() / 1000; tumble(lastTumbleT ? Math.min(0.05, now - lastTumbleT) : 0.016); lastTumbleT = now; }
   const f = frame(); if (f === doneFrame) return; doneFrame = f;
   const st = ctx.state;
   const pz = Number.isFinite(st.z) ? st.z : (st.distance || 0);

@@ -71,3 +71,39 @@ near-duplicates so effective n is about 2, and forced-choice pairing measures di
 quality — "it will keep returning 4/4 long after the game is good". A better next instrument is a single
 frame shown alone: does this read as a finished night alley, yes or no, and what breaks it.
 A Fable-judged verdict on the identical round-2 pairs is still outstanding as a judge A/B.
+
+## Behaviour round (Fable critic, 2026-09-20) — what changed, what is still open
+Evidence: a 4,662-frame screencast with the driver's decision log, consecutive-frame strips, and
+tools/clashcheck.mjs, an in-engine probe that tests the runner's box, every dog, every live obstacle
+box and coin, and the ground under each, 25 times a second (work/fable1/). Probe verdict now, on
+seeds 7 and 23 over 800 m and on an unsteered run into the obstacles: ZERO clashes of any class.
+Fixed from the critic's 18 findings:
+ - the dogs ran through vans, carts, sedans and crates (141 instances): the pack now steps to a free
+   lane at the next row, tested on where each dog's body is, and holds it until the row is passed;
+   x is clamped to the carriageway so no dog runs the verge.
+ - the runner strobed at ~3 Hz: the road-crossing lantern/noren strings were placed turned by 90 deg
+   and lay DOWN the lane (six lanterns a metre apart over his head); strings now cross, practicals
+   cluster and fade instead of hard-switching.
+ - the scaffold pole and the low gantry floated 1.3 m in the air (every ROLL item was hoisted; only
+   the banner is authored base-at-hem). Instances stand on the ground; ROLL hitboxes still start at
+   the 1.3 m clearance line because the thing in the lane is the bar, not the legs.
+ - a 1.25 m crate only existed to 0.75 m for the jump test (shins through the top crates): cap 0.9.
+ - the expressway's BLOCK (1.02 m divider) was lower than its JUMP (1.2 m barrier): blocks there are
+   now broken-down vehicles.
+ - head-on contact: light items are KNOCKED OVER (tumble off the lane, stop being solid); a van is a
+   WALL the runner bounces off and stalls against - dodge out of the lane within 0.6 s or the pack has
+   him. Before, runner and camera passed straight through the crate stack.
+ - the pack eases in over ~0.6 s on a hit instead of lurching 1.4 m in one frame.
+ - coins: vertical collect tolerance 1.15 -> 0.6 m so arc coins need the jump; a missed coin is
+   dropped before it flies through the lens.
+ - roll ball held to the last 0.05 s; stumble is arms-forward, not the jump's spread; lane lean legible.
+ - camera 1.3 -> 1.9 m so the next row shows over the hero's shoulder and obstacle tops clear the
+   lens; the death cam stays on the runner; the death card waits 1.4 s for the fall.
+ - the low gantry narrowed so its columns stay inside the lane.
+Still open from that round:
+ - lane-0 obstacles may still be hidden behind the hero until late (camera raised; not re-measured).
+ - the ramp and expressway road read flat and dark with a faint tile grid (albedo 0.016 vs the
+   alley's 0.019, roughness 0.45; no clutter to break the tiling).
+ - a hit on a ROLL bar while upright: the head passes through the thin pole after the stumble.
+ - the critic's hand-test list: swipe feel and latency on a real phone; restart in place; death by
+   pack on open road; the banner_cluster hems at 1.3 m; landscape aspect; expressway pop-in at 150 m.
