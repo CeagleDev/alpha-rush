@@ -145,7 +145,12 @@ let ambientTex = null;
 export const SIGN_COUNT = 8, NOREN_COUNT = 2;
 const signMats = new Map(), norenMats = new Map();
 
-let ctx = null, THREE = null;
+let ctx = null;
+// THREE is imported, not taken from ctx: signFace()/noren() are called by the chunk builder, and a
+// module-level `null` here meant any call before init(ctx) threw. Belt and braces after the module
+// -duplication bug above; init() still overwrites it with ctx's (chamfer-wrapped) namespace.
+import * as THREE_NS from 'three';
+let THREE = THREE_NS;
 let base = '../textures/';   // resolved against this module, so a fixture page elsewhere still finds game/textures/
 const files = new Map();       // file -> Promise<Texture|null>
 const loaded = {};             // set -> { map?, roughnessMap?, normalMap? } (only files that arrived)

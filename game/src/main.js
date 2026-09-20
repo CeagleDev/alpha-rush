@@ -101,9 +101,19 @@ const events = makeEvents();
 
 // ---------------------------------------------------------------- modules (dynamic, stubbed if missing)
 const missing = [];
+// Read the stamp off our own URL so dynamic imports match the stamped static ones exactly.
+const MODULE_V = (() => { try { return new URL(import.meta.url).search || ''; } catch (e) { return ''; } })();
 async function load(name, stub) {
   try {
-    return await import(`./${name}.js`);
+    // The cache stamp must be on this URL TOO. ship.mjs --stamp rewrites STATIC import strings, but
+    // this is a dynamic import built from a variable, so it stayed unstamped: main.js loaded
+    // ./textures.js while chunks.js imported ./textures.js?v=..., and an ES module keyed by URL
+    // means those are TWO SEPARATE INSTANCES. main.js initialised one; the chunk builder used the
+    // other, whose module-level THREE was still null — "track.init threw: Cannot read properties of
+    // null (reading 'MeshStandardMaterial')", and every sign sprite silently missed its texture
+    // cache. The local gate never saw it because it serves unstamped source; only the jam gate,
+    // run against what was actually shipped, did.
+    return await import(`./${name}.js${MODULE_V}`);
   } catch (e) {
     // A syntax error inside an existing module must NOT be hidden as "missing": say which it was.
     const notFound = /Failed to fetch|404|not found|Failed to load|error loading dynamically/i.test(String(e && e.message));
