@@ -103,6 +103,7 @@ const PLANAR_NY = 0.85;
  * sparkles.
  */
 const GROUND_NORMAL_SCALE = 0.22;
+const STONE_NORMAL_SCALE = 0.45;
 
 /**
  * THE ROAD'S AMBIENT, as a light map. Round 3's one property.
@@ -130,7 +131,7 @@ const GROUND_NORMAL_SCALE = 0.22;
  *
  * The texel is one pixel of LINEAR colour (NoColorSpace: this is irradiance, not a picture), and
  * it is BLUE-DOMINANT because it has to cancel an orange bounce, not because the alley is blue.
- * At intensity 2.85 the road's total irradiance becomes (2.39, 2.22, 2.93) instead of
+ * At intensity 2.80 the road's total irradiance becomes (2.39, 2.22, 2.93) instead of
  * (0.51, 0.21, 0.08): the saturation of the light itself falls from 0.84 to 0.25. Solved, not
  * guessed — intensity and albedo are solved TOGETHER so that an ambient-only patch of
  * carriageway lands at sRGB (22.0, 18.5, 23.0) through this project's ACES fit at exposure 1.05
@@ -357,6 +358,10 @@ export function apply(group) {
     registry[set].add(m);
     if (assign(m, set)) applied++;
     if (set === 'asphalt' && m.normalScale) m.normalScale.set(GROUND_NORMAL_SCALE, GROUND_NORMAL_SCALE);
+    // the kerb/gutter/pavement 'stone' set aliases for the same reason the asphalt did: a pebble-
+    // scale normal on a low-roughness wet surface makes a mirror facet per texel. Frame f4's road
+    // band measured a Laplacian variance of 1017 against the reference's 24-236, all of it here.
+    if (set === 'deck' && m.normalScale) m.normalScale.set(STONE_NORMAL_SCALE, STONE_NORMAL_SCALE);
     setsHit.add(set);
   });
   return { applied, sets: [...setsHit], planarVerts };

@@ -89,8 +89,8 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 1.0, fillSkyGain: 0.1, fillGroundGain: 3.0,   // was 4.2: the rig gives an awning soffit 8x a wall, so the amber street bounce blew every soffit to white        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
-  candela: qn('lgain', 1) * 220, heightRef: 2.5, heightExp: 1.2, heightGainMax: 4,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
+  fill: qn('fill', 1) * 1.0, fillSkyGain: 0.3, fillGroundGain: 3.0,   // was 4.2: the rig gives an awning soffit 8x a wall, so the amber street bounce blew every soffit to white        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
+  candela: qn('lgain', 1) * 150, heightRef: 2.5, heightExp: 1.2, heightGainMax: 4,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
   // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
   // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
   // A wall sees the 50/50 mix, so the ground term is the brighter of the two on purpose.
@@ -144,12 +144,12 @@ export const PARAMS = {
   // rig's bloom needs post, and the phone tier has none), and CLAIMS C2 is about exactly those
   // pixels. Assets author 1.8-3.0 per STYLE; this is the night's exposure of that channel, applied
   // to what is in the scene and re-applied as chunks spawn.
-  emissive: qn('emissive', 1) * 2.4,
+  emissive: qn('emissive', 1) * 1.9,
   // ...and a CEILING on what that reaches, because the top of the ACES curve has no colour in it.
   // Uncapped, a cream paper lantern goes to (233, 229, 217) and reads as a featureless white blob
   // with its ribs gone; the reference's brightest pixels are sign faces that still show their
   // strokes. Capped at the max emissive channel, in linear radiance before the curve.
-  emissiveCap: qn('emissivecap', 1) * 2.9,
+  emissiveCap: qn('emissivecap', 1) * 2.1,
 };
 const NEAR_SOFT_M = 5.0;      // metres: below this a practical is eased down (see assign())
 const NEAR_SOFT_MIN = 0.22;   // floor, so a close lantern still reads as lit rather than switching off
