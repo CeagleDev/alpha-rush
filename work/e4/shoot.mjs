@@ -46,22 +46,22 @@ const ready = Date.now() - t0;
 await page.waitForFunction('(window.__FRAMES__ || 0) >= 24', { timeout: 60000 }).catch(() => {});
 if (args.sweep) {
   const combos = [];
-  for (const fill of [2.0, 3.2, 4.6]) for (const candela of [40, 75, 120]) for (const emissive of [1, 1.8]) combos.push({ fill, candela, emissive });
+  for (const bounce of [0, 0.06, 0.12, 0.2]) for (const fill of [2.4, 3.6, 5.0]) combos.push({ bounce, fill, candela: 80, poolRadius: 0.55, poolStretch: 1.6, poolOpacity: 0.34 });
   const rows = await page.evaluate(async (cs) => {
     const out = [];
     for (const c of cs) { window.__lighting.tune(c); await new Promise((r) => requestAnimationFrame(r)); out.push({ ...c, ...window.__MEASURE__() }); }
     return out;
   }, combos);
-  console.log('fill cd   emis | median  p98  >200%  darkRB  blueTop%  amber%');
-  for (const r of rows) console.log(`${String(r.fill).padEnd(4)} ${String(r.candela).padEnd(4)} ${String(r.emissive).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(5)} ${String(r.over200).padStart(6)} ${String(r.darkRB).padStart(7)} ${String(r.blueTop).padStart(9)} ${String(r.amberBot).padStart(7)}`);
+  console.log('bnc  fill | median  p98  >200%  darkRB  amber%');
+  for (const r of rows) console.log(`${String(r.bounce).padEnd(4)} ${String(r.fill).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(5)} ${String(r.over200).padStart(6)} ${String(r.darkRB).padStart(7)} ${String(r.amberBot).padStart(7)}`);
 }
 if (args.lod) {
   for (const fogDensity of (args.fogs || '0.008,0.014,0.022').split(',').map(Number)) {
     const L = await page.evaluate((f) => window.__LODMEASURE__({ fogDensity: f }), fogDensity);
     const c = L.claims;
     console.log(`\n== fog ${fogDensity}  full frame ${L.base.draws} draws ${L.base.tris} tris  | median ${c.median} p98 ${c.p98} >200 ${c.over200}% darkRB ${c.darkRB} blueTop ${c.blueTop}% amber ${c.amberBot}%`);
-    console.log('  mode    D(m) | meanDiff maxDiff  draws     tris');
-    for (const r of L.rows) if (r.mode === 'cull') console.log(`  ${r.mode.padEnd(7)} ${String(r.D).padEnd(4)} | ${String(r.mean).padStart(8)} ${String(r.max).padStart(7)} ${String(r.draws).padStart(6)} ${String(r.tris).padStart(8)}`);
+    console.log('  mode    D(m) | meanDiff maxDiff  >8luma%  draws     tris');
+    for (const r of L.rows) console.log(`  ${r.mode.padEnd(7)} ${String(r.D).padEnd(4)} | ${String(r.mean).padStart(8)} ${String(r.max).padStart(7)} ${String(r.vis).padStart(8)} ${String(r.draws).padStart(6)} ${String(r.tris).padStart(8)}`);
   }
 }
 const result = await page.evaluate(() => ({
@@ -76,6 +76,16 @@ const result = await page.evaluate(() => ({
 }));
 await page.screenshot({ path: OUT });
 console.log(JSON.stringify({ readyMs: ready, out: OUT, ...result }, null, 1));
+if (args.both) {
+  await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+  await page.evaluate(() => { dispatchEvent(new Event('resize')); });
+  await page.waitForFunction('(window.__FRAMES__ || 0) > 0', { timeout: 20000 }).catch(() => {});
+  await new Promise((r) => setTimeout(r, 1200));
+  const d = await page.evaluate(() => ({ perf: window.__perf.report(), lighting: window.__lighting.report(), measure: window.__MEASURE__() }));
+  await page.screenshot({ path: OUT.replace('.png', '-desktop.png') });
+  console.log('DESKTOP ' + JSON.stringify(d));
+}
+
 console.log('--- console ---');
 for (const l of logs.slice(0, 40)) console.log(l);
 await browser.close();

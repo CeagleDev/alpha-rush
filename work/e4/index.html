@@ -61,7 +61,10 @@ const trackStub = {
     for (const g of chunks) for (const l of g.userData.lights) out.push({ x: l.x + g.position.x, y: l.y + g.position.y, z: l.z + g.position.z, color: l.color, intensity: l.intensity, range: l.range });
     return (trackStub._cache = out);
   },
-  groundY() { return 0; },
+  // the placeholder road slab is 5 cm thick with its base at y=0, so its DRIVING SURFACE is 0.05.
+  // groundY() is what lighting.js puts its ground pools on; returning 0 here buries every pool
+  // inside the road and C7 ("the road reflects the signs") reads 0 % with nothing visibly wrong.
+  groundY() { return 0.05; },
 };
 const ctx = { THREE, scene, camera, renderer, rig, config, state, assets, textures, modules: { track: trackStub } };
 
@@ -214,7 +217,9 @@ window.__MEASURE__ = () => {
       const L = 0.299 * r + 0.587 * g + 0.114 * b;
       lum[y * W + x] = L;
       if (L > 200) over200++;
-      if (L < 60) { dark++; darkRB += r - b; }
+      // exclude the sky class (the same B-R >= 60 C4 counts): C3 is about shade, and on a frame
+      // where the sky is the largest dark area it would otherwise report the sky's blue as shade
+      if (L < 60 && b - r < 60) { dark++; darkRB += r - b; }
       if (y >= topFrom) { topN++; if (b - r >= 60) blueTop++; }
       if (y < botTo) { botN++; if (L > 100 && r > b + 40) amberBot++; }
     }
@@ -252,7 +257,9 @@ window.__LODMEASURE__ = (opts = {}) => {
   setAll(() => {});
   rig.render(camera, 0.016);
   const base = grab(), baseInfo = info();
-  const diff = (b) => { let sum = 0, max = 0; for (let i = 0; i < N; i += 4) { const d = Math.abs(b[i] - base[i]) * 0.299 + Math.abs(b[i + 1] - base[i + 1]) * 0.587 + Math.abs(b[i + 2] - base[i + 2]) * 0.114; sum += d; if (d > max) max = d; } return { mean: +(sum / (W * H)).toFixed(3), max: Math.round(max) }; };
+  // mean tells you whether the frame changed; the share of pixels that moved by more than 8 luma
+  // tells you whether a PERSON would see it, which is the question a cull distance actually asks
+  const diff = (b) => { let sum = 0, max = 0, vis = 0; for (let i = 0; i < N; i += 4) { const d = Math.abs(b[i] - base[i]) * 0.299 + Math.abs(b[i + 1] - base[i + 1]) * 0.587 + Math.abs(b[i + 2] - base[i + 2]) * 0.114; sum += d; if (d > max) max = d; if (d > 8) vis++; } return { mean: +(sum / (W * H)).toFixed(3), max: Math.round(max), vis: +(vis / (W * H) * 100).toFixed(3) }; };
   const rows = [];
   for (const D of [20, 30, 40, 55, 70, 90, 120]) {
     setAll((c) => { c.visible = (c.position.z - cz) <= D; });

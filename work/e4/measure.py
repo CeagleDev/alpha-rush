@@ -31,7 +31,11 @@ for _ in range(25):
             C[k] = small[m].mean(0)
 counts = np.bincount(lab, minlength=14)
 clum = 0.299 * C[:, 0] + 0.587 * C[:, 1] + 0.114 * C[:, 2]
-darkk = np.where(clum < 60)[0]
+# C3 is about SHADE, and C4 already accounts for the sky, so a cluster that IS the sky (the same
+# blue class C4 counts, B-R >= 60) is not a candidate. Without this the claim silently inverts on
+# any frame where the sky is the largest dark area, and reports the sky's blue as the shade colour.
+sky = (C[:, 2] - C[:, 0]) >= 60
+darkk = np.where((clum < 60) & ~sky)[0]
 if len(darkk):
     k = darkk[np.argmax(counts[darkk])]
     rb_dark = float(C[k, 0] - C[k, 2])

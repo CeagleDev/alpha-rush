@@ -32,7 +32,8 @@
  * recycled chunk corrects itself the same frame it is respawned. If a chunk carries a coarse bake
  * as `userData.coarse` (E1 can add it with coarseBake above), the swap uses it instead of hiding.
  *
- * State written (defaults here): state.tier, state.perf = report().
+ * State written (defaults here): state.tier, state.perf = report(). `state.perf.shadows` is there
+ * so the gate can assert the shadow pass never comes back.
  * Budget: config.DRAW_BUDGET / TRI_BUDGET; `over` flags say which is exceeded. One console line the
  * first time either is, never per frame.
  */
@@ -43,10 +44,21 @@ let ctx = null, THREE = null;
 let tier = 'high';
 let fpsEma = 0, msEma = 16, lastT = 0, warned = false, shadowWarned = false;
 const lods = new Map();     // obj -> { min, max, axis }
-let chunkRoots = [], chunkFrame = -999;
+let chunkRoots = [], chunkFrame = -999, frames = 0;
 
 /** Measured against our own fog; see the header. Metres from the camera, along z. */
-export const FAR = { full: 46, coarse: 78, cull: 96, minSize: 0.25 };
+/**
+ * MEASURED in work/e4 at 390x844 against our own fog (start 12 m, density 0.008), by hiding or
+ * coarsening chunks and diffing every pixel against the full frame:
+ *
+ *   swap to coarse at 40 m   mean diff 0.000 luma, 0.000 % of pixels moved by more than 8
+ *   cull past       90 m     mean diff 0.055 luma, 0.148 %   (758 -> 616 draws, 631k -> 503k tris)
+ *   cull past       55 m     mean diff 0.289 luma, 0.597 %   (474 draws) — the alley's vanishing
+ *                            point starts losing lit signs here, so it is not the default
+ *
+ * `full` is how far BEHIND the camera a chunk is kept (the chase camera sits 6.5 m back).
+ */
+export const FAR = { full: 40, coarse: 40, cull: 90, minSize: 0.25 };
 try {
   const q = new URLSearchParams(location.search);
   if (q.has('far')) { const v = Number(q.get('far')); if (Number.isFinite(v)) { FAR.coarse = v; FAR.cull = v * 1.25; } }
@@ -130,9 +142,8 @@ export function update(dt) {
  */
 function chunkLOD() {
   if (FAR.cull === Infinity && FAR.coarse === Infinity) return;
-  if (ctx.frame === undefined) ctx.frame = 0;
-  if (++ctx.frame - chunkFrame > 30) {          // rediscover twice a second, not per frame
-    chunkFrame = ctx.frame;
+  if (++frames - chunkFrame > 30) {             // rediscover twice a second, not per frame
+    chunkFrame = frames;
     chunkRoots = [];
     ctx.scene.traverse((o) => { if (o.name && o.name.startsWith('chunk_')) chunkRoots.push(o); });
   }
@@ -199,6 +210,7 @@ export function report() {
     tier, draws, tris, fps: Math.round(fpsEma), ms: +msEma.toFixed(1),
     chunks: chunkRoots.length, chunksVisible: chunkRoots.reduce((n, g) => n + (g.visible ? 1 : 0), 0),
     pixelRatio: r ? r.getPixelRatio() : 1, dpr: globalThis.devicePixelRatio || 1, w: size.x, h: size.y,
+    shadows: !!(r && r.shadowMap.enabled),
     programs: info && info.programs ? info.programs.length : 0,
     geometries: info ? info.memory.geometries : 0, textures: info ? info.memory.textures : 0,
     over,

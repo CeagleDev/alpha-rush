@@ -1,4 +1,4 @@
-// guard_rail — arm B: profiles. The rail is a true W section drawn as a Shape and extruded 4.0 m
+// guard_rail — WINNER (arm B: profiles). The rail is a true W section drawn as a Shape and extruded 4.0 m
 // along X (bevel off: a bevel would grow the profile and hang it below its own base); the posts are
 // extruded C channels on extruded base plates. 0.75 m tall, rail face +Z.
 export default function (THREE) {

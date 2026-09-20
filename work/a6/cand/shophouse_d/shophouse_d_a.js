@@ -40,8 +40,8 @@ export default function (THREE) {
   const lanternFace = E(0xb8302a, 2.4);
   const lanternCore = E(0xf1d899, 2.6);
 
-  const HX = 2.38, HZ = 2.55, WT = 0.16, Y0 = 0.16, WTOP = 5.60, FZ = HZ - WT / 2, FX = HX - WT / 2;
-  const RX = 2.80, RZ = 3.10, RIDGE = 6.95;
+  const HX = 2.30, HZ = 2.50, WT = 0.16, Y0 = 0.16, WTOP = 5.60, FZ = HZ - WT / 2, FX = HX - WT / 2;
+  const RX = 2.62, RZ = 2.95, RIDGE = 6.95;
   const lights = [];
 
   // --- plinth and grounding band ---------------------------------------------------
@@ -97,44 +97,47 @@ export default function (THREE) {
   box(0.12, 0.09, WN_Z1 - WN_Z0 + 0.14, [FX + 0.05, WN_Y1 + 0.06, (WN_Z0 + WN_Z1) / 2], timberDk);
 
   // --- the tin awning, wrapping the corner at 3.0 m --------------------------------------------
-  const AY = 3.00, AD = 1.05, AA = 0.16;
+  const AY = 3.00, AD = 0.62, AA = 0.16;
   // +Z face run
   box(2 * HX + 0.30, 0.04, AD, [0.05, AY + 0.06, HZ + AD / 2 - 0.10], tinRust, [AA, 0, 0]);
-  for (let i = 0; i < 26; i++) box(0.05, 0.03, AD - 0.02, [-2.45 + i * 0.19, AY + 0.09, HZ + AD / 2 - 0.10], i % 4 === 1 ? tinPale : tin, [AA, 0, 0]);
+  for (let i = 0; i < 26; i++) box(0.05, 0.03, AD - 0.02, [-(HX + 0.13) + i * ((2 * HX + 0.26) / 25), AY + 0.09, HZ + AD / 2 - 0.10], i % 4 === 1 ? tinPale : tin, [AA, 0, 0]);
   box(2 * HX + 0.30, 0.10, 0.05, [0.05, AY - 0.02, HZ + AD - 0.12], timberDk, [AA, 0, 0]);
   // +X face run
   box(AD, 0.04, 2 * HZ + 0.30, [HX + AD / 2 - 0.10, AY + 0.06, 0.05], tinRust, [0, 0, -AA]);
-  for (let i = 0; i < 28; i++) box(AD - 0.02, 0.03, 0.05, [HX + AD / 2 - 0.10, AY + 0.09, -2.60 + i * 0.19], i % 4 === 3 ? tinPale : tin, [0, 0, -AA]);
+  for (let i = 0; i < 28; i++) box(AD - 0.02, 0.03, 0.05, [HX + AD / 2 - 0.10, AY + 0.09, -(HZ + 0.13) + i * ((2 * HZ + 0.26) / 27)], i % 4 === 3 ? tinPale : tin, [0, 0, -AA]);
   box(0.05, 0.10, 2 * HZ + 0.30, [HX + AD - 0.12, AY - 0.02, 0.05], timberDk, [0, 0, -AA]);
   // the corner itself: a small mitre panel and a corner post
-  box(0.60, 0.05, 0.60, [HX + 0.22, AY + 0.14, HZ + 0.22], tinPale, [AA * 0.7, Math.PI / 4, -AA * 0.7]);
-  cyl(0.05, 0.05, AY - Y0, 8, [HX + 0.52, Y0 + (AY - Y0) / 2, HZ + 0.52], timber);
-  box(0.10, 0.10, 0.10, [HX + 0.52, Y0 + 0.03, HZ + 0.52], dark);
+  box(0.52, 0.05, 0.52, [HX + 0.14, AY + 0.14, HZ + 0.14], tinPale, [AA * 0.7, Math.PI / 4, -AA * 0.7]);
+  cyl(0.05, 0.05, AY - Y0, 8, [HX + 0.30, Y0 + (AY - Y0) / 2, HZ + 0.30], timber);
+  box(0.10, 0.10, 0.10, [HX + 0.30, Y0 + 0.03, HZ + 0.30], dark);
   // struts back to the wall
-  for (const [x, z, rz, rx] of [[-1.60, HZ + 0.50, 0, 1], [1.60, HZ + 0.50, 0, 1], [HX + 0.50, -1.60, 1, 0], [HX + 0.50, 1.60, 1, 0]]) {
-    const m = box(0.05, 0.05, 0.86, [x, AY - 0.22, z], rustDk, rx ? [0.62, 0, 0] : [0, Math.PI / 2, 0.62]);
-    if (rz) m.rotation.set(0, Math.PI / 2, -0.62);
-    box(0.08, 0.12, 0.08, [x, AY - 0.44, rx ? HZ + 0.06 : z], rust);
+  for (const x of [-1.60, 1.60]) {
+    box(0.05, 0.05, 0.72, [x, AY - 0.20, HZ + 0.22], rustDk, [0.72, 0, 0]);
+    box(0.08, 0.14, 0.08, [x, AY - 0.44, HZ + 0.05], rust);
+  }
+  for (const z of [-1.60, 1.60]) {
+    box(0.72, 0.05, 0.05, [HX + 0.22, AY - 0.20, z], rustDk, [0, 0, -0.72]);
+    box(0.14, 0.08, 0.08, [HX + 0.05, AY - 0.44, z], rust);
   }
 
   // --- the two emissive lightboxes, one per lit face --------------------------------------------
-  const lbZ = { w: 3.10, h: 0.56, d: 0.18, x: -0.25, y: 3.72, z: HZ + 0.10 };
+  const lbZ = { w: 2.90, h: 0.56, d: 0.18, x: -0.25, y: 3.72, z: HZ + 0.10 };
   box(lbZ.w + 0.08, lbZ.h + 0.08, lbZ.d, [lbZ.x, lbZ.y, lbZ.z], timberDk);
   put(new THREE.BoxGeometry(lbZ.w, lbZ.h, 0.04), signFace, [lbZ.x, lbZ.y, lbZ.z + lbZ.d / 2 + 0.01]);
   box(lbZ.w + 0.12, 0.06, lbZ.d + 0.06, [lbZ.x, lbZ.y + lbZ.h / 2 + 0.06, lbZ.z], rustDk);
   box(lbZ.w + 0.12, 0.06, lbZ.d + 0.06, [lbZ.x, lbZ.y - lbZ.h / 2 - 0.06, lbZ.z], rust);
-  for (const x of [lbZ.x - 1.30, lbZ.x + 1.30]) box(0.05, 0.24, 0.16, [x, lbZ.y + 0.40, lbZ.z - 0.06], rustDk);
+  for (const x of [lbZ.x - 1.20, lbZ.x + 1.20]) box(0.05, 0.24, 0.16, [x, lbZ.y + 0.40, lbZ.z - 0.06], rustDk);
   lights.push([lbZ.x, lbZ.y, lbZ.z + 0.45, 0xd8ae70, 2.4, 7.5]);
-  const lbX = { d: 3.20, h: 0.56, w: 0.18, z: -0.20, y: 3.72, x: HX + 0.10 };
+  const lbX = { d: 3.00, h: 0.56, w: 0.18, z: -0.20, y: 3.72, x: HX + 0.10 };
   box(lbX.w, lbX.h + 0.08, lbX.d + 0.08, [lbX.x, lbX.y, lbX.z], timberDk);
   put(new THREE.BoxGeometry(0.04, lbX.h, lbX.d), signFace, [lbX.x + lbX.w / 2 + 0.01, lbX.y, lbX.z]);
   box(lbX.w + 0.06, 0.06, lbX.d + 0.12, [lbX.x, lbX.y + lbX.h / 2 + 0.06, lbX.z], rustDk);
   box(lbX.w + 0.06, 0.06, lbX.d + 0.12, [lbX.x, lbX.y - lbX.h / 2 - 0.06, lbX.z], rust);
-  for (const z of [lbX.z - 1.35, lbX.z + 1.35]) box(0.16, 0.24, 0.05, [lbX.x - 0.06, lbX.y + 0.40, z], rustDk);
+  for (const z of [lbX.z - 1.25, lbX.z + 1.25]) box(0.16, 0.24, 0.05, [lbX.x - 0.06, lbX.y + 0.40, z], rustDk);
   lights.push([lbX.x + 0.45, lbX.y, lbX.z, 0xd8ae70, 2.4, 7.5]);
 
   // --- the red paper lantern at the corner -------------------------------------------------------
-  const LX = HX + 0.52, LZ = HZ + 0.52, LY = 3.52;
+  const LX = HX + 0.30, LZ = HZ + 0.30, LY = 3.52;
   box(0.06, 0.06, 0.52, [LX, LY + 0.62, LZ - 0.20], rustDk, [0, -Math.PI / 4, 0]);          // bracket arm off the corner
   cyl(0.012, 0.012, 0.22, 5, [LX, LY + 0.50, LZ], cable);
   cyl(0.085, 0.085, 0.05, 10, [LX, LY + 0.36, LZ], timberDk);                                 // top cap
@@ -151,11 +154,11 @@ export default function (THREE) {
   const clad = (face) => {
     if (face === 'z') {
       box(2 * HX, WTOP - 3.20, WT, [0, (WTOP + 3.20) / 2, FZ], timberDk);
-      for (let i = 0; i < 26; i++) box(0.17, WTOP - 3.24, 0.04, [-2.29 + i * 0.185, (WTOP + 3.20) / 2, FZ + WT / 2 + 0.01], i % 4 === 1 ? timberGrey : (i % 3 === 0 ? timber : timberLit));
+      for (let i = 0; i < 26; i++) box(0.17, WTOP - 3.24, 0.04, [-(HX - 0.09) + i * ((2 * HX - 0.18) / 25), (WTOP + 3.20) / 2, FZ + WT / 2 + 0.01], i % 4 === 1 ? timberGrey : (i % 3 === 0 ? timber : timberLit));
       for (const y of [3.90, 4.70, 5.40]) box(2 * HX, 0.05, 0.06, [0, y, FZ + WT / 2 + 0.03], timberDk);
     } else {
       box(WT, WTOP - 3.20, 2 * HZ, [FX, (WTOP + 3.20) / 2, 0], timberDk);
-      for (let i = 0; i < 28; i++) box(0.04, WTOP - 3.24, 0.17, [FX + WT / 2 + 0.01, (WTOP + 3.20) / 2, -2.46 + i * 0.185], i % 4 === 3 ? timberGrey : (i % 3 === 1 ? timber : timberLit));
+      for (let i = 0; i < 28; i++) box(0.04, WTOP - 3.24, 0.17, [FX + WT / 2 + 0.01, (WTOP + 3.20) / 2, -(HZ - 0.09) + i * ((2 * HZ - 0.18) / 27)], i % 4 === 3 ? timberGrey : (i % 3 === 1 ? timber : timberLit));
       for (const y of [3.90, 4.70, 5.40]) box(0.06, 0.05, 2 * HZ, [FX + WT / 2 + 0.03, y, 0], timberDk);
     }
   };
@@ -183,12 +186,12 @@ export default function (THREE) {
       box(2 * HX - 0.20, 0.10, 0.34, [0, y0 - 0.05, FZ + 0.24], timber);                    // little deck
       box(2 * HX - 0.20, 0.08, 0.06, [0, y0 + h, FZ + 0.38], timberLit);
       box(2 * HX - 0.20, 0.05, 0.05, [0, y0 + h - 0.26, FZ + 0.38], timber);
-      for (let i = 0; i < 13; i++) box(0.05, h, 0.05, [-2.16 + i * 0.36, y0 + h / 2, FZ + 0.38], timberDk);
+      for (let i = 0; i < 13; i++) box(0.05, h, 0.05, [-(HX - 0.14) + i * ((2 * HX - 0.28) / 12), y0 + h / 2, FZ + 0.38], timberDk);
     } else {
       box(0.34, 0.10, 2 * HZ - 0.20, [FX + 0.24, y0 - 0.05, 0], timber);
       box(0.06, 0.08, 2 * HZ - 0.20, [FX + 0.38, y0 + h, 0], timberLit);
       box(0.05, 0.05, 2 * HZ - 0.20, [FX + 0.38, y0 + h - 0.26, 0], timber);
-      for (let i = 0; i < 14; i++) box(0.05, h, 0.05, [FX + 0.38, y0 + h / 2, -2.33 + i * 0.36], timberDk);
+      for (let i = 0; i < 14; i++) box(0.05, h, 0.05, [FX + 0.38, y0 + h / 2, -(HZ - 0.14) + i * ((2 * HZ - 0.28) / 13)], timberDk);
     }
   };
   rail(true); rail(false);
@@ -213,36 +216,42 @@ export default function (THREE) {
   for (const y of [1.2, 3.0, 4.6]) box(0.10, 0.05, 0.12, [BX - 0.04, y, -1.80], rustDk);
   cyl(0.008, 0.008, 3.00, 5, [BX - 0.06, 3.40, 1.40], cable, [0.04, 0, 0]);
 
-  // --- tiled hip roof: a four-sided pyramid with tile courses, ridge and hip caps ---------------
+  // --- tiled hip roof: a four-sided pyramid, tile courses on every slope, hip caps -----------
   const RH = RIDGE - WTOP;
   {
-    const r = Math.max(RX, RZ) * Math.SQRT2 / 2 + 0.02;
-    const roof = cyl(0.001, r, RH, 4, [0, WTOP + RH / 2, 0], tile, [0, Math.PI / 4, 0]);
-    roof.scale.set(RX / (r * Math.SQRT1_2), 1, RZ / (r * Math.SQRT1_2));
+    const r = Math.hypot(RX, RZ);
+    const geo = new THREE.ConeGeometry(r, RH, 4);
+    geo.rotateY(Math.PI / 4);                       // sides face the axes, not the diagonals
+    geo.scale(RX / (r * Math.SQRT1_2), 1, RZ / (r * Math.SQRT1_2));
+    put(geo, tile, [0, WTOP + RH / 2, 0]);
   }
   box(2 * RX, 0.14, 2 * RZ, [0, WTOP + 0.05, 0], timberDk);                                  // eaves board
   box(2 * RX - 0.10, 0.10, 2 * RZ - 0.10, [0, WTOP + 0.16, 0], timber);
-  // tile courses on the two street-facing slopes (and a lighter pass on the other two)
-  for (let i = 0; i < 6; i++) {
-    const t = i / 6, y = WTOP + 0.10 + t * (RH - 0.20);
-    const sx = RX * (1 - t) * 2 - 0.16, sz = RZ * (1 - t) * 2 - 0.16;
-    const ang = Math.atan2(RH, RZ), angX = Math.atan2(RH, RX);
-    box(sx, 0.07, 0.30, [0, y + 0.06, RZ * (1 - t) - 0.14], i % 3 === 1 ? tileMoss : tile, [ang - Math.PI / 2 + Math.PI / 2 - ang + ang, 0, 0]).rotation.x = ang - Math.PI / 2 + Math.PI / 2;
-    box(sz, 0.07, 0.30, [RX * (1 - t) - 0.14, y + 0.06, 0], i % 3 === 2 ? tilePale : tile, [0, Math.PI / 2, 0]).rotation.set(0, Math.PI / 2, -(Math.PI / 2 - angX) + (Math.PI / 2 - angX));
-    box(sx, 0.06, 0.26, [0, y + 0.05, -(RZ * (1 - t) - 0.14)], i % 3 === 0 ? tileMoss : tile);
-    box(sz, 0.06, 0.26, [-(RX * (1 - t) - 0.14), y + 0.05, 0], tile, [0, Math.PI / 2, 0]);
+  {
+    // a positive rotation.x drops the +z end, which is the fall the +Z slope needs
+    const ax = Math.atan2(RH, RZ), az = Math.atan2(RH, RX);
+    for (let i = 0; i < 6; i++) {
+      const t = (i + 0.4) / 6, y = WTOP + 0.10 + t * (RH - 0.16);
+      const sx = 2 * RX * (1 - t) - 0.14, sz = 2 * RZ * (1 - t) - 0.14;
+      const mz = i % 3 === 1 ? tileMoss : (i % 3 === 2 ? tilePale : tile);
+      const mx = i % 3 === 2 ? tileMoss : (i % 3 === 0 ? tilePale : tile);
+      box(sx, 0.06, 0.28, [0, y, RZ * (1 - t) - 0.10], mz, [ax, 0, 0]);
+      box(sx, 0.06, 0.26, [0, y, -(RZ * (1 - t) - 0.10)], i % 2 ? tile : tileMoss, [-ax, 0, 0]);
+      box(0.28, 0.06, sz, [RX * (1 - t) - 0.10, y, 0], mx, [0, 0, -az]);
+      box(0.26, 0.06, sz, [-(RX * (1 - t) - 0.10), y, 0], i % 2 ? tilePale : tile, [0, 0, az]);
+    }
+    // hip capping along the four arrises, each a bar from the eaves corner to the apex
+    const apex = new THREE.Vector3(0, RIDGE - 0.08, 0);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const a = new THREE.Vector3(sx * (RX - 0.04), WTOP + 0.14, sz * (RZ - 0.04));
+      const d = apex.clone().sub(a), m = box(0.18, d.length(), 0.18, [0, 0, 0], tilePale);
+      m.position.copy(a).add(apex).multiplyScalar(0.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+    }
   }
-  for (let k = 0; k < 4; k++) {                                                               // hip capping along the four arrises
-    const a = k * Math.PI / 2 + Math.PI / 4;
-    const len = Math.hypot(Math.hypot(RX, RZ), RH);
-    const m = box(0.16, 0.10, len, [Math.cos(a) * Math.hypot(RX, RZ) / 2 * 0.98, WTOP + RH / 2, Math.sin(a) * Math.hypot(RX, RZ) / 2 * 0.98], tilePale);
-    m.rotation.set(0, -a + Math.PI / 2, 0);
-    m.rotation.x = -Math.atan2(RH, Math.hypot(RX, RZ));
-    m.rotateX(0);
-  }
-  cyl(0.14, 0.14, 0.22, 8, [0, RIDGE - 0.02, 0], tilePale);
-  box(0.30, 0.10, 0.30, [0, RIDGE + 0.05, 0], tile);
-  for (const [x, z] of [[-1.1, 1.3], [1.4, -0.9], [0.3, 1.9]]) box(0.34, 0.05, 0.22, [x, WTOP + 0.6, z], tileMoss);   // moss patches
+  cyl(0.16, 0.16, 0.20, 8, [0, RIDGE - 0.06, 0], tilePale);
+  box(0.34, 0.10, 0.34, [0, RIDGE + 0.02, 0], tile);
+  for (const [x, z] of [[-1.0, 1.1], [1.2, -0.8], [0.3, 1.6]]) box(0.34, 0.05, 0.22, [x, WTOP + 0.62, z], tileMoss);   // moss on the tiles
 
   g.userData.lights = lights.map(([x, y, z, color, intensity, range]) => ({ x, y, z, color, intensity, range }));
 

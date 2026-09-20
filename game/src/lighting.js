@@ -30,6 +30,13 @@
  *  (CLAIMS C3, R-B >= 8 in the dark cluster). The global level is set so the frame's median luma
  *  sits near 42 (C1); `?fill=` scales it for tuning.
  *
+ *  BOUNCE. The rig's ground-bounce term is driven by the SUN, so below the horizon it is zero and
+ *  every surface no practical reaches falls to black: measured, the dominant dark cluster was
+ *  (2, 1, 3), against the bar's warm 0x231718. A lit street bounces, so this module drives the
+ *  rig's own `uBounce` uniform from the STREET instead of from the sun — amber, normal-weighted
+ *  exactly as the rig weights it (an awning soffit gets 8x what a wall gets, an up-facing surface
+ *  3.5x), which is what makes shade warm without a tint pass anywhere. `?bounce=` scales it.
+ *
  *  PRACTICALS. A fixed pool of PointLights (phone 6, desktop 14; `?lights=N`) is created once and
  *  never made invisible (toggling a light's visibility recompiles every material in the scene).
  *  Each frame the pool is handed to the nearest practicals ahead of the runner, with 4 m of
@@ -42,7 +49,11 @@
  *  road. The PointLight does it within the pool; for everything else ONE additive mesh of radial
  *  quads on the road under every practical carries the amber pool into the distance (warehouse
  *  example idiom), one draw call, rebuilt only when the live light set changes. `?pools=0` for A/B.
- *  groundCheck() measures the result.
+ *  groundCheck() measures the result. The quads are SMALL and elongated on purpose (poolRadius
+ *  0.55 of the authored range, stretched 1.6 toward the camera): wide soft ones merge into a sheet
+ *  of orange road, which measures as a pass on CLAIMS C7 and is the exact failure C7's own note
+ *  calls out ("painting the road orange"). Measured at 390x844: radius 0.8 / stretch 3.2 gave
+ *  46 % amber in the bottom quarter and a median of 58; these values give 5.3 % and 41.
  *
  * Sources of practicals, in order: `ctx.track.lights()` / `ctx.modules.track.lights()` (E1, world
  * space, cached and rebuilt when chunks recycle) when it exists, else every object under the scene
@@ -72,8 +83,8 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 1.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
-  candela: qn('lgain', 1) * 26,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
+  fill: qn('fill', 1) * 2.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
+  candela: qn('lgain', 1) * 80,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
   emissive: qn('emissive', 1),      // scale on every emissiveIntensity in the scene (1 = as authored)
   // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
   // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
@@ -85,14 +96,15 @@ export const PARAMS = {
   // on the fitting, not as how far the lamp throws. Multiply, or a sign 3 m up lights nothing at
   // road level and the ground-coupling check reads the same either side of it.
   reach: qn('reach', 1) * 1.9,
-  poolsOn: Q.get('pools') !== '0', poolOpacity: 0.34,
+  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.34, poolRadius: 0.55,
   // Wet asphalt smears a reflection TOWARD the viewer, so the pool is an ellipse stretched along
   // z, not a disc: that is C7's "the road reflects the signs" and it is what carries the amber
   // into the bottom quarter, where a point light 3 m up cannot reach.
-  poolStretch: 3.2,
+  poolStretch: 1.6,
   panorama: Q.get('sky') !== '0',
   fogStart: 12, fogDensity: 0.008 * qn('fog', 1),
   envAmber: 0xe5b055, envAmberGain: 0.45,
+  bounce: qn('bounce', 1) * 0.09, bounceColor: 0xbf7c42,
 };
 
 let ctx = null, THREE = null, rig = null, scene = null;
@@ -170,6 +182,9 @@ export async function init(c) {
   rig.hemi.intensity = PARAMS.fill;
   report_.fill = PARAMS.fill;
 
+  // the street's own bounce, in place of the sun's (which is off below the horizon)
+  applyBounce();
+
   // the practical pool
   const tier = (rig.tier && rig.tier.name) || (c.state.tier) || 'high';
   const N = qn('lights', tier === 'phone' ? PARAMS.poolPhone : PARAMS.poolDesktop);
@@ -186,6 +201,13 @@ export async function init(c) {
   if (PARAMS.panorama) loadPanorama();      // not awaited: never delays READY
   poolsTex = radialTexture();
   console.info(`[lighting] dusk: ${N} practicals, fill ${PARAMS.fill.toFixed(2)}, pools ${PARAMS.poolsOn ? 'on' : 'off'}`);
+}
+
+function applyBounce() {
+  const b = rig.bounce && rig.bounce.uBounce;
+  if (!b) return;
+  const c = hexLin(PARAMS.bounceColor);
+  b.value.setRGB(c[0] * PARAMS.bounce, c[1] * PARAMS.bounce, c[2] * PARAMS.bounce);
 }
 
 function applySkyStops(lin) {
@@ -444,9 +466,9 @@ function rebuildPools(list) {
   const c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     const l = near[i];
-    const r = Math.min(7, l.range * 0.8);
+    const r = Math.min(5, l.range * PARAMS.poolRadius);
     const rz = r * PARAMS.poolStretch;
-    const y = l.floor + 0.012;
+    const y = l.floor + 0.02;
     const h = Math.max(0.5, l.y - l.floor);
     const fade = Math.min(1, 3.5 / h);                 // a lamp 10 m up pools fainter than a sign at 2.5
     const a = PARAMS.poolOpacity * fade * Math.min(1, l.author / 0.9);
@@ -504,8 +526,9 @@ export function tune(o = {}) {
   if (o.fill !== undefined) { rig.hemi.intensity = PARAMS.fill; report_.fill = PARAMS.fill; }
   if (o.fillSky !== undefined) rig.hemi.color.setHex(PARAMS.fillSky);
   if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
-  if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
+  if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.poolRadius !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
   if (o.emissive !== undefined) scaleEmissive(o.emissive);
+  if (o.bounce !== undefined || o.bounceColor !== undefined) applyBounce();
   assign();
   rebuildPools(gather());
   return { ...PARAMS };
@@ -528,9 +551,8 @@ function scaleEmissive(k) {
 /* ------------------------------------------------------------ ground check */
 
 /**
- * Draw one frame with the game camera and read the displayed road under the nearest active warm
- * practical ahead, and 3 m and 6 m further along the road at the same x. Luma is Rec.601 on the
- * displayed sRGB bytes, the median of a 7x7 patch. Points off screen report null.
+ * Draw one frame with the game camera and read the displayed road at five points. Luma is Rec.601
+ * on the displayed sRGB bytes, the median of a 7x7 patch; points off screen report null.
  */
 export function groundCheck() {
   const cam = ctx.camera, renderer = ctx.renderer;
@@ -544,7 +566,18 @@ export function groundCheck() {
   if (!best) { const L = gather().filter((l) => !l.cool && l.z > cz).sort((a, b) => a.z - b.z); best = L[0] || null; }
   if (!best) return { ok: false, reason: 'no practical ahead' };
   const x = Math.min(2.9, Math.max(-2.9, best.x));
-  const pts = { under: [x, best.floor, best.z], away3: [x, best.floor, best.z + 3], away6: [x, best.floor, best.z + 6], centre: [0, best.floor, best.z] };
+  // the darkest road the camera can see: the in-view point furthest from every practical, which is
+  // the honest control once signage is continuous
+  const all = gather();
+  let dark = null, darkScore = -1;
+  for (let z = cz + 3; z < cz + 34; z += 1.5) {
+    for (let px = -2.6; px <= 2.6; px += 1.3) {
+      let near = 1e9;
+      for (const l of all) { const d = (l.x - px) ** 2 + (l.z - z) ** 2; if (d < near) near = d; }
+      if (near > darkScore) { darkScore = near; dark = [px, best.floor, z]; }
+    }
+  }
+  const pts = { under: [x, best.floor, best.z], away3: [x, best.floor, best.z + 3], away6: [x, best.floor, best.z + 6], lane: [0, best.floor, best.z], dark };
   rig.render(cam, 0.016);
   const gl = renderer.getContext();
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -562,7 +595,9 @@ export function groundCheck() {
     lum.sort((a, b) => a - b);
     out[k] = { luma: Math.round(lum[24]), rgb: rgb.map((c) => Math.round(c / 49)), px: [px + 3, size.y - (py + 3)] };
   }
+  if (out.under && out.dark) out.contrast = +(out.under.luma / Math.max(1, out.dark.luma)).toFixed(2);
   if (out.under && out.away6) out.ratio = +(out.under.luma / Math.max(1, out.away6.luma)).toFixed(2);
+  out.darkAt = dark ? [+dark[0].toFixed(1), +dark[2].toFixed(1)] : null;
   return out;
 }
 

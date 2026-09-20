@@ -1,0 +1,13 @@
+ok    guard_rail_a              900 tris  56 meshes  4x0.755x0.345m
+ok    guard_rail_b              784 tris  43 meshes  4x0.76x0.385m
+ok    guard_rail_c              924 tris  56 meshes  4.12x0.786x0.425m
+ok    sign_gantry_a            3272 tris  246 meshes  8.8x7.34x1.757m
+ok    sign_gantry_b            4036 tris  180 meshes  9.19x7.39x1.61m
+ok    sign_gantry_c            3448 tris  256 meshes  9.242x7.76x1.976m
+ok    sodium_lamp_a            1276 tris  46 meshes  0.62x10.262x2.59m
+ok    sodium_lamp_b            1348 tris  35 meshes  0.64x10.292x2.82m
+ok    sodium_lamp_c            1208 tris  53 meshes  0.7x10.17x2.62m
+
+9/9 clean
+sheet:  /Users/dev/Documents/Cursor.Code/midnight-dash/work/a8/batch2/_verify/sheet.png
+report: /Users/dev/Documents/Cursor.Code/midnight-dash/work/a8/batch2/_verify/report.json

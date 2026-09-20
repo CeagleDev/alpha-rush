@@ -23,10 +23,15 @@ const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * d
 
 let C, cfg;
 const DOGS = [
-  // zOff is relative to PACK_DIST (2.6): the three dogs sit ~2.2 / 2.75 / 3.3 m behind the runner
-  { name: 'dog_shiba', xOff: -0.4, zOff: 0.4, lag: 0.30, weave: 0.9 },
-  { name: 'dog_spitz', xOff: 0.4, zOff: -0.15, lag: 0.45, weave: 1.3 },
-  { name: 'dog_mutt', xOff: 0.0, zOff: -0.7, lag: 0.60, weave: 1.1 },
+  // zOff is relative to PACK_DIST (2.6): the three dogs sit ~2.2 / 2.75 / 3.3 m behind the runner.
+  // xOff FLANKS the runner rather than trailing him. Nearly-centred offsets (-0.4/+0.4/0) put three
+  // dogs between the low camera and the hero, where they filled the bottom 40 % of the portrait
+  // frame and hid the road, the obstacles and the runner's feet. Spread to the lane edges they read
+  // as a pursuing pack and leave the centre channel — the thing the player actually has to read —
+  // clear. Kept inside ±1.5 m so they stay on the 6 m carriageway on a lane change.
+  { name: 'dog_shiba', xOff: -1.35, zOff: 0.45, lag: 0.30, weave: 0.9 },
+  { name: 'dog_spitz', xOff: 1.35, zOff: -0.1, lag: 0.45, weave: 1.3 },
+  { name: 'dog_mutt', xOff: -0.15, zOff: -0.95, lag: 0.60, weave: 1.1 },
 ];
 const dogs = [];        // { name, obj, root, anim, x, z, y, dist, barkT, laneHist: [] , prevX, laneX }
 const HIT_CLOSE = 1.4;

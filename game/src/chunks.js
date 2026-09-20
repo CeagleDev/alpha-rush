@@ -95,6 +95,67 @@ export function shareMaterials(root) {
 }
 export const materialCount = () => matCache.size;
 
+// ---------------------------------------------------------------- vertex-colour tinting
+// WHY. bakeStatic merges by material VALUE, so every distinct colour/roughness/emissive combination
+// is its own draw call. Measured on this game: ~185 materials survived per baked chunk, six live
+// chunks, 1,121 draws for the track alone against a 900 budget for the whole frame.
+//
+// The fix (rust17 #14): tint by the asset's own colour in a vertex attribute and SHARE one material
+// per recipe family and roughness band. Detail still comes from the family's texture maps, so the
+// surfaces do not flatten; only the colour moves from the material to the geometry. Emissive parts
+// and anything carrying its own sprite are left alone — they are few, and they are the frame's
+// bright pixels, so they must keep their own maps.
+//
+// Buckets are (material.name | '', roughness band). Every mesh in a bucket is given a `color`
+// attribute, which also keeps the attribute signature uniform: mixing geometry that carries `color`
+// with geometry that does not is what makes a merged vertexColors material render black.
+const ROUGH_BANDS = [0.2, 0.5, 0.75, 0.95];
+const tintCache = new Map();
+const _tc = new THREE.Color();
+
+function bandOf(r) {
+  let best = 0, bd = 1e9;
+  for (let i = 0; i < ROUGH_BANDS.length; i++) { const d = Math.abs(ROUGH_BANDS[i] - r); if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+
+export function tintByVertexColor(root) {
+  root.traverse((o) => {
+    if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+    const m = o.material;
+    // leave the frame's light sources and anything with its own sprite exactly as authored
+    if (m.emissive && m.emissive.getHex() !== 0) return;
+    if (m.userData && (m.userData.sign || m.userData.noren)) return;
+    if (m.transparent && (m.opacity ?? 1) < 0.95) return;
+    const g = o.geometry;
+    const pos = g && g.attributes && g.attributes.position;
+    if (!pos) return;
+
+    const band = bandOf(m.roughness ?? 1);
+    const key = `${m.name || ''}|${band}|${m.side}|${m.map ? 'm' : '-'}${m.normalMap ? 'n' : '-'}${m.roughnessMap ? 'r' : '-'}`;
+    let shared = tintCache.get(key);
+    if (!shared) {
+      shared = m.clone();
+      shared.color.setRGB(1, 1, 1);          // white base: the tint now lives in the vertices
+      shared.vertexColors = true;
+      shared.roughness = ROUGH_BANDS[band];
+      shared.needsUpdate = true;
+      tintCache.set(key, shared);
+    }
+
+    // bake this material's colour into the geometry (clone: generated assets reuse geometry)
+    const geo = g.clone();
+    _tc.copy(m.color || { r: 1, g: 1, b: 1 });
+    const n = pos.count, arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = _tc.r; arr[i * 3 + 1] = _tc.g; arr[i * 3 + 2] = _tc.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    o.geometry = geo;
+    o.material = shared;
+  });
+}
+export const tintCount = () => tintCache.size;
+
+
 // ---------------------------------------------------------------- prototypes (one get per name)
 const protos = new Map();
 async function proto(ctx, name, opts) {
@@ -360,6 +421,7 @@ async function finish(ctx, B, litterCount) {
     if (Array.isArray(L)) for (const l of L) lights.push({ x: l.x, y: l.y, z: l.z, color: l.color, intensity: l.intensity, range: l.range });
   }
   shareMaterials(B.root);
+  tintByVertexColor(B.root);     // colour into the vertices, one material per recipe family: see above
   const baked = bakeStatic(B.root);
   baked.name = 'static';
   let tris = 0; baked.traverse((o) => { if (o.isMesh && o.geometry) { const p = o.geometry.attributes.position; tris += (o.geometry.index ? o.geometry.index.count : p.count) / 3; } });
