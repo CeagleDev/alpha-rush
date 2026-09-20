@@ -324,10 +324,21 @@ async function alley(ctx, variant) {
   // one utility pole per side, three cable spans, one string across the road
   await B.put('utility_pole', 4.3, 0, range(rng, 4, 8), 0);
   await B.put('utility_pole', -4.3, 0, range(rng, 19, 24), 0);
-  for (let i = 0; i < 3; i++) await B.put('cable_span', [-0.35, 0, 0.35][i], 5.0 + i * 0.4, 15, 0);
+  // OVERHEAD ENCLOSURE. Measured against the bar (tools/claims.py, C4): the reference alley shows
+  // blue sky in 39.6 % of its top fifth, ours showed 62.5 % — the street read as open road rather
+  // than a yokocho, because only three cable spans and one lantern string crossed a 30 m chunk.
+  // The reference's upper half is a mat of cables, strings and eaves. So: six cable bundles at
+  // staggered heights across the chunk, and two to three lit strings, which also buys C2 brights
+  // and the warm bounce for C3, since every lantern is a practical.
+  const spanZ = [4, 9, 14, 18, 23, 28];
+  for (let i = 0; i < spanZ.length; i++) {
+    await B.put('cable_span', [-0.35, 0.1, 0.35, -0.2, 0.25, 0][i], 4.6 + (i % 3) * 0.55, spanZ[i], 0);
+  }
   const str = isB ? 'noren_string' : 'lantern_string';
-  await B.put(str, 0, isB ? 2.0 : 2.9, range(rng, 6, 24), Math.PI / 2);
-  if (rng() < 0.5) await B.put(isB ? 'lantern_string' : 'noren_string', 0, isB ? 2.9 : 2.0, range(rng, 6, 24), Math.PI / 2);
+  const other = isB ? 'lantern_string' : 'noren_string';
+  await B.put(str, 0, isB ? 2.0 : 2.9, range(rng, 4, 11), Math.PI / 2);
+  await B.put(other, 0, isB ? 2.9 : 2.0, range(rng, 13, 20), Math.PI / 2);
+  if (rng() < 0.7) await B.put(str, 0, isB ? 2.2 : 3.1, range(rng, 22, 28), Math.PI / 2);
 
   return finish(ctx, B, 48);
 }
