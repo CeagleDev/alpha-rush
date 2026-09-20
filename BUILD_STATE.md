@@ -97,3 +97,15 @@ judge and not the build. Note for whoever runs it: rounds 1 and 2 were both judg
 Fable verdict on the round-2 pairs (work/critic2/pairs, key in KEY.json) is the clean A/B.
 Round 0's 58 assets, engine modules and gate were built on Fable; every fix since is Opus. That is
 not a controlled comparison (different tasks) and should not be reported as one.
+
+## Fable critic round (behaviour), 2026-09-20
+Evidence: 4,662-frame screencast + decisions.log (work/fable1/run), consecutive-frame strips and
+overview sheets (work/fable1/sheets), tools/clashcheck.mjs in-engine physics audit on seeds 7 and 23
+and an unsteered run for the hit/caught/death path (work/fable1/clash7, clash23, nosteer7).
+Probe result over 800 m x 2 seeds: 0 runner pass-throughs, 0 sunk/float, 0 lane drift, 0 coins in
+obstacles, always a free lane; the DOGS RUN THROUGH OBSTACLES (58 + 83 instances) — no avoidance.
+Death path: hit at 17.9 m (speed 9 -> 5.9, pack 2.6 -> 1.23 m), second hit at 36.9 m -> over, dogs run up.
+Found in motion, fixed: the runner strobed at ~3 Hz because the road-crossing lantern/noren strings
+were placed rotated pi/2 and lay DOWN the lane (six lanterns 1 m apart over the runner) — also the
+vertical lantern column seen in every frame. Strings now cross; practicals cluster (cap 2.5x strongest)
+and fade over 0.3 s. Jacket exposure steps >12 luma per 6.4 s: 7 -> 0-3.
