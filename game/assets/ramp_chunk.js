@@ -12,9 +12,29 @@ export default function (THREE) {
     if (dbl) s.side = THREE.DoubleSide;
     s.name = name; return s;
   };
-  const ROAD  = mat(0x231718, 'ground', 0.18);
-  const PATCH = mat(0x2a1c1b, 'ground', 0.18);
-  const LANE  = mat(0xcfc7b4, 'ground', 0.35);
+  // ROUND 3 — see alley_road_chunk.js. These 'ground' colours are a TINT ON THE ASPHALT MAP
+  // (chunks.js bakes them into a vertex attribute against a white shared material), and the map is
+  // now a real albedo rather than an already-lit night photo, so the near-black road colour that
+  // used to live here multiplied the deck down to an albedo of 1.3e-4. Light tints, carrying only
+  // the patch variation; 0x6e7072 x the map puts the ramp at 0.016 linear, neutral in every
+  // channel (see alley_road_chunk.js for why the tint itself is a hair cool).
+  // The expressway deck and the ramps are the OUTDOOR, exposed road: no awnings, no signs
+  // overhead, one sodium lamp every 15 m. At the alley's roughness (0.18) that lamp returned a
+  // single hard mirror streak down the deck, thin enough to alias — measured on the round-3
+  // frames it was 92 % of the road band's entire Laplacian energy in the two expressway frames
+  // (1213 and 1216 against the reference's 70-311, while the alley frames sat at 130-450). At
+  // 0.45 the same lamp gives a broad wet sheen instead of a mirror. All three ground materials
+  // move together so they stay in ONE roughness bucket and chunks.js still merges them to one
+  // draw; the alley keeps its 0.18, because its wet sheen is the one thing round 2 got credit for.
+  // The deck's and the ramps' albedo is a little lower than the alley's (0.016 against 0.019):
+  // this is the exposed, outdoor road, lit from 8 m by a 220-candela sodium lamp with nothing
+  // between, and at the alley value a lamp put the deck's near-field p75 at 102 against the
+  // reference's 28-31 and it read as pale beige concrete rather than asphalt. The deck and the
+  // two ramps share one value on purpose — they are a continuous surface and a step between them
+  // would show at the join as a tonal edge with no cause.
+  const ROAD  = mat(0x6e7072, 'ground', 0.45);
+  const PATCH = mat(0x67696b, 'ground', 0.45);
+  const LANE  = mat(0x7d7f82, 'ground', 0.45);
   const CONC  = mat(0x8a8378, 'stone', 0.85);
   const CONC2 = mat(0x4a4a4c, 'stone', 0.90);
   const CONC3 = mat(0x6f6a62, 'stone', 0.88);

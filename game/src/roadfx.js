@@ -65,10 +65,19 @@ export const PARAMS = {
   // --- reflections -------------------------------------------------------
   reflOn: Q.get('refl') !== '0',
   reflMax: 40, reflMaxPhone: 22,
-  // Brightness of a streak before falloff. The road is a near-black mirror (albedo 0x231718 times
-  // the asphalt map is ~0.0004 linear), so everything visible on it is specular or additive and this
-  // number moves the bottom-third median directly. Kept low: the bar's road median is 27 of 255.
-  reflGain: qn('refl', 1) * 0.50,
+  // Brightness of a streak before falloff.
+  //
+  // ROUND 3, PULLED BACK. The comment that used to sit here said the road was "a near-black mirror
+  // (albedo 0x231718 times the asphalt map is ~0.0004 linear), so everything visible on it is
+  // specular or additive" — and that was the bug, not the design. These streaks were carrying the
+  // entire appearance of the street because there was no material under them; the critic saw
+  // exactly that ("strip the sparkles and the highlight blob and there is no diffuse signal
+  // left") and noted they had "been pushed that hard only because they are doing all the work of
+  // selling wet on their own. Give them a material to sit on and they can come back by more than
+  // half." The material exists now (albedo 0.021 linear, 160x what it was), so: 0.50 -> 0.16.
+  // They are also the frame's most saturated road pixels, and road-band saturation was 0.70
+  // against a reference 0.37-0.53, so this is most of that gap too.
+  reflGain: qn('refl', 1) * 0.16,
   reflNear: 2.0, reflFar: 46,          // metres from the camera: fade in, and gone
   reflMinY: 1.0, reflMaxY: 11,         // source height above its own road, m
   reflWidth: 0.26, reflWidthRange: 0.07, reflWidthMax: 0.72,
@@ -80,10 +89,14 @@ export const PARAMS = {
   // --- contact shadows ---------------------------------------------------
   shadowOn: Q.get('shadow') !== '0',
   shadowMax: 30, shadowMaxPhone: 18,
-  // Peak alpha under a grounded object. It only reads where the road is LIT — the carriageway now
-  // sits at 23 median luma and a multiply against near-black removes nothing — so it is set for the
-  // lit patches, where a dog or a crate crosses a sign's reflection.
-  shadowDark: qn('shadow', 1) * 0.70,
+  // Peak alpha under a grounded object. 0.70 was set when the carriageway was near-black and a
+  // multiply against it removed nothing, so it had to be cranked to read at all on the lit patches.
+  // The road now has a diffuse base everywhere, so the same alpha punches a black hole in it —
+  // which is the opposite of round 3's property ("cover every specular highlight and the ground
+  // must still read as a surface"). It also sets the frame's p05: measured on the round-3
+  // frames the darkest 5 % of pixels were road under these quads, where the reference's darkest
+  // 5 % is sky at the roofline. 0.70 -> 0.40: still a firm contact patch, no longer a void.
+  shadowDark: qn('shadow', 1) * 0.40,
   shadowY: 0.034,                      // under the reflections, above the road's own 3 mm detail
   shadowFar: 42,
   shadowProps: true,

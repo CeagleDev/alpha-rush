@@ -61,6 +61,9 @@
  */
 import { surface, RECIPES } from '../surfaces.js';
 
+const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
+const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };
+
 export const SETS = {
   asphalt: { materials: ['ground'], recipe: 'ground', tile: RECIPES.ground.tile },
   tin:     { materials: ['metal'],  recipe: 'metal',  tile: RECIPES.metal.tile },
@@ -83,9 +86,60 @@ const MAPS = [['map', 'albedo', true], ['roughnessMap', 'rough', false], ['norma
 export const PLANAR_TILE = { ground: 2.5, stone: 1.5 };
 /** Up-facing enough to be a road, a verge or a deck rather than a wall. cos(31 deg) — a ramp is 11 deg. */
 const PLANAR_NY = 0.85;
-/** The ground normal map only does its job once the UVs are right; at 0.85 the wet road stayed
- *  glassy, at 1.25 the grazing specular broke into aliasing glitter. */
-const GROUND_NORMAL_SCALE = 1.10;
+/**
+ * The ground normal map only does its job once the UVs are right; at 0.85 the wet road stayed
+ * glassy, at 1.25 the grazing specular broke into aliasing glitter.
+ *
+ * ROUND 3: 1.10 was still glitter. Normalised road patches from the round-2 frames are a black
+ * field carrying a dense scatter of single-pixel yellow specks — the critic's "single-pixel and
+ * un-antialiased sparkles ... they will crawl and shimmer violently once the camera moves", and
+ * the whole of a road-band Laplacian variance of 2531 against the reference's 70-311. A pebble-
+ * scale normal on a roughness-0.18 surface puts a mirror facet in every texel, and every facet
+ * that catches a practical is one blown pixel that no amount of MSAA can average. 1.10 -> 0.22:
+ * the normal still breaks the grazing sheen up and still bends the wet sheets, but the facets
+ * stop being mirrors. The surface's detail now comes from the ALBEDO, where mips and anisotropy
+ * average it properly (see GROUND_AMBIENT and tools/asphalt_regrade.py). Measured on a frozen
+ * viewpoint in work/r3/sweep, this is the difference between a road that grains and one that
+ * sparkles.
+ */
+const GROUND_NORMAL_SCALE = 0.22;
+
+/**
+ * THE ROAD'S AMBIENT, as a light map. Round 3's one property.
+ *
+ * Measured on the assembled scene: an up-facing surface receives its indirect light from exactly
+ * three places, and for the carriageway all three are nearly nothing and all three are orange.
+ *
+ *   rig bounce  uBounce * uBounceFlat  = hexLin(0xbf7c42) * 2.4 * 0.4 = (0.500, 0.194, 0.052)
+ *   hemisphere  fillSky * fillSkyGain  = hexLin(0x3d5c92) * 0.1       = (0.005, 0.011, 0.029)
+ *   IBL         envIntensity * envDiffuse = 0.6 * 0.10 of the PMREM   = negligible
+ *
+ * Total (0.51, 0.21, 0.08): a tenth of the irradiance the road needs and a saturation of 0.84
+ * before the albedo is even consulted. That single fact is BOTH of the critic's road failures —
+ * near-field p25 at 6.6 against a reference 17-20, and road-band saturation 0.70 against 0.37-0.53
+ * — and neither is fixable by making the albedo map brighter, because a brighter map multiplied by
+ * an orange-only irradiance is just a brighter orange.
+ *
+ * A `lightMap` is the narrow fix. three adds `lightMapTexel.rgb * lightMapIntensity` straight into
+ * `irradiance`, so it behaves exactly like the missing ambient term: it is multiplied by the
+ * albedo map and by the vertex tint, so it carries the pebble grain and the patch-to-patch colour
+ * instead of flattening them, it is fogged with everything else, and the contact shadows still
+ * darken it. It is set ONLY on materials named 'ground' (the three road assets and a plant pot's
+ * soil), so nothing else in the frame moves — the alternative, raising lighting.js's fillSkyGain,
+ * would relight every up-facing surface in the scene.
+ *
+ * The texel is one pixel of LINEAR colour (NoColorSpace: this is irradiance, not a picture), and
+ * it is BLUE-DOMINANT because it has to cancel an orange bounce, not because the alley is blue.
+ * At intensity 2.85 the road's total irradiance becomes (2.39, 2.22, 2.93) instead of
+ * (0.51, 0.21, 0.08): the saturation of the light itself falls from 0.84 to 0.25. Solved, not
+ * guessed — intensity and albedo are solved TOGETHER so that an ambient-only patch of
+ * carriageway lands at sRGB (22.0, 18.5, 23.0) through this project's ACES fit at exposure 1.05
+ * while the albedo stays low enough that a lantern pool does not blow out; the reference's own
+ * near-field asphalt measures (23.7, 18.1, 21.7): neutral leaning magenta, G the lowest channel.
+ * Tuned in work/r3; `?gamb=` and __groundfx.tune() move it without a rebuild.
+ */
+export const GROUND_AMBIENT = { r: 0.663, g: 0.706, b: 1.0, intensity: qn('gamb', 2.85) };
+let ambientTex = null;
 /** Lightbox sprites and noren stroke sprites the lead generated on Atlas. */
 export const SIGN_COUNT = 8, NOREN_COUNT = 2;
 const signMats = new Map(), norenMats = new Map();
@@ -194,6 +248,24 @@ function loadSet(set) {
 }
 const settled = new Set();
 
+/**
+ * The 1x1 linear texel the ground's ambient rides on. One shared Texture on one shared material,
+ * so it costs no draw call and no memory worth counting. `channel = 0` is load-bearing: three
+ * reads a lightMap from uv1 by default and the road geometry has only uv, so without it the
+ * program compiles against a missing attribute and the term silently reads garbage.
+ */
+function ambient() {
+  if (ambientTex) return ambientTex;
+  const A = GROUND_AMBIENT;
+  const d = new Uint8Array([Math.round(A.r * 255), Math.round(A.g * 255), Math.round(A.b * 255), 255]);
+  const t = new THREE.DataTexture(d, 1, 1, THREE.RGBAFormat);
+  t.colorSpace = THREE.NoColorSpace;          // irradiance, not a picture: no sRGB decode
+  t.channel = 0;                              // sample it on uv, not uv1
+  t.needsUpdate = true;
+  ambientTex = t;
+  return t;
+}
+
 /** Put the best available maps on one material: file where it arrived, procedural otherwise. */
 function assign(m, set) {
   const s = SETS[set];
@@ -204,6 +276,12 @@ function assign(m, set) {
   for (const [slot] of MAPS) {
     const t = need(slot);
     if (t && m[slot] !== t) { m[slot] = t; changed = true; }
+  }
+  if (set === 'asphalt') {
+    // the road's missing ambient (see GROUND_AMBIENT). Done here rather than in apply() so it also
+    // lands on a material that only gets its maps when a late file resolves.
+    if (m.lightMap !== ambient()) { m.lightMap = ambient(); changed = true; }
+    m.lightMapIntensity = GROUND_AMBIENT.intensity;
   }
   if (changed) {
     if (!m.normalScale) m.normalScale = new THREE.Vector2(0.85, 0.85);
@@ -294,3 +372,35 @@ export function status() {
 
 /** Everything settled (for a test harness; the game never awaits this). */
 export function ready() { return Promise.all(Object.keys(SETS).map(loadSet)); }
+
+/**
+ * Live tuning of the ground's ambient and normal strength, the way lighting.js does it. Not part
+ * of any contract — it exists so one browser launch can sweep the road instead of one per value.
+ *
+ * It has to walk the SCENE, not the registry: chunks.js clones the ground material once per
+ * recipe bucket to move colour into the vertices, and those clones are what actually draw. They
+ * share this module's Texture objects, which is how they are found.
+ */
+export function tune(o = {}) {
+  const A = GROUND_AMBIENT;
+  for (const k of ['r', 'g', 'b', 'intensity']) if (o[k] !== undefined) A[k] = o[k];
+  if (ambientTex) {
+    const d = ambientTex.image.data;
+    d[0] = Math.round(A.r * 255); d[1] = Math.round(A.g * 255); d[2] = Math.round(A.b * 255);
+    ambientTex.needsUpdate = true;
+  }
+  let n = 0;
+  const hit = (m) => {
+    if (!m || m.lightMap !== ambientTex) return;
+    m.lightMapIntensity = A.intensity;
+    if (o.normalScale !== undefined && m.normalScale) m.normalScale.set(o.normalScale, o.normalScale);
+    n++;
+  };
+  if (ctx && ctx.scene) ctx.scene.traverse((x) => {
+    if (!x.material) return;
+    if (Array.isArray(x.material)) x.material.forEach(hit); else hit(x.material);
+  });
+  for (const m of (registry.asphalt || [])) hit(m);
+  return { ...A, materials: n };
+}
+globalThis.__groundfx = { GROUND_AMBIENT, tune, status };

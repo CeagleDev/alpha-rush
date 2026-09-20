@@ -10,8 +10,8 @@
 // carriageway, broad wet sheets that mirror the signs, and cracks. Measured on the bar, the bottom
 // third sits at 27 median luma with a long bright tail; the build's was a smooth mid-grey with
 // nothing in it at all. So this chunk now also lays down, all as thin flat overlays a few mm proud:
-//   - 46 paper/cardboard/petal flecks and 26 grit specks across the road and gutters (the most
-//     prominent feature of the reference's road, and the source of most of its edge energy)
+//   - 18 paper/cardboard/petal flecks and 9 grit specks across the road and gutters (round 2 had
+//     46 and 26, at a size that fell below a pixel and read as un-antialiased spark; see below)
 //   - 5 broad wet sheets at roughness 0.085 and 3 damp margins at 0.13, so the grazing highlight
 //     from a practical CLIPS somewhere instead of lifting the whole carriageway evenly
 //   - 9 cracks and 4 dragged tyre smears
@@ -25,13 +25,38 @@ export default function (THREE) {
     if (dbl) s.side = THREE.DoubleSide;
     s.name = name; return s;
   };
-  const ROAD   = mat(0x231718, 'ground', 0.18);
-  const PATCH1 = mat(0x1d1314, 'ground', 0.18);
-  const PATCH2 = mat(0x2b1d1c, 'ground', 0.18);
-  const PATCH3 = mat(0x2f2322, 'ground', 0.18);
-  const OIL    = mat(0x160f11, 'ground', 0.12);
-  const PUDDLE = mat(0x1a1114, 'ground', 0.05);
-  const LINE   = mat(0x6a5e52, 'ground', 0.30);
+  // ROUND 3 — THE DIFFUSE BASE. Every 'ground' colour here is a TINT ON THE ASPHALT MAP, not the
+  // road's colour: chunks.js bakes it into a vertex attribute against a white shared material, so
+  // what the shader sees is map x tint. The old values were the road's colour (0x231718, linear
+  // luma 0.0103) and multiplying them by an asphalt map that was itself an already-lit night photo
+  // (linear luma 0.013) left the carriageway at an albedo of 1.3e-4 — four hundred times darker
+  // than the pavement 30 cm away, and invisible. "It is not a dark road. It is not a road."
+  //
+  // The map is now a real albedo (tools/asphalt_regrade.py: linear luma 0.099, saturation 0.05),
+  // so these carry only the patch-to-patch variation. 0x77797c x the map puts the carriageway at
+  // 0.0190 linear in every channel. That is RAIN-WET asphalt, not dry: water fills the pores and
+  // moves most of the energy into the specular lobe the wet sheets already carry, and a wet road
+  // measures 0.02-0.04 against a dry one's 0.07-0.12. Measured, not chosen for looks — at the dry
+  // value (0.044) the near-field p75 landed at 47 against the reference's 28-31, because this
+  // alley's practicals are hot enough that a dry albedo blows every lantern pool out. Everything
+  // else is a multiple: repairs -20/+16 %, wet sheets 0.64x, cracks 0.46x, the worn line 1.28x.
+  // The dark end is deliberately not as dark as it was: the critic's frame-wide p05 target is a
+  // floor, and an oil stain at 0.30x of a 0.02 albedo is a hole in the road, not a stain.
+  //
+  // They are a HAIR COOL (b > r) on purpose, and that is not the road's colour: it cancels the
+  // map's residual warmth so the product is neutral, because the LIGHT in this alley is already
+  // saturated orange (rig bounce 0.50/0.19/0.05) and a warm albedo on top of it was half of why
+  // the road measured 0.70 saturation against the reference's 0.37-0.53. Measured on the bar, the
+  // reference's near-field asphalt is (23.7, 18.1, 21.7) — neutral leaning magenta, not amber.
+  const ROAD   = mat(0x77797c, 'ground', 0.18);
+  const PATCH1 = mat(0x6b6d70, 'ground', 0.18);
+  const PATCH2 = mat(0x808285, 'ground', 0.18);
+  const PATCH3 = mat(0x717375, 'ground', 0.18);
+  const OIL    = mat(0x5a5c5d, 'ground', 0.12);
+  const PUDDLE = mat(0x636567, 'ground', 0.05);
+  // worn to almost nothing on purpose: a yokocho has no lane markings, and a bright white line was
+  // already on the critic's list as the tell that this is a generic road asset.
+  const LINE   = mat(0x86888b, 'ground', 0.30);
   const GUTTER = mat(0x4a4a4c, 'stone', 0.18);      // wet gutter concrete
   const KERB   = mat(0x8a8378, 'stone', 0.80);
   const KERB2  = mat(0x77716a, 'stone', 0.85);
@@ -49,10 +74,10 @@ export default function (THREE) {
   const GRIT   = mat(0x6c4028, 'plaster', 0.92);
   // 0.05 was a true mirror and the grazing highlight off it clipped over a large area; 0.085 still
   // returns a sign as a hard bright smear but stops the sheet itself from reading as a light.
-  const WET    = mat(0x181013, 'ground', 0.085);    // a standing wet sheet
-  const DAMP   = mat(0x1e1418, 'ground', 0.13);     // its drying margin
-  const CRACK  = mat(0x110f12, 'ground', 0.55);
-  const SMEAR  = mat(0x1b1315, 'ground', 0.14);
+  const WET    = mat(0x616364, 'ground', 0.085);    // a standing wet sheet
+  const DAMP   = mat(0x6b6d70, 'ground', 0.13);     // its drying margin
+  const CRACK  = mat(0x525456, 'ground', 0.55);
+  const SMEAR  = mat(0x656769, 'ground', 0.14);
 
   const B = (w, h, d, m, x, y, z, ry) => {
     const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -112,10 +137,15 @@ export default function (THREE) {
   // --- paper litter and petals. THE reference's road signature: small, pale, everywhere. ------
   // Flat rectangles a few mm proud, random yaw, a slight tilt on some so they catch the light
   // differently from their neighbours instead of reading as one printed pattern.
-  // 46 of them, 4-11 cm. The reference's flecks are numerous but SMALL: at 64 pieces up to 17 cm
-  // they covered enough of the carriageway to lift the frame rather than to speckle it.
-  for (let i = 0; i < 46; i++) {
-    const w = 0.040 + hash(i, 41) * 0.070, d = 0.035 + hash(i, 42) * 0.065;
+  //
+  // ROUND 3: 46 at 4-11 cm, halved to 18 at 8-19 cm. Round 2 sized these for the reference's
+  // fleck DENSITY and got the scale wrong in a way that only the second critic named: at 4 cm and
+  // 15 m down the street a scrap is under a pixel, and a sub-pixel white box on a black road is a
+  // single un-antialiased spark that crawls the moment the camera moves. Fewer and larger is the
+  // same litter, at a size the sampler can actually resolve; the pebble-scale detail they were
+  // standing in for now comes from the albedo map, where it belongs and where mips handle it.
+  for (let i = 0; i < 18; i++) {
+    const w = 0.080 + hash(i, 41) * 0.110, d = 0.070 + hash(i, 42) * 0.100;
     const r = hash(i, 43);
     const m = r < 0.34 ? PAPER : r < 0.70 ? PAPER2 : r < 0.86 ? CARD : PETAL;
     // biased toward the middle of the road, where the camera looks, but present right across it
@@ -127,8 +157,10 @@ export default function (THREE) {
     o.rotation.z = (hash(i, 49) - 0.5) * 0.5;
   }
   // --- grit: darker, smaller, concentrated toward the gutters ----------------
-  for (let i = 0; i < 26; i++) {
-    const w = 0.030 + hash(i, 51) * 0.055;
+  // 26 -> 9, and up from 3-8 cm to 7-15 cm, for the reason above: below a pixel these were spark,
+  // not grit. They sit in the gutters where the camera sees them at a shallow angle anyway.
+  for (let i = 0; i < 9; i++) {
+    const w = 0.070 + hash(i, 51) * 0.080;
     const side = hash(i, 52) < 0.5 ? -1 : 1;
     B(w, 0.005, w * (0.7 + hash(i, 53) * 0.8), GRIT,
       side * (1.6 + hash(i, 54) * 1.7), 0.0245, -14.2 + hash(i, 55) * 28.4, hash(i, 56) * Math.PI);
