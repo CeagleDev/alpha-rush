@@ -48,7 +48,16 @@ camera.position.set(0, 2.6, -6.5);
 camera.lookAt(0, 1.2, 12);
 scene.add(camera);
 
-const rig = createRig(THREE, renderer, scene, { hour: 19.4, azimuth: 250, tier: config.phone ? 'phone' : 'auto', camera });
+// bloomThreshold is passed EXPLICITLY because this is a night game. rig.js derives the threshold
+// from the key light's intensity, and at hour 19.4 the sun is below the horizon, so the derivation
+// collapses to its 0.6 floor — which rig.js's own comment calls six times too low, the point at
+// which "every diffuse surface in the frame blooms", i.e. the milk filter it says it does not do.
+// It is invisible in a still and it was haloing the shophouse nearest the camera. At 1.6 only the
+// things that are genuinely emitting — sign faces, lantern cores, wet-road speculars — cross it.
+const rig = createRig(THREE, renderer, scene, {
+  hour: 19.4, azimuth: 250, tier: config.phone ? 'phone' : 'auto', camera,
+  bloomThreshold: 1.6, bloomStrength: 0.30, bloomRadius: 0.30,
+});
 
 // ---------------------------------------------------------------- state / rng / events
 function mulberry32(a) {

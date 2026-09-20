@@ -117,7 +117,13 @@ const INIT_WAIT_MS = 6000;
 export function signFace(i = 1) {
   const k = ((Math.round(i) - 1) % SIGN_COUNT + SIGN_COUNT) % SIGN_COUNT + 1;
   if (signMats.has(k)) return signMats.get(k);
-  const m = new THREE.MeshStandardMaterial({ color: 0x110f12, emissive: 0xffffff, emissiveIntensity: 2.0, roughness: 0.35, metalness: 0 });
+  // emissiveIntensity was 2.0 with a WHITE emissive, which clips the face to pure white after the
+  // tone curve and washes the sprite's brush strokes out completely — the sign reads as a blank
+  // glowing panel, which is exactly what the Atlas sprites were generated to stop. The emissiveMap
+  // multiplies this colour, so the map can only show its own tone below the clip point. Measured on
+  // the critic's frames, the lightbox faces and the awning soffits they lit were 5.8-6.8 % of
+  // pixels over luma 235 against the reference's 1.5 % maximum.
+  const m = new THREE.MeshStandardMaterial({ color: 0x110f12, emissive: 0xffffff, emissiveIntensity: 0.95, roughness: 0.35, metalness: 0 });
   m.name = '';                       // unnamed on purpose: surfaces.js must leave emissive faces alone
   m.userData.sign = k;
   signMats.set(k, m);

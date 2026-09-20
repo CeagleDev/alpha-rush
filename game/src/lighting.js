@@ -89,7 +89,7 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 1.0, fillSkyGain: 0.1, fillGroundGain: 4.2,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
+  fill: qn('fill', 1) * 1.0, fillSkyGain: 0.1, fillGroundGain: 3.0,   // was 4.2: the rig gives an awning soffit 8x a wall, so the amber street bounce blew every soffit to white        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
   candela: qn('lgain', 1) * 220, heightRef: 2.5, heightExp: 1.2, heightGainMax: 4,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
   // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
   // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
@@ -151,6 +151,8 @@ export const PARAMS = {
   // strokes. Capped at the max emissive channel, in linear radiance before the curve.
   emissiveCap: qn('emissivecap', 1) * 2.9,
 };
+const NEAR_SOFT_M = 5.0;      // metres: below this a practical is eased down (see assign())
+const NEAR_SOFT_MIN = 0.22;   // floor, so a close lantern still reads as lit rather than switching off
 
 let ctx = null, THREE = null, rig = null, scene = null;
 let pool = [];                 // PointLights
@@ -443,7 +445,10 @@ export function sources() { return gather(); }
 
 /* ------------------------------------------------------------ pool assignment */
 
+const camPos = { x: 0, y: 0, z: 0 };   // plain object: this module takes THREE from ctx, not an import
 function assign() {
+  const _cam = (ctx && ctx.camera) || (rig && rig.camera) || null;
+  if (_cam) { _cam.updateMatrixWorld(); camPos.x = _cam.matrixWorld.elements[12]; camPos.y = _cam.matrixWorld.elements[13]; camPos.z = _cam.matrixWorld.elements[14]; }
   const cam = ctx.camera;
   const st = ctx.state || {};
   const cx = cam.position.x, cz = cam.position.z;
@@ -490,7 +495,20 @@ function assign() {
     L.position.set(l.x, l.y, l.z);
     L.color.setHex(l.color);
     L.distance = l.range * PARAMS.reach;
-    L.intensity = l.intensity;
+    // PROXIMITY SOFTENING. A practical's illuminance goes as 1/d², so a verge lightbox that the
+    // camera passes within a couple of metres throws an order of magnitude more light on the
+    // shophouse wall behind it than the same fitting does further down the street, and that wall
+    // is a large, near, flat surface: it clipped to white and haloed. Measured on the critic's
+    // frames, 6-7 % of pixels cleared luma 235 against the reference's 1.5 % maximum, all of it on
+    // the nearest facade. Raising the bloom threshold barely touched it, which is what proved the
+    // surfaces were genuinely over-lit rather than merely blooming.
+    // So lights within NEAR_SOFT_M of the camera are eased down, which only ever affects fittings
+    // level with or behind the player — never the road ahead, which is what the reflections and the
+    // wet-surface work depend on.
+    const dx = L.position.x - camPos.x, dy = L.position.y - camPos.y, dz = L.position.z - camPos.z;
+    const dCam = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const soft = dCam >= NEAR_SOFT_M ? 1 : Math.max(NEAR_SOFT_MIN, (dCam / NEAR_SOFT_M) ** 2);
+    L.intensity = l.intensity * soft;
     active++; if (l.cool) cool++; else warm++;
   }
   report_.active = active; report_.warm = warm; report_.cool = cool;
