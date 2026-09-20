@@ -2,7 +2,7 @@
 /**
  * midnight-dash gate: drive the runner with REAL input, photograph it at fixed distances, fail loudly.
  *
- *   node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--viewport=WxH] [--frames=6]
+ *   node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--viewport=WxH] [--shutter=N] [--frames=6]
  *
  * Phone (default): 390x844 @3x, touch, Android UA. Start is a real CDP touch tap on #startb; swipes are
  * real CDP touch sequences. --desktop: 1280x720, a real click and real arrow keys. The phone run is the
@@ -42,7 +42,7 @@ const flag = (k) => argv.includes(`--${k}`);
 const opt = (k, d) => { const a = argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3).replace(/^["']|["']$/g, '') : d; };
 const targetArg = argv.find((x) => !x.startsWith('--'));
 if (!targetArg) {
-  console.error('usage: node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--viewport=WxH] [--frames=6]');
+  console.error('usage: node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--viewport=WxH] [--shutter=N] [--frames=6]');
   process.exit(2);
 }
 const target = path.resolve(targetArg);
@@ -101,10 +101,44 @@ const server = createServer((req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
+/** Average N PNG buffers pixel-wise into one PNG. Decoded in the browser page we already have open,
+ *  because the gate has no image library: a canvas does the decode, the average and the re-encode. */
+async function averagePNGs(buffers, outFile) {
+  const b64 = buffers.map((b) => Buffer.from(b).toString('base64'));
+  const page = averagePNGs._page;
+  const dataUrl = await page.evaluate(async (list) => {
+    const imgs = await Promise.all(list.map((d) => new Promise((res, rej) => {
+      const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = 'data:image/png;base64,' + d;
+    })));
+    const w = imgs[0].width, h = imgs[0].height;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    const acc = new Float32Array(w * h * 4);
+    for (const im of imgs) {
+      ctx.clearRect(0, 0, w, h); ctx.drawImage(im, 0, 0);
+      const d = ctx.getImageData(0, 0, w, h).data;
+      for (let i = 0; i < acc.length; i++) acc[i] += d[i];
+    }
+    const out = ctx.createImageData(w, h);
+    for (let i = 0; i < acc.length; i++) out.data[i] = acc[i] / imgs.length;
+    ctx.putImageData(out, 0, 0);
+    return c.toDataURL('image/png');
+  }, b64);
+  fs.writeFileSync(outFile, Buffer.from(dataUrl.split(',')[1], 'base64'));
+}
+
 const BASE = `http://127.0.0.1:${server.address().port}`;
 // --nohud captures the frames a critic judges: a HUD in the corner identifies our frame instantly
 // in a blind pair, and the reference frames have none.
 const NOHUD = argv.includes('--nohud');
+// --shutter=N averages N screenshots taken a few ms apart into one frame, which is a real camera
+// shutter: the world is moving at 9-20 m/s, so consecutive reads differ and the average carries
+// genuine per-object motion blur. The round-2 critic called the absence of it a SERIOUS instrument
+// fault — every reference frame carries camera and object blur and none of ours did, which inflates
+// the gap on silhouette quality, edge aliasing and readability-at-a-glance, and would have had the
+// next verdict measuring the same artefact again. This blurs the CAPTURE, not the game.
+const shutArg = (argv.find((x) => x.startsWith('--shutter=')) || '').split('=')[1];
+const SHUTTER = Math.max(1, Math.min(12, Number(shutArg) || 1));
 // --viewport=WxH captures at the REFERENCE's shape. docs/claims.md: a band statistic defined as a
 // fraction of the frame covers a different amount of world at every aspect ratio, and a blind pair
 // whose two sides have different proportions tells the critic which is which before it looks.
@@ -125,6 +159,11 @@ process.on('SIGINT', async () => { await cleanup(); process.exit(130); });
 async function runOnce(runNo, outDir) {
   fs.mkdirSync(outDir, { recursive: true });
   const page = await browser.newPage();
+  // a blank page of its own for shutter averaging, so decoding never touches the running game
+  if (SHUTTER > 1 && !averagePNGs._page) {
+    averagePNGs._page = await browser.newPage();
+    await averagePNGs._page.goto('about:blank');
+  }
   await page.setViewport(VIEWPORT);
   if (!DESKTOP) await page.setUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
   await page.setCacheEnabled(false);
@@ -279,7 +318,16 @@ async function runOnce(runNo, outDir) {
     hero: g.heroBox ? Math.round(100 * g.heroBox[3] / VIEWPORT.height) : null, note });
   const shoot = async (g, d, note) => {
     const file = path.join(outDir, `f${frames.length}.png`);
-    await page.screenshot({ path: file, type: 'png', optimizeForSpeed: true });
+    if (SHUTTER > 1) {
+      const subs = [];
+      for (let i = 0; i < SHUTTER; i++) {
+        subs.push(await page.screenshot({ type: 'png', optimizeForSpeed: true, encoding: 'binary' }));
+        if (i < SHUTTER - 1) await new Promise((r) => setTimeout(r, 6));
+      }
+      await averagePNGs(subs, file);
+    } else {
+      await page.screenshot({ path: file, type: 'png', optimizeForSpeed: true });
+    }
     frames.push({ file, ...caption(g, d, note) });
     console.log(`  photo f${frames.length - 1}  ${d.toFixed(1)} m  speed ${g.speed}  fps ${g.fps}  draws ${g.draws}  tris ${g.tris}  zone ${g.zone ?? '?'}${note ? '  ' + note : ''}`);
   };
