@@ -154,6 +154,9 @@ export function update(dt = 0.016) {
   st.score = Math.floor((st.coins || 0) + (st.distance || 0) / 10);
   // a missed coin flies past the runner and, 0.4 s later, through the camera lens (it filled the
   // frame in the critic's strips). Drop it once it is a metre in front of the lens (camera ~4.9 m back).
-  if (live.length) { const cut = pz - 4.0; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
+  // keyed to the CAMERA, not the runner: after a hit the camera closes in on him (fov/distance
+  // follow speed), and a runner-relative margin let a missed coin fill the lens on the death sheet.
+  const camZ = ctx.camera ? ctx.camera.position.z : pz - 4.9;
+  if (live.length) { const cut = camZ + 0.9; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
   prevZ = pz;
 }
