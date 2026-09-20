@@ -18,9 +18,9 @@ export default function (THREE) {
   const TAPE = M(0xa89a86, 'metal', { roughness: 0.4, metalness: 0.1 });
   const TAPE2 = M(0x6c6256, 'metal', { roughness: 0.4, metalness: 0.1 });
   const PAPER = M(0xb59a74, 'fabric', { roughness: 0.95 });
-  const box = (w, h, d, x, y, z, ry, mat) => { const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = ry; g.add(b); add(B(w, h, d), mat, 0, h / 2, 0, 0, 0, 0, b); return b; };
+  const mkbox = (w, h, d, x, y, z, ry, mat) => { const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = ry; g.add(b); add(B(w, h, d), mat, 0, h / 2, 0, 0, 0, 0, b); return b; };
   // bottom box 0.60 x 0.36 x 0.50
-  let b = box(0.60, 0.36, 0.50, 0, 0, 0, 0.05, CARD);
+  let b = mkbox(0.60, 0.36, 0.50, 0, 0, 0, 0.05, CARD);
   add(B(0.60, 0.06, 0.50), GROUND, 0, 0.03, 0, 0, 0, 0, b);
   add(B(0.61, 0.12, 0.51), DAMP, 0, 0.12, 0, 0, 0, 0, b);           // damp tide line
   add(B(0.05, 0.36, 0.51), TAPE, 0.12, 0.18, 0, 0, 0, 0, b);        // tape round it
@@ -28,18 +28,18 @@ export default function (THREE) {
   add(B(0.10, 0.10, 0.10), DAMP, 0.28, 0.02, 0.23, 0, 0.3, 0.2, b);  // crushed corner
   add(B(0.22, 0.14, 0.012), CARD2, -0.15, 0.22, 0.251, 0, 0, 0, b);  // a peeling label, no glyphs
   // second box 0.50 x 0.30 x 0.42
-  b = box(0.50, 0.30, 0.42, 0.03, 0.36, -0.02, -0.18, CARD2);
+  b = mkbox(0.50, 0.30, 0.42, 0.03, 0.36, -0.02, -0.18, CARD2);
   add(B(0.51, 0.05, 0.43), TAPE2, 0, 0.27, 0, 0, 0, 0, b);
   add(B(0.05, 0.30, 0.43), TAPE, -0.10, 0.15, 0, 0, 0, 0, b);
   add(B(0.51, 0.09, 0.43), DAMP, 0, 0.045, 0, 0, 0, 0, b);
   add(B(0.08, 0.08, 0.08), DAMP, -0.23, 0.26, -0.19, 0.3, 0, 0.3, b);
   // third box 0.42 x 0.28 x 0.38
-  b = box(0.42, 0.28, 0.38, -0.02, 0.66, 0.03, 0.12, CARD3);
+  b = mkbox(0.42, 0.28, 0.38, -0.02, 0.66, 0.03, 0.12, CARD3);
   add(B(0.05, 0.28, 0.39), TAPE, 0.06, 0.14, 0, 0, 0, 0, b);
   add(B(0.43, 0.06, 0.39), DAMP, 0, 0.03, 0, 0, 0, 0, b);
   add(B(0.16, 0.10, 0.012), CARD2, 0.08, 0.16, 0.191, 0, 0, 0.1, b);
   // top box 0.36 x 0.25 x 0.32, open: four walls, floor, flaps folded out, crumpled paper
-  b = box(0.36, 0.02, 0.32, 0.02, 0.94, 0.0, -0.08, INNER);
+  b = mkbox(0.36, 0.02, 0.32, 0.02, 0.94, 0.0, -0.08, INNER);
   add(B(0.36, 0.22, 0.012), CARD, 0, 0.12, 0.154, 0, 0, 0, b);
   add(B(0.36, 0.22, 0.012), CARD2, 0, 0.12, -0.154, 0, 0, 0, b);
   add(B(0.012, 0.22, 0.32), CARD, 0.174, 0.12, 0, 0, 0, 0, b);

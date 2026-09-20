@@ -47,14 +47,14 @@ export default function (THREE) {
   // umbrellas: tip at the tray, handle above the top rail, each leaning its own way
   const umb = (x, z, mat, len, lean, ry, broken) => {
     const u = new THREE.Group(); u.position.set(x, 0.06, z); u.rotation.set(lean, ry, lean * 0.6); g.add(u);
-    add(C(0.005, 0.008, 0.05, 5), STEEL, 0, 0.025, 0, 0, 0, 0, u);                 // ferrule
-    add(new THREE.ConeGeometry(0.042, len, 8, 1, true), mat, 0, 0.05 + len / 2, 0, Math.PI, 0, 0, u);
-    add(new THREE.ConeGeometry(0.043, len * 0.25, 8, 1, true), mat, 0, 0.05 + len * 0.62, 0, Math.PI, 0, 0, u); // fold flare
+    add(C(0.005, 0.008, 0.05, 4, true), STEEL, 0, 0.025, 0, 0, 0, 0, u);                 // ferrule
+    add(new THREE.ConeGeometry(0.042, len, 6, 1, true), mat, 0, 0.05 + len / 2, 0, Math.PI, 0, 0, u);
+    add(new THREE.ConeGeometry(0.043, len * 0.25, 6, 1, true), mat, 0, 0.05 + len * 0.62, 0, Math.PI, 0, 0, u); // fold flare
     add(B(0.03, 0.02, 0.09), mat, 0, 0.05 + len * 0.55, 0, 0, 0, 0, u);           // tie band
     add(C(0.006, 0.006, 0.10, 5, true), STEEL, 0, 0.05 + len + 0.05, 0, 0, 0, 0, u);
-    add(new THREE.TorusGeometry(0.035, 0.009, 4, 8, Math.PI), WOOD, 0.035, 0.05 + len + 0.10, 0, 0, 0, 0, u);
+    add(new THREE.TorusGeometry(0.035, 0.009, 3, 6, Math.PI), WOOD, 0.035, 0.05 + len + 0.10, 0, 0, 0, 0, u);
     add(C(0.009, 0.009, 0.06, 5, true), WOOD, 0.07, 0.05 + len + 0.07, 0, 0, 0, 0, u);
-    if (broken) for (let i = 0; i < 4; i++) add(C(0.002, 0.002, 0.30, 3, true), STEEL, 0, 0.05 + len * 0.8, 0, 0.5 + i * 0.25, i * 1.5, 0.6, u);
+    if (broken) for (let i = 0; i < 3; i++) add(C(0.002, 0.002, 0.30, 3, true), STEEL, 0, 0.05 + len * 0.8, 0, 0.5 + i * 0.25, i * 1.5, 0.6, u);
   };
   umb(-0.10, -0.08, RED, 0.62, 0.12, 0.3, false);
   umb(0.02, -0.11, NAVY, 0.70, -0.06, 1.2, true);

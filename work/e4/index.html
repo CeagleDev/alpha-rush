@@ -92,17 +92,25 @@ async function build() {
         const name = ['shophouse_a', 'shophouse_b', 'shophouse_c', 'shophouse_d'][(k + (s > 0 ? 1 : 0) + ci + 9) % 4];
         placed.push(await put(root, name, s * (SHOP_X + 3), 0, k * 5 + 2.5, s > 0 ? Math.PI / 2 : -Math.PI / 2));
       }
-      placed.push(await put(root, 'wall_lightbox', s * (SHOP_X - 0.08), 2.6, 4 + (s > 0 ? 9 : 0), s > 0 ? -Math.PI / 2 : Math.PI / 2));
-      placed.push(await put(root, 'wall_lightbox', s * (SHOP_X - 0.08), 4.2, 19 + (s > 0 ? 6 : 0), s > 0 ? -Math.PI / 2 : Math.PI / 2));
-      placed.push(await put(root, 'standing_lightbox', s * (SHOP_X - 0.6), 0, 11 + (s > 0 ? 5 : 0), s > 0 ? -Math.PI / 2 : Math.PI / 2));
-      placed.push(await put(root, 'paper_lantern', s * (SHOP_X - 0.5), 0, 7 + (s > 0 ? 12 : 0)));
+      // Signage density from STYLE.md: a yokocho is lit by its own shopfronts, so the frame must
+      // carry >= 6 lit faces and the road must be lit CONTINUOUSLY, not in pools 15 m apart. This
+      // is what the real chunk recipe places (chunks.js WALL / PROPS lists); a sparse fixture
+      // measures a street that does not exist and makes the lighting look weaker than it is.
+      const face = s > 0 ? -Math.PI / 2 : Math.PI / 2;
+      for (let z = 2; z < 30; z += 4) placed.push(await put(root, 'wall_lightbox', s * (SHOP_X - 0.08), z % 8 < 1 ? 4.2 : 2.6, z + (s > 0 ? 2 : 0), face));
+      for (let z = 5; z < 30; z += 8) placed.push(await put(root, 'standing_lightbox', s * (SHOP_X - 0.6), 0, z + (s > 0 ? 3 : 0), face));
+      for (let z = 8; z < 30; z += 6) placed.push(await put(root, 'paper_lantern', s * (SHOP_X - 0.5), 0, z + (s > 0 ? 3 : 0)));
+      for (let z = 3; z < 30; z += 7) placed.push(await put(root, 'tin_awning', s * (SHOP_X - 0.75), 0, z, face));
       placed.push(await put(root, 'utility_pole', s * (SHOP_X - 0.3), 0, 26 - (s > 0 ? 14 : 0)));
       placed.push(await put(root, 'bins_bags', s * (SHOP_X - 0.9), 0, 24 + (s > 0 ? -8 : 0)));
       placed.push(await put(root, 'crate_stack', s * (SHOP_X - 0.7), 0, 1.5 + (s > 0 ? 20 : 0)));
+      placed.push(await put(root, 'noren_string', s * (SHOP_X - 0.4), 0, 17 - (s > 0 ? 6 : 0), face));
     }
     placed.push(await put(root, 'vending_machine', (ci % 2 ? 1 : -1) * (SHOP_X - 0.55), 0, 15, (ci % 2 ? -1 : 1) * Math.PI / 2));
     placed.push(await put(root, 'lantern_string', 0, 0, 9 + (ci % 2) * 12, 0));
-    placed.push(await put(root, 'cable_span', 0, 0, 15));
+    // >= 3 cable spans per chunk (STYLE.md / CLAIMS C6), at the three heights the bar shows
+    for (const [x, y] of [[-1.2, 0], [0.4, 0.7], [1.8, 1.4]]) placed.push(await put(root, 'cable_span', x, y, 15));
+    placed.push(await put(root, 'lantern_string', 0, 0, 21 - (ci % 2) * 9, 0));
     root.updateMatrixWorld(true);
     const lights = [];
     for (const inst of placed) for (const l of assets.lights(inst)) lights.push({ x: l.x, y: l.y, z: l.z, color: l.color, intensity: l.intensity, range: l.range });

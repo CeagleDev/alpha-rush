@@ -66,7 +66,7 @@ export default function (THREE) {
   bag(0.28, 0.30, 0.16, 0.14, BAG2, 1.2, 2.3);
 
   // flattened box: two folded layers leaning against the blue bin's side
-  const cb = new THREE.Group(); cb.position.set(0.68, 0, 0.12); cb.rotation.set(0.05, -0.3, 0.30); g.add(cb);
+  const cb = new THREE.Group(); cb.position.set(0.62, 0, 0.12); cb.rotation.set(0.05, -0.3, 0.30); g.add(cb);
   add(B(0.50, 0.66, 0.03), CARD, 0, 0.33, 0, 0, 0, 0, cb);
   add(B(0.50, 0.30, 0.03), CARD2, 0, 0.51, 0.03, 0.0, 0, 0, cb);   // folded-over flap
   add(B(0.50, 0.02, 0.035), RUSTD, 0, 0.36, 0.03, 0, 0, 0, cb);

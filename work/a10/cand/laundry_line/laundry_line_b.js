@@ -38,14 +38,14 @@ export default function (THREE) {
     add(B(0.22, 0.40, 0.03), WOOD, x, PY, -0.085);
     add(B(0.10, 0.14, 0.012), TIN, x + 0.04, PY + 0.10, -0.064);
     add(B(0.06, 0.09, 0.012), RUST, x - 0.05, PY - 0.10, -0.064);
-    add(new THREE.TorusGeometry(0.04, 0.008, 4, 8, Math.PI), RUSTD, x, PY - 0.02, -0.03, 0, Math.PI / 2, 0);
+    add(new THREE.TorusGeometry(0.04, 0.008, 3, 6, Math.PI), RUSTD, x, PY - 0.02, -0.03, 0, Math.PI / 2, 0);
     add(B(0.03, 0.03, 0.06), RUSTD, x, PY - 0.06, -0.05);
   }
   const shape = (pts) => { const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]); s.closePath(); return s; };
   const ex = (sh, d, mat, x, y, z, rx, ry, rz) => add(new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: false, curveSegments: 4 }), mat, x, y, z - d / 2, rx, ry, rz);
   const hanger = (x, ry) => {
     const h = new THREE.Group(); h.position.set(x, PY, 0); h.rotation.y = ry; g.add(h);
-    add(new THREE.TorusGeometry(0.03, 0.004, 3, 8, Math.PI), WIRE, 0, 0.03, 0, 0, 0, 0, h);
+    add(new THREE.TorusGeometry(0.03, 0.004, 3, 5, Math.PI), WIRE, 0, 0.03, 0, 0, 0, 0, h);
     add(C(0.004, 0.004, 0.10, 3, true), WIRE, 0, -0.05, 0, 0, 0, 0, h);
     add(B(0.40, 0.006, 0.006), WIRE, 0, -0.10, 0, 0, 0, 0, h);
     add(B(0.22, 0.006, 0.006), WIRE, -0.1, -0.05, 0, 0, 0, Math.PI / 4, h);
@@ -73,7 +73,7 @@ export default function (THREE) {
   const jk = shape([[-0.06, -0.02], [0.06, -0.02], [0.10, -0.10], [0.17, -0.12], [0.24, -0.40], [0.17, -0.42], [0.15, -0.30], [0.16, -0.58], [-0.16, -0.58], [-0.15, -0.30], [-0.17, -0.42], [-0.24, -0.40], [-0.17, -0.12], [-0.10, -0.10]]);
   h = hanger(1.05, -0.2);
   ex(jk, 0.09, JACK, 1.05, PY, 0, 0.03, -0.2, 0);
-  add(new THREE.SphereGeometry(0.10, 8, 5), JACK2, 1.05, PY - 0.06, -0.04);
+  add(new THREE.SphereGeometry(0.10, 6, 4), JACK2, 1.05, PY - 0.06, -0.04);
   add(B(0.03, 0.40, 0.095), RUSTD, 1.05, PY - 0.36, 0.0, 0, -0.2, 0);
   add(B(0.28, 0.05, 0.095), JACK2, 1.05, PY - 0.56, 0.0, 0, -0.2, 0);
   // --- the six lines: measure vertices, base to y=0, centre x/z ---------------

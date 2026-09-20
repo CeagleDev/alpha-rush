@@ -36,12 +36,12 @@ export default function (THREE) {
   add(B(0.51, 0.05, 0.43), TAPE, 0, 0.26, 0, 0, 0, 0, b);
   add(B(0.05, 0.28, 0.43), TAPE2, -0.10, 0.14, 0, 0, 0, 0, b);
   add(B(0.51, 0.08, 0.43), DAMP, 0, 0.04, 0, 0, 0, 0, b);
-  b = sag(0.42, 0.28, 0.38, -0.02, 0.62, 0.03, 0.12, CARD3, 0.02);
+  b = sag(0.42, 0.28, 0.38, -0.02, 0.56, 0.03, 0.12, CARD3, 0.02);
   add(B(0.05, 0.26, 0.39), TAPE, 0.06, 0.13, 0, 0, 0, 0, b);
   add(B(0.43, 0.06, 0.39), DAMP, 0, 0.03, 0, 0, 0, 0, b);
   add(B(0.16, 0.10, 0.012), CARD2, 0.08, 0.16, 0.191, 0, 0, 0.1, b);
   // open top box: walls as extruded trapezoids, flaps as extruded trapezoids folded out
-  b = new THREE.Group(); b.position.set(0.02, 0.89, 0.0); b.rotation.y = -0.08; g.add(b);
+  b = new THREE.Group(); b.position.set(0.02, 0.79, 0.0); b.rotation.y = -0.08; g.add(b);
   add(B(0.36, 0.02, 0.32), INNER, 0, 0.01, 0, 0, 0, 0, b);
   const wall = quad([[-0.18, 0], [0.18, 0], [0.17, 0.22], [-0.175, 0.21]]);
   add(new THREE.ExtrudeGeometry(wall, { depth: 0.012, bevelEnabled: false }), CARD, 0, 0.01, 0.148, 0, 0, 0, b);
@@ -51,7 +51,7 @@ export default function (THREE) {
   add(new THREE.ExtrudeGeometry(wall2, { depth: 0.012, bevelEnabled: false }), CARD, -0.162, 0.01, 0, 0, Math.PI / 2, 0, b);
   const flap = quad([[-0.18, 0], [0.18, 0], [0.16, 0.15], [-0.17, 0.16]]);
   add(new THREE.ExtrudeGeometry(flap, { depth: 0.012, bevelEnabled: false }), CARD, 0, 0.23, 0.16, Math.PI / 2 + 0.4, 0, 0, b);
-  add(new THREE.ExtrudeGeometry(flap, { depth: 0.012, bevelEnabled: false }), CARD2, 0, 0.23, -0.16, -0.3, 0, 0, b);
+  add(new THREE.ExtrudeGeometry(flap, { depth: 0.012, bevelEnabled: false }), CARD2, 0, 0.23, -0.16, -0.12, 0, 0, b);
   const flap2 = quad([[-0.16, 0], [0.16, 0], [0.15, 0.14], [-0.15, 0.15]]);
   add(new THREE.ExtrudeGeometry(flap2, { depth: 0.012, bevelEnabled: false }), CARD3, 0.17, 0.23, 0, 0, Math.PI / 2, -Math.PI / 2 - 0.5, b);
   add(new THREE.ExtrudeGeometry(flap2, { depth: 0.012, bevelEnabled: false }), CARD, -0.17, 0.23, 0, 0, Math.PI / 2, Math.PI / 2 - 0.9, b);

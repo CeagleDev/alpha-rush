@@ -77,7 +77,7 @@ export default function (THREE) {
     s.moveTo(0, 0);
     for (let i = 1; i <= n; i++) { s.lineTo(0.05, (i - 0.5) * h); s.lineTo(0.005, i * h); }
     s.lineTo(-0.02, SH_TOP - Y0); s.lineTo(-0.02, 0); s.lineTo(0, 0);
-    ext(s, SH_X1 - SH_X0 - 0.06, shutter, [SH_X0 + 0.03, Y0, FZ - 0.02], [0, -Math.PI / 2, 0]);
+    ext(s, SH_X1 - SH_X0 - 0.06, shutter, [SH_X1 - 0.03, Y0, FZ - 0.02], [0, -Math.PI / 2, 0]);
     box(SH_X1 - SH_X0 + 0.10, 0.10, 0.12, [(SH_X0 + SH_X1) / 2, SH_TOP + 0.05, FZ + 0.03], steel);
     for (const x of [SH_X0, SH_X1]) box(0.10, SH_TOP - Y0 + 0.10, 0.12, [x, Y0 + (SH_TOP - Y0) / 2, FZ + 0.03], steel);
     box(SH_X1 - SH_X0 - 0.06, 0.10, 0.08, [(SH_X0 + SH_X1) / 2, Y0 + 0.05, FZ + 0.02], rustDk);
@@ -142,7 +142,7 @@ export default function (THREE) {
   for (const sx of [-1, 1]) {
     const x = sx * (HX - WT / 2);
     const tri = new THREE.Shape(); tri.moveTo(-HZ, WTOP); tri.lineTo(HZ, WTOP); tri.lineTo(0, RIDGE - 0.10); tri.lineTo(-HZ, WTOP);
-    ext(tri, WT, sx > 0 ? plasterPale : plaster, [x - sx * WT / 2, 0, -HZ], [0, Math.PI / 2, 0]);
+    ext(tri, WT, sx > 0 ? plasterPale : plaster, [sx > 0 ? HX - WT : -HX, 0, 0], [0, Math.PI / 2, 0]);
     box(0.02, 1.40, 0.90, [x + sx * (WT / 2), 3.10, sx * 0.9], plasterDirty);
     box(0.02, 0.60, 0.50, [x + sx * (WT / 2), 5.10, -1.4], plasterDirty);
     box(0.02, 0.50, 1.20, [x + sx * (WT / 2), 1.10, -0.3], plasterDirty);
@@ -193,7 +193,7 @@ export default function (THREE) {
     s.lineTo(n * pitch, -0.03); s.lineTo(0, -0.03); s.lineTo(0, 0);
     for (const sz of [1, -1]) {
       const m = sz > 0 ? tinRust : tin;
-      ext(s, 2 * HX + 0.24, m, [-HX - 0.12, RIDGE - 0.06, 0], [0, Math.PI / 2, sz > 0 ? -ANG : ANG]).scale.z = sz;
+      ext(s, 2 * HX + 0.24, m, [sz > 0 ? HX + 0.12 : -HX - 0.12, RIDGE - 0.06, 0], [0, sz > 0 ? -Math.PI / 2 : Math.PI / 2, -ANG]);
       box(2 * HX + 0.24, 0.14, 0.05, [0, 5.60, sz * EAVE], timberDk);
       for (let i = 0; i < 9; i++) box(0.07, 0.09, 0.30, [-2.20 + i * 0.55, 5.68, sz * (EAVE - 0.14)], timber, [sz * ANG, 0, 0]);
       box(2 * HX + 0.10, 0.10, 0.22, [0, 5.76, sz * (EAVE - 0.30)], timberDk, [sz * ANG, 0, 0]);

@@ -51,8 +51,8 @@ export default function (THREE) {
     add(B(0.025, 0.03, 0.22), dark, 0.13, 0.18, 0, 0, 0, 0, s);
     add(B(0.025, 0.03, 0.22), dark, -0.13, 0.18, 0, 0, 0, 0, s);
   };
-  stool(-0.50, 0.22, 0.3, WOOD, WOOD, WOOD2);
-  stool(0.50, 0.18, -0.5, PALE, PALE, PALE2);
+  stool(-0.47, 0.22, 0.3, WOOD, WOOD, WOOD2);
+  stool(0.47, 0.18, -0.5, PALE, PALE, PALE2);
   // bottle and glass
   add(L([[0, 0], [0.03, 0], [0.032, 0.14], [0.02, 0.19], [0.012, 0.22], [0.012, 0.26], [0.0, 0.26]], 8), BROWN, TX - 0.08, 0.70, TZ - 0.02);
   add(C(0.012, 0.012, 0.01, 8), RUSTD, TX - 0.08, 0.965, TZ - 0.02);

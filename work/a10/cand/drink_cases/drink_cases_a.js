@@ -35,20 +35,20 @@ export default function (THREE) {
     for (const sx of [-1, 1]) add(B(0.02, 0.05, 0.16), INNER, sx * (W / 2 - T / 2), 0.20, 0, 0, 0, 0, c);
     return c;
   };
-  let c = crate(0, 0, 0, 0.04, WOOD, WOOD2);
-  add(B(W, 0.06, D), GROUND, 0, 0.03, 0, 0, 0, 0, c);
-  add(B(0.20, 0.10, 0.006), SCUFF, 0.08, 0.20, D / 2 + 0.002, 0, 0, 0, c);     // faded paint ghost
-  c = crate(0.03, 0.30, -0.02, -0.10, RED, RED2);
-  add(B(0.18, 0.06, 0.006), INNER, -0.10, 0.06, D / 2 + 0.002, 0, 0, 0, c);    // black brush mark
-  add(B(0.08, 0.03, 0.006), INNER, 0.12, 0.05, D / 2 + 0.002, 0, 0, 0.4, c);
-  c = crate(-0.02, 0.60, 0.02, 0.07, GREEN, GREEN2);
-  add(B(0.22, 0.08, 0.006), SCUFF, -0.06, 0.18, D / 2 + 0.002, 0, 0, 0, c);
-  add(B(W - 0.05, 0.02, D - 0.05), INNER, 0, 0.16, 0, 0, 0, 0, c);            // bottle carrier grid in shadow
-  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
-    const x = -0.18 + i * 0.12, z = -0.11 + j * 0.11;
-    add(C(0.024, 0.024, 0.06, 6, true), GLASS, x, 0.20, z, 0, 0, 0, c);
-    add(C(0.012, 0.022, 0.06, 6, true), GLASS, x, 0.26, z, 0, 0, 0, c);
-    add(C(0.013, 0.013, 0.01, 6), (i + j) % 3 ? GLASS : CAP, x, 0.295, z, 0, 0, 0, c);
+  let cr = crate(0, 0, 0, 0.04, WOOD, WOOD2);
+  add(B(W, 0.06, D), GROUND, 0, 0.03, 0, 0, 0, 0, cr);
+  add(B(0.20, 0.10, 0.006), SCUFF, 0.08, 0.20, D / 2 + 0.002, 0, 0, 0, cr);     // faded paint ghost
+  cr = crate(0.03, 0.30, -0.02, -0.10, RED, RED2);
+  add(B(0.18, 0.06, 0.006), INNER, -0.10, 0.06, D / 2 + 0.002, 0, 0, 0, cr);    // black brush mark
+  add(B(0.08, 0.03, 0.006), INNER, 0.12, 0.05, D / 2 + 0.002, 0, 0, 0.4, cr);
+  cr = crate(-0.02, 0.60, 0.02, 0.07, GREEN, GREEN2);
+  add(B(0.22, 0.08, 0.006), SCUFF, -0.06, 0.18, D / 2 + 0.002, 0, 0, 0, cr);
+  add(B(W - 0.05, 0.02, D - 0.05), INNER, 0, 0.16, 0, 0, 0, 0, cr);            // bottle carrier grid in shadow
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
+    const x = -0.18 + i * 0.12, z = -0.08 + j * 0.16;
+    add(C(0.024, 0.024, 0.06, 4, true), GLASS, x, 0.20, z, 0, 0.4, 0, cr);
+    add(C(0.012, 0.022, 0.06, 4, true), GLASS, x, 0.26, z, 0, 0.4, 0, cr);
+    add(C(0.013, 0.013, 0.01, 4), (i + j) % 3 ? GLASS : CAP, x, 0.295, z, 0, 0.4, 0, cr);
   }
   // --- the six lines: measure vertices, base to y=0, centre x/z ---------------
   const box = new THREE.Box3(), v = new THREE.Vector3(), mm = new THREE.Matrix4(), im = new THREE.Matrix4();
