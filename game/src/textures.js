@@ -23,6 +23,27 @@
  * gold | gold_tarnish -> gold. The other contract names (plaster, tile, fabric, foliage) stay on
  * surfaces.js's own recipes.
  *
+ * GROUND TEXEL DENSITY (planar()). surfaces.js takes the repeat from each mesh's own bounding box,
+ * and on a road slab that is wrong in a way nothing reports. The carriageway is a BoxGeometry
+ * 6 x 0.02 x 30, so applySurfaces computes uRep = 30 / 2.6 = 11.5 and vRep = 1 — and on a
+ * BoxGeometry the +Y face takes u across X and v along Z. Measured on the live scene before this
+ * change: 0.52 m per tile ACROSS the road and 30 m per tile ALONG it, a 58:1 stretch. One texel
+ * row of asphalt is smeared over a whole 30 m chunk in exactly the direction the camera looks,
+ * which is why the road had no grain at all and read as a painted gradient.
+ *
+ * planar() re-projects every UP-FACING vertex (normal.y > 0.85) of a 'ground' or 'stone' mesh onto
+ * the XZ plane at PLANAR_TILE metres per tile, in the asset root's own space. Per-vertex on the
+ * normal rather than per-mesh on the bounding box, because by the time apply() runs the loader has
+ * already merged the slab, the tarmac patches, the dashes and the kerbs into one geometry per
+ * material — a per-mesh test cannot tell a road from a wall inside that, a per-vertex one can, and
+ * it leaves every vertical face on surfaces.js's own scaling.
+ *
+ * It goes into the UV ATTRIBUTE and never into texture.repeat, for the reason surfaces.js states at
+ * length: a repeat per mesh is a material per mesh and the bake stops merging. The same shared
+ * Texture objects stay on the same shared materials, so materialKey() is unchanged and the draw
+ * count does not move. PLANAR_TILE.ground divides 30 m (the chunk length) a whole number of times,
+ * so the asphalt is continuous across a chunk seam instead of jumping mid-street.
+ *
  *   signFace(i)   -> ONE shared emissive material per sprite (i = 1..8, wraps): near-black base,
  *                    emissiveMap = the sprite, emissiveIntensity 2. E1 swaps it onto the face
  *                    mesh of a placed lightbox. Shared, so faces with the same i still merge.
@@ -54,6 +75,17 @@ export const SETS = {
 const BY_MATERIAL = {};
 for (const [set, s] of Object.entries(SETS)) for (const m of s.materials) BY_MATERIAL[m] = set;
 const MAPS = [['map', 'albedo', true], ['roughnessMap', 'rough', false], ['normalMap', 'normal', false]];
+/**
+ * Metres per texture tile for an up-facing slab, by material name. 2.5 m is close to the density
+ * the Atlas asphalt was authored at (RECIPES.ground.tile 2.6) and divides the 30 m chunk exactly
+ * 12 times, so the road tiles seamlessly from one chunk to the next.
+ */
+export const PLANAR_TILE = { ground: 2.5, stone: 1.5 };
+/** Up-facing enough to be a road, a verge or a deck rather than a wall. cos(31 deg) — a ramp is 11 deg. */
+const PLANAR_NY = 0.85;
+/** The ground normal map only does its job once the UVs are right; at 0.85 the wet road stayed
+ *  glassy, at 1.25 the grazing specular broke into aliasing glitter. */
+const GROUND_NORMAL_SCALE = 1.10;
 /** Lightbox sprites and noren stroke sprites the lead generated on Atlas. */
 export const SIGN_COUNT = 8, NOREN_COUNT = 2;
 const signMats = new Map(), norenMats = new Map();
@@ -175,12 +207,59 @@ function assign(m, set) {
 }
 
 /**
+ * Re-project the up-facing faces of one asset's ground/stone slabs to a real texel density.
+ * See the header note. Idempotent: a geometry carries the tile it was projected at.
+ *
+ * Geometry is cloned before its UVs are touched, for the reason surfaces.js gives — a generated
+ * asset can reuse one geometry on parts of different sizes and mutating in place corrupts the
+ * others. InstancedMesh is skipped outright (the litter): its copies live in the instance matrices,
+ * so a single projection of the prototype would be wrong for every copy but one.
+ */
+function planar(root) {
+  if (!THREE || !root) return 0;
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const m = new THREE.Matrix4(), nm = new THREE.Matrix3(), v = new THREE.Vector3(), n = new THREE.Vector3();
+  let moved = 0;
+  root.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || !o.material || Array.isArray(o.material)) return;
+    const tile = PLANAR_TILE[o.material.name];
+    if (!tile) return;
+    const geo0 = o.geometry;
+    const pos = geo0 && geo0.attributes.position, nrm = geo0 && geo0.attributes.normal, uv0 = geo0 && geo0.attributes.uv;
+    if (!pos || !nrm || !uv0) return;
+    if (geo0.userData && geo0.userData.planarTile === tile) return;      // already done
+    const geo = geo0.clone();
+    const uv = geo.attributes.uv;
+    m.copy(inv).multiply(o.matrixWorld);          // mesh local -> asset-root space
+    nm.getNormalMatrix(m);
+    let touched = 0;
+    for (let i = 0; i < pos.count; i++) {
+      n.fromBufferAttribute(nrm, i).applyMatrix3(nm).normalize();
+      if (n.y < PLANAR_NY) continue;              // a wall, a kerb face, a bin side: leave it alone
+      v.fromBufferAttribute(pos, i).applyMatrix4(m);
+      uv.setXY(i, v.x / tile, v.z / tile);
+      touched++;
+    }
+    if (!touched) return;
+    uv.needsUpdate = true;
+    geo.userData = { ...(geo.userData || {}), planarTile: tile };
+    o.geometry = geo;
+    moved += touched;
+  });
+  return moved;
+}
+
+/**
  * apply(group): every single-material mesh whose material is named after a set gets that set's
  * maps. Runs after surfaces so the UVs are already at the right density; safe to run twice.
  * Returns { applied, sets }.
  */
 export function apply(group) {
   if (!THREE || !group) return { applied: 0, sets: [] };
+  // BEFORE the maps go on: surfaces.js has already scaled these UVs from the bounding box, which is
+  // wrong for a slab. Re-project the horizontal faces at a real density (see the header).
+  const planarVerts = planar(group);
   const seen = new Set();
   const setsHit = new Set();
   let applied = 0;
@@ -193,9 +272,10 @@ export function apply(group) {
     if (!set || !m.isMeshStandardMaterial) return;
     registry[set].add(m);
     if (assign(m, set)) applied++;
+    if (set === 'asphalt' && m.normalScale) m.normalScale.set(GROUND_NORMAL_SCALE, GROUND_NORMAL_SCALE);
     setsHit.add(set);
   });
-  return { applied, sets: [...setsHit] };
+  return { applied, sets: [...setsHit], planarVerts };
 }
 
 export function status() {

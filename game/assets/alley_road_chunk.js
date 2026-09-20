@@ -4,6 +4,20 @@
 // centre line, raised concrete verges 1.5 m each side behind a 0.12 m kerb
 // (verge/kerb top at y = 0.14), a manhole, a drain grate in the gutter, two
 // puddles 2 mm proud and oil stains.
+//
+// SURFACE DETAIL (round-1 critic, "the street surface"). The reference's road is DARK asphalt
+// carrying a lot of small high-contrast detail: paper litter and petals scattered right across the
+// carriageway, broad wet sheets that mirror the signs, and cracks. Measured on the bar, the bottom
+// third sits at 27 median luma with a long bright tail; the build's was a smooth mid-grey with
+// nothing in it at all. So this chunk now also lays down, all as thin flat overlays a few mm proud:
+//   - 46 paper/cardboard/petal flecks and 26 grit specks across the road and gutters (the most
+//     prominent feature of the reference's road, and the source of most of its edge energy)
+//   - 5 broad wet sheets at roughness 0.085 and 3 damp margins at 0.13, so the grazing highlight
+//     from a practical CLIPS somewhere instead of lifting the whole carriageway evenly
+//   - 9 cracks and 4 dragged tyre smears
+// Every piece is < 0.25 m on its thin axis, so the loader's chamfer proxy leaves them as plain
+// boxes; they all reuse one of three materials, and chunks.js merges by recipe family, so the
+// whole lot costs about 1,050 triangles per chunk and no extra draw call.
 export default function (THREE) {
   const g = new THREE.Group();
   const mat = (color, name, r, m, dbl) => {
@@ -26,6 +40,19 @@ export default function (THREE) {
   const GRIME  = mat(0x37201b, 'stone', 0.90);
   const IRON   = mat(0x37201b, 'metal', 0.85, 0.3);
   const IRON2  = mat(0x2a1a16, 'metal', 0.80, 0.3);
+  // road-surface detail. 'plaster' keeps the litter matte and off the asphalt texture set;
+  // the wet sheets stay 'ground' so they take the asphalt maps and only differ in roughness.
+  const PAPER  = mat(0xeee2c8, 'plaster', 0.88);    // paper scraps, receipts, petals
+  const PAPER2 = mat(0xd8cdb4, 'plaster', 0.90);
+  const PETAL  = mat(0xb8302a, 'plaster', 0.88);    // the reference's red petals, one in eight
+  const CARD   = mat(0x8b6141, 'plaster', 0.90);    // flattened cardboard, the commonest litter
+  const GRIT   = mat(0x6c4028, 'plaster', 0.92);
+  // 0.05 was a true mirror and the grazing highlight off it clipped over a large area; 0.085 still
+  // returns a sign as a hard bright smear but stops the sheet itself from reading as a light.
+  const WET    = mat(0x181013, 'ground', 0.085);    // a standing wet sheet
+  const DAMP   = mat(0x1e1418, 'ground', 0.13);     // its drying margin
+  const CRACK  = mat(0x110f12, 'ground', 0.55);
+  const SMEAR  = mat(0x1b1315, 'ground', 0.14);
 
   const B = (w, h, d, m, x, y, z, ry) => {
     const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -59,6 +86,54 @@ export default function (THREE) {
     const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.002, 10), PUDDLE);
     p.position.set(x, 0.023, z); p.scale.z = sz; p.rotation.y = 0.5; g.add(p);
   }
+  // --- wet sheets: broad, low-roughness, IRREGULAR. Where the grazing highlight clips. --------
+  for (const [x, z, rx, rz, rot, m] of [
+    [-1.6, -10.0, 1.30, 3.4, 0.10, WET], [1.35, -2.2, 1.05, 4.1, -0.07, WET],
+    [-0.4, 6.8, 1.55, 3.0, 0.22, WET], [2.15, 11.5, 0.90, 2.6, -0.16, WET],
+    [-2.25, 2.0, 0.80, 2.2, 0.05, WET],
+    [0.7, -13.0, 1.7, 2.0, 0.0, DAMP], [-1.9, 9.0, 1.5, 2.4, 0.12, DAMP], [2.4, -6.0, 1.1, 3.2, -0.1, DAMP],
+  ]) {
+    const q = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.0015, 9), m);
+    q.position.set(x, m === WET ? 0.0235 : 0.0225, z);
+    q.scale.set(rx, 1, rz); q.rotation.y = rot;
+    g.add(q);
+  }
+  // --- cracks: thin, dark, never parallel to the kerb ------------------------
+  for (let i = 0; i < 9; i++) {
+    const len = 0.9 + hash(i, 21) * 2.4;
+    B(0.035 + hash(i, 22) * 0.02, 0.0025, len, CRACK,
+      -2.6 + hash(i, 23) * 5.2, 0.0235, -13.5 + hash(i, 24) * 27, (hash(i, 25) - 0.5) * 1.5);
+  }
+  // --- dragged tyre smears, along the direction of travel --------------------
+  for (let i = 0; i < 4; i++) {
+    B(0.22 + hash(i, 26) * 0.14, 0.0022, 2.4 + hash(i, 27) * 3.0, SMEAR,
+      -2.2 + hash(i, 28) * 4.4, 0.0232, -12 + hash(i, 29) * 24, (hash(i, 30) - 0.5) * 0.12);
+  }
+  // --- paper litter and petals. THE reference's road signature: small, pale, everywhere. ------
+  // Flat rectangles a few mm proud, random yaw, a slight tilt on some so they catch the light
+  // differently from their neighbours instead of reading as one printed pattern.
+  // 46 of them, 4-11 cm. The reference's flecks are numerous but SMALL: at 64 pieces up to 17 cm
+  // they covered enough of the carriageway to lift the frame rather than to speckle it.
+  for (let i = 0; i < 46; i++) {
+    const w = 0.040 + hash(i, 41) * 0.070, d = 0.035 + hash(i, 42) * 0.065;
+    const r = hash(i, 43);
+    const m = r < 0.34 ? PAPER : r < 0.70 ? PAPER2 : r < 0.86 ? CARD : PETAL;
+    // biased toward the middle of the road, where the camera looks, but present right across it
+    const t = hash(i, 44) * 2 - 1;
+    const x = Math.sign(t) * Math.pow(Math.abs(t), 1.35) * 3.15;
+    const o = B(w, 0.004, d, m, x, 0.0245 + hash(i, 45) * 0.004, -14.6 + hash(i, 46) * 29.2,
+      hash(i, 47) * Math.PI);
+    o.rotation.x = (hash(i, 48) - 0.5) * 0.5;       // a scrap is never perfectly flat
+    o.rotation.z = (hash(i, 49) - 0.5) * 0.5;
+  }
+  // --- grit: darker, smaller, concentrated toward the gutters ----------------
+  for (let i = 0; i < 26; i++) {
+    const w = 0.030 + hash(i, 51) * 0.055;
+    const side = hash(i, 52) < 0.5 ? -1 : 1;
+    B(w, 0.005, w * (0.7 + hash(i, 53) * 0.8), GRIT,
+      side * (1.6 + hash(i, 54) * 1.7), 0.0245, -14.2 + hash(i, 55) * 28.4, hash(i, 56) * Math.PI);
+  }
+
   // manhole cover: rusty iron disc with a rim ring
   const mh = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.012, 14), IRON);
   mh.position.set(-0.9, 0.026, -2.0); g.add(mh);

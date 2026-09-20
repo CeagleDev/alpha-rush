@@ -27,6 +27,7 @@ import config from './config.js';
 import * as input from './input.js';
 import * as hud from './hud.js';
 import * as audio from './audio.js';
+import * as roadfx from './roadfx.js';   // wet-road reflections + contact shadows (see ARCH.md addendum)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -125,7 +126,7 @@ const [textures, perf, lighting, track, obstacles, coins, player, pack, cameraMo
 const ctx = {
   THREE, scene, camera, renderer, rig, config, state, events, canvas,
   assets: assetsMod, textures, input,
-  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, input, hud, audio, assets: assetsMod },
+  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod },
 };
 globalThis.__ctx = ctx;   // for the integrator's console; not part of any contract
 
@@ -134,9 +135,9 @@ const INIT_ORDER = [
   // assets.init must run before anything calls assets.get(): every chunk, character and obstacle
   // resolves through it, and without it get() throws and the world builds EMPTY while the gate passes.
   ['textures', textures], ['assets', assetsMod], ['perf', perf], ['lighting', lighting], ['track', track], ['obstacles', obstacles],
-  ['coins', coins], ['player', player], ['pack', pack], ['camera', cameraMod], ['input', input], ['hud', hud], ['audio', audio],
+  ['coins', coins], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['audio', audio],
 ];
-const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, cameraMod, lighting, perf, hud, audio];
+const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, cameraMod, roadfx, lighting, perf, hud, audio];
 
 async function boot() {
   const t0 = performance.now();
