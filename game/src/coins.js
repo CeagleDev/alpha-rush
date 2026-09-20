@@ -115,6 +115,7 @@ export function releaseChunk(index) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 export const count = () => live.length;
+export const liveCoins = () => live;          // read-only, for tools/clashcheck.mjs
 export const geometryTris = () => geoTris;
 
 export function nearestAhead(pz) {
