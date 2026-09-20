@@ -2,7 +2,7 @@
 /**
  * midnight-dash gate: drive the runner with REAL input, photograph it at fixed distances, fail loudly.
  *
- *   node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--frames=6]
+ *   node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--viewport=WxH] [--frames=6]
  *
  * Phone (default): 390x844 @3x, touch, Android UA. Start is a real CDP touch tap on #startb; swipes are
  * real CDP touch sequences. --desktop: 1280x720, a real click and real arrow keys. The phone run is the
@@ -42,7 +42,7 @@ const flag = (k) => argv.includes(`--${k}`);
 const opt = (k, d) => { const a = argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3).replace(/^["']|["']$/g, '') : d; };
 const targetArg = argv.find((x) => !x.startsWith('--'));
 if (!targetArg) {
-  console.error('usage: node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--frames=6]');
+  console.error('usage: node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--viewport=WxH] [--frames=6]');
   process.exit(2);
 }
 const target = path.resolve(targetArg);
@@ -65,6 +65,8 @@ const FFMPEG = '/Users/dev/.local/bin/ffmpeg';
 // ~100 ms plus the CDP round trip), a key press ~0, so GESTURE_S * speed is added on top: at 20 m/s a
 // swipe costs 3 m of road before the game even sees it.
 const LEAD = { jump: [0.35, 1.5], lane: [0.55, 2.0], coin: [0.65, 2.0] };   // roll: see rollLead below
+const vpArg = (argv.find((x) => x.startsWith('--viewport=')) || '').split('=')[1] || '';
+const VP = /^\d+x\d+$/.test(vpArg) ? { w: +vpArg.split('x')[0], h: +vpArg.split('x')[1] } : null;
 const GESTURE_S = DESKTOP ? 0.01 : 0.15;
 const BUDGET = { DIST_M: 600, DEATH_M: 400, DRAWS: 900, TRIS: 1_500_000, READY_S: 20, MB: 5 };
 const POLL_MS = 40;
@@ -74,7 +76,7 @@ const NET = { downMbps: 4, upMbps: 1, latencyMs: 60, cpuSlowdown: 2 };
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 const VIEWPORT = DESKTOP
   ? { width: 1280, height: 720, deviceScaleFactor: 1 }
-  : { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
+  : (VP ? { width: VP.w, height: VP.h, deviceScaleFactor: 1, isMobile: true, hasTouch: true } : { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.m4a': 'audio/mp4',
@@ -103,6 +105,10 @@ const BASE = `http://127.0.0.1:${server.address().port}`;
 // --nohud captures the frames a critic judges: a HUD in the corner identifies our frame instantly
 // in a blind pair, and the reference frames have none.
 const NOHUD = argv.includes('--nohud');
+// --viewport=WxH captures at the REFERENCE's shape. docs/claims.md: a band statistic defined as a
+// fraction of the frame covers a different amount of world at every aspect ratio, and a blind pair
+// whose two sides have different proportions tells the critic which is which before it looks.
+// Our bar is 810x1440 (9:16); the phone gate is 390x844 (1:2.16).
 const GAME_URL = `${BASE}/?seed=${SEED}&gate=1${NOHUD ? '&nohud=1' : ''}`;
 
 fs.mkdirSync(OUT, { recursive: true });

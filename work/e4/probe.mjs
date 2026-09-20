@@ -20,7 +20,11 @@ await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile
 await page.goto(`http://localhost:${srv.address().port}/?seed=${process.argv[2] || 7}&gate=1`, { waitUntil: 'load' });
 await page.waitForFunction('window.__READY__ === true', { timeout: 90000 });
 await page.evaluate(() => window.__START__());
-await new Promise((r) => setTimeout(r, 6000));
+const ZONE = process.argv[3] || null;
+if (ZONE) {
+  await page.waitForFunction((z) => window.__GAME__ && window.__GAME__.zone === z, { timeout: 180000, polling: 200 }, ZONE);
+  await new Promise((r) => setTimeout(r, 900));
+} else await new Promise((r) => setTimeout(r, 6000));
 
 const rep = await page.evaluate(() => {
   const ctx = window.__ctx, scene = ctx.scene, THREE = ctx.THREE, renderer = ctx.renderer;
@@ -53,7 +57,14 @@ const rep = await page.evaluate(() => {
     if (Y < 60 && b - r < 60) { darkR += r; darkB += b; darkN++; }
   }
   const sorted = Float64Array.from(lum).sort();
+  // what the lighting can actually see from here
+  const src = (L.sources ? L.sources() : []).filter((l) => Math.abs(l.z - ctx.camera.position.z) < 60);
+  const near = src.sort((a, b) => Math.abs(a.z - ctx.camera.position.z) - Math.abs(b.z - ctx.camera.position.z)).slice(0, 8)
+    .map((l) => ({ x: +l.x.toFixed(1), y: +l.y.toFixed(1), z: +l.z.toFixed(1), floor: +(l.floor ?? 0).toFixed(1), cd: Math.round(l.intensity), hg: l.heightGain, range: l.range, col: '0x' + (l.color || 0).toString(16) }));
   return {
+    zone: window.__GAME__ && window.__GAME__.zone,
+    camY: +ctx.camera.position.y.toFixed(1), camZ: +ctx.camera.position.z.toFixed(1),
+    sourcesWithin60m: src.length, nearest: near,
     exposure: renderer.toneMappingExposure,
     hemi: { i: ctx.rig.hemi.intensity, sky: ctx.rig.hemi.color.toArray().map((v) => +v.toFixed(3)), ground: ctx.rig.hemi.groundColor.toArray().map((v) => +v.toFixed(3)) },
     bounce: ctx.rig.bounce.uBounce.value.toArray().map((v) => +v.toFixed(3)),
