@@ -145,6 +145,49 @@ function loop(now) {
   window.__FRAMES__ = frames;
 }
 
+/**
+ * Measure the frame the way work/e4/measure.py measures the PNG, but from the live framebuffer, so
+ * one browser launch can sweep lighting.tune() instead of one launch per combination. readPixels
+ * rows are bottom-up: row 0 of the buffer is the BOTTOM of the picture.
+ */
+window.__MEASURE__ = () => {
+  rig.render(camera, 0.016);
+  const gl = renderer.getContext();
+  const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const W = s.x, H = s.y;
+  const buf = new Uint8Array(W * H * 4);
+  gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  const lum = new Float64Array(W * H);
+  let dark = 0, darkRB = 0, blueTop = 0, topN = 0, amberBot = 0, botN = 0, over200 = 0;
+  const topFrom = Math.floor(H * 0.8);          // buffer rows >= this are the TOP fifth
+  const botTo = Math.floor(H * 0.25);           // buffer rows < this are the BOTTOM quarter
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      const r = buf[i], g = buf[i + 1], b = buf[i + 2];
+      const L = 0.299 * r + 0.587 * g + 0.114 * b;
+      lum[y * W + x] = L;
+      if (L > 200) over200++;
+      if (L < 60) { dark++; darkRB += r - b; }
+      if (y >= topFrom) { topN++; if (b - r >= 60) blueTop++; }
+      if (y < botTo) { botN++; if (L > 100 && r > b + 40) amberBot++; }
+    }
+  }
+  // orientation probe: the same three picture points read under both row conventions, so a
+  // disagreement with the saved PNG is attributable instead of mysterious
+  const at = (px, py, flip) => { const y = flip ? (H - 1 - py) : py; const i = (y * W + px) * 4; return [buf[i], buf[i + 1], buf[i + 2]]; };
+  const probe = { bottomUp: [at(195, 5, true), at(195, 360, true), at(195, 700, true)], topDown: [at(195, 5, false), at(195, 360, false), at(195, 700, false)] };
+  const sorted = Float64Array.from(lum).sort();
+  const q = (p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+  return {
+    median: +q(0.5).toFixed(1), p98: +q(0.98).toFixed(1),
+    over200: +(over200 / (W * H) * 100).toFixed(2),
+    darkRB: +(darkRB / Math.max(1, dark)).toFixed(1),
+    blueTop: +(blueTop / Math.max(1, topN) * 100).toFixed(1),
+    amberBot: +(amberBot / Math.max(1, botN) * 100).toFixed(2), probe, size: [W, H],
+  };
+};
+
 build().then(() => {
   requestAnimationFrame(loop);
   window.__CTX__ = ctx;

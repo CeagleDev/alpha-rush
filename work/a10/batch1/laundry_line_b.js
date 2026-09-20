@@ -1,0 +1,1 @@
+../cand/laundry_line/laundry_line_b.js

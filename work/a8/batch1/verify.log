@@ -1,0 +1,10 @@
+ok    bicycle_parked_a         3740 tris  133 meshes  0.555x1.085x1.767m
+ok    bicycle_parked_b         4704 tris  120 meshes  0.558x1.07x1.747m
+ok    bicycle_parked_c         4332 tris  148 meshes  0.537x1.125x1.768m
+ok    scooter_a                2440 tris  110 meshes  0.591x1.097x1.728m
+ok    scooter_b                3072 tris  96 meshes  0.61x1.125x1.811m
+ok    scooter_c                2648 tris  121 meshes  0.642x1.107x1.741m
+
+6/6 clean
+sheet:  /Users/dev/Documents/Cursor.Code/midnight-dash/work/a8/batch1/_verify/sheet.png
+report: /Users/dev/Documents/Cursor.Code/midnight-dash/work/a8/batch1/_verify/report.json

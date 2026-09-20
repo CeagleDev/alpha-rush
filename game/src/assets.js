@@ -39,7 +39,9 @@ import * as textures from './textures.js';
 
 /**
  * Placeholder sizes [w, h, d] in metres, plus (optional) y0 = height of the base above the ground
- * for things that hang, mat = surface recipe name, emit = light entries in asset space.
+ * for things that hang, mat = surface recipe name, emit = light entries in asset space. `emit`
+ * intensities are on the assets' own relative scale (0.3 to 1.6; lighting.js multiplies it into
+ * candela), so a placeholder and the asset that replaces it light the street the same amount.
  */
 const WARM = 0xe5b055, CREAM = 0xd8ae70, COOL = 0x9accf2, SODIUM = 0xe5b055;
 const box = (w, h, d, extra = {}) => ({ w, h, d, ...extra });
@@ -56,30 +58,32 @@ const SIZES = {
   banner_cluster_low: box(2.0, 1.9, 0.3, { mat: 'fabric', color: 0xb8302a, y0: 1.3 }),
   awning_strut_low: box(2.2, 0.1, 0.1, { mat: 'metal', color: 0x4a4a4c, y0: 1.3 }),
   gantry_board_low: box(6.0, 0.6, 0.2, { mat: 'metal', color: 0x2f5a2a, y0: 1.3 }),
-  kei_van:       box(1.5, 1.9, 3.4, { mat: 'metal', color: 0xeee2c8, emit: [{ x: 0.55, y: 0.8, z: -1.7, color: 0xb8302a, intensity: 3, range: 2.5 }, { x: -0.55, y: 0.8, z: -1.7, color: 0xb8302a, intensity: 3, range: 2.5 }] }),
-  yatai_cart:    box(1.2, 2.1, 2.4, { mat: 'timber', color: 0x4f2d21, emit: [{ x: 0, y: 1.9, z: 0, color: CREAM, intensity: 10, range: 4 }] }),
-  vending_machine: box(1.0, 1.83, 0.8, { mat: 'metal', color: 0xeee2c8, emit: [{ x: 0, y: 1.1, z: 0.42, color: COOL, intensity: 12, range: 4.5 }], face: { w: 0.7, h: 1.2, color: COOL, i: 2.2 } }),
+  kei_van:       box(1.5, 1.9, 3.4, { mat: 'metal', color: 0xeee2c8, emit: [{ x: 0.55, y: 0.8, z: -1.7, color: 0xb8302a, intensity: 0.4, range: 2.5 }, { x: -0.55, y: 0.8, z: -1.7, color: 0xb8302a, intensity: 0.4, range: 2.5 }] }),
+  yatai_cart:    box(1.2, 2.1, 2.4, { mat: 'timber', color: 0x4f2d21, emit: [{ x: 0, y: 1.9, z: 0, color: CREAM, intensity: 0.9, range: 4 }] }),
+  vending_machine: box(1.0, 1.83, 0.8, { mat: 'metal', color: 0xeee2c8, emit: [{ x: 0, y: 1.1, z: 0.42, color: COOL, intensity: 1.0, range: 4.5 }], face: { w: 0.7, h: 1.2, color: COOL, i: 2.2 } }),
   concrete_divider: box(0.6, 0.8, 2.0, { mat: 'stone', color: 0x8a8378 }),
   parked_sedan:  box(1.7, 1.5, 4.4, { mat: 'metal', color: 0x212841 }),
-  shophouse_a:   box(5.0, 7.0, 6.0, { mat: 'timber', color: 0x4f2d21, emit: [{ x: 0, y: 2.4, z: 3.1, color: WARM, intensity: 16, range: 5.5 }] }),
-  shophouse_b:   box(5.0, 7.0, 6.0, { mat: 'metal', color: 0x37201b, emit: [{ x: 1.2, y: 2.6, z: 3.1, color: WARM, intensity: 18, range: 6 }, { x: -1.6, y: 4.2, z: 3.1, color: 0x40559f, intensity: 8, range: 4 }] }),
+  shophouse_a:   box(5.0, 7.0, 6.0, { mat: 'timber', color: 0x4f2d21, emit: [{ x: 0, y: 2.4, z: 3.1, color: WARM, intensity: 1.0, range: 5.5 }] }),
+  shophouse_b:   box(5.0, 7.0, 6.0, { mat: 'metal', color: 0x37201b, emit: [{ x: 1.2, y: 2.6, z: 3.1, color: WARM, intensity: 1.1, range: 6 }, { x: -1.6, y: 4.2, z: 3.1, color: 0x40559f, intensity: 0.7, range: 4 }] }),
   shophouse_c:   box(5.0, 7.0, 6.0, { mat: 'plaster', color: 0x8b6141 }),
-  shophouse_d:   box(5.0, 7.0, 6.0, { mat: 'timber', color: 0x4f2d21, emit: [{ x: 0, y: 2.6, z: 3.1, color: WARM, intensity: 16, range: 5.5 }, { x: 2.6, y: 2.6, z: 0, color: CREAM, intensity: 14, range: 5 }] }),
+  shophouse_d:   box(5.0, 7.0, 6.0, { mat: 'timber', color: 0x4f2d21, emit: [{ x: 0, y: 2.6, z: 3.1, color: WARM, intensity: 1.0, range: 5.5 }, { x: 2.6, y: 2.6, z: 0, color: CREAM, intensity: 0.9, range: 5 }] }),
   utility_pole:  box(0.3, 9.0, 0.3, { mat: 'stone', color: 0x4a4a4c }),
-  cable_span:    box(9.0, 0.08, 30.0, { mat: 'metal', color: 0x110f12, y0: 5.5 }),
-  paper_lantern: box(0.45, 0.6, 0.45, { mat: 'fabric', color: 0xeee2c8, y0: 2.6, emit: [{ x: 0, y: 2.9, z: 0, color: 0xf1d899, intensity: 8, range: 4 }], face: { w: 0.45, h: 0.6, color: 0xf1d899, i: 2.2, all: true } }),
-  lantern_string: box(6.0, 0.35, 0.35, { mat: 'fabric', color: 0xb8302a, y0: 3.0, emit: [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5].map((x) => ({ x, y: 3.15, z: 0, color: 0xf1d899, intensity: 5, range: 3 })), face: { w: 6, h: 0.35, color: 0xf1d899, i: 1.6, all: true } }),
+  // NOT a 9 m slab: a placeholder that spans the alley as a solid roof blacks out the sky, which
+  // is CLAIMS C4 gone and very hard to attribute in a still. Thin, like the bundle it stands in for.
+  cable_span:    box(0.06, 0.06, 30.0, { mat: 'metal', color: 0x110f12, y0: 5.5 }),
+  paper_lantern: box(0.45, 0.6, 0.45, { mat: 'fabric', color: 0xeee2c8, y0: 2.6, emit: [{ x: 0, y: 2.9, z: 0, color: 0xf1d899, intensity: 0.6, range: 4 }], face: { w: 0.45, h: 0.6, color: 0xf1d899, i: 2.2, all: true } }),
+  lantern_string: box(6.0, 0.35, 0.35, { mat: 'fabric', color: 0xb8302a, y0: 3.0, emit: [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5].map((x) => ({ x, y: 3.15, z: 0, color: 0xf1d899, intensity: 0.6, range: 3 })), face: { w: 6, h: 0.35, color: 0xf1d899, i: 1.6, all: true } }),
   noren_string:  box(6.0, 1.2, 0.05, { mat: 'fabric', color: 0xb8302a, y0: 2.0 }),
-  wall_lightbox: box(0.9, 0.6, 0.15, { mat: 'metal', color: 0x37201b, emit: [{ x: 0, y: 0.3, z: 0.09, color: WARM, intensity: 20, range: 5.5 }], face: { w: 0.8, h: 0.5, color: WARM, i: 2.6 } }),
-  standing_lightbox: box(0.6, 1.5, 0.3, { mat: 'metal', color: 0x37201b, emit: [{ x: 0, y: 0.9, z: 0.17, color: CREAM, intensity: 18, range: 5 }], face: { w: 0.5, h: 1.2, color: CREAM, i: 2.4 } }),
+  wall_lightbox: box(0.9, 0.6, 0.15, { mat: 'metal', color: 0x37201b, emit: [{ x: 0, y: 0.3, z: 0.09, color: WARM, intensity: 1.2, range: 5.5 }], face: { w: 0.8, h: 0.5, color: WARM, i: 2.6 } }),
+  standing_lightbox: box(0.6, 1.5, 0.3, { mat: 'metal', color: 0x37201b, emit: [{ x: 0, y: 0.9, z: 0.17, color: CREAM, intensity: 1.0, range: 5 }], face: { w: 0.5, h: 1.2, color: CREAM, i: 2.4 } }),
   tin_awning:    box(5.0, 0.3, 1.5, { mat: 'metal', color: 0x8b6141, y0: 3.0 }),
   ac_duct_cluster: box(1.2, 1.0, 0.6, { mat: 'metal', color: 0x8a8378 }),
   bins_bags:     box(1.5, 0.9, 0.8, { mat: 'metal', color: 0x212841 }),
   litter_set:    box(0.3, 0.1, 0.3, { mat: 'fabric', color: 0xeee2c8 }),
   alley_road_chunk: box(9.0, 0.05, 30.0, { mat: 'ground', color: 0x231718, roughness: 0.18 }),
   expressway_deck: box(6.0, 0.8, 30.0, { mat: 'stone', color: 0x4a4a4c, roughness: 0.18 }),
-  sodium_lamp:   box(0.3, 10.0, 1.5, { mat: 'metal', color: 0x4a4a4c, emit: [{ x: 0, y: 9.6, z: 0.6, color: SODIUM, intensity: 45, range: 14 }] }),
-  sign_gantry:   box(8.0, 6.0, 0.5, { mat: 'metal', color: 0x4a4a4c, emit: [{ x: 0, y: 5.2, z: -0.3, color: 0xa7e761, intensity: 10, range: 6 }] }),
+  sodium_lamp:   box(0.3, 10.0, 1.5, { mat: 'metal', color: 0x4a4a4c, emit: [{ x: 0, y: 9.6, z: 0.6, color: SODIUM, intensity: 1.6, range: 14 }] }),
+  sign_gantry:   box(8.0, 6.0, 0.5, { mat: 'metal', color: 0x4a4a4c, emit: [{ x: 0, y: 5.2, z: -0.3, color: 0xa7e761, intensity: 0.7, range: 6 }] }),
   guard_rail:    box(4.0, 0.8, 0.1, { mat: 'metal', color: 0x8a8378 }),
   ramp_chunk:    box(9.0, 6.0, 30.0, { mat: 'stone', color: 0x4a4a4c }),
   bicycle_parked: box(0.5, 1.0, 1.7, { mat: 'metal', color: 0x37201b }),
@@ -96,7 +100,7 @@ const SIZES = {
   road_cones:    box(0.4, 0.7, 0.4, { mat: 'fabric', color: 0xe8852a }),
   post_box:      box(0.5, 1.3, 0.5, { mat: 'metal', color: 0xb8302a }),
   electrical_box: box(0.6, 1.2, 0.4, { mat: 'metal', color: 0x8a8378 }),
-  vertical_sign: box(0.5, 2.5, 0.3, { mat: 'metal', color: 0x37201b, emit: [{ x: 0, y: 1.3, z: 0.17, color: 0x40559f, intensity: 10, range: 4.5 }], face: { w: 0.4, h: 2.2, color: 0x40559f, i: 2.2 } }),
+  vertical_sign: box(0.5, 2.5, 0.3, { mat: 'metal', color: 0x37201b, emit: [{ x: 0, y: 1.3, z: 0.17, color: 0x40559f, intensity: 0.8, range: 4.5 }], face: { w: 0.4, h: 2.2, color: 0x40559f, i: 2.2 } }),
   stool_table_set: box(1.2, 0.75, 1.2, { mat: 'timber', color: 0x6c4028 }),
   rooftop_water_tank: box(1.2, 1.4, 1.2, { mat: 'metal', color: 0x8a8378 }),
   tv_antenna:    box(1.2, 1.5, 0.3, { mat: 'metal', color: 0x4a4a4c }),
@@ -204,7 +208,7 @@ export function lights(group, into = null) {
       for (const l of L) {
         v.set(l.x || 0, l.y || 0, l.z || 0).applyMatrix4(o.matrixWorld);
         if (inv) v.applyMatrix4(inv);
-        out.push({ ...l, x: v.x, y: v.y, z: v.z, range: (l.range || 5) * k, intensity: l.intensity ?? 12, color: l.color ?? WARM, asset: o.userData.assetName || o.name });
+        out.push({ ...l, x: v.x, y: v.y, z: v.z, range: (l.range || 5) * k, intensity: l.intensity ?? 0.8, color: l.color ?? WARM, asset: o.userData.assetName || o.name });
       }
       return;                        // aggregated: do not double count children
     }

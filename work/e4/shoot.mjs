@@ -44,6 +44,17 @@ try {
 } catch (e) { console.error('never READY'); }
 const ready = Date.now() - t0;
 await page.waitForFunction('(window.__FRAMES__ || 0) >= 24', { timeout: 60000 }).catch(() => {});
+if (args.sweep) {
+  const combos = [];
+  for (const fill of [2.0, 3.2, 4.6]) for (const candela of [40, 75, 120]) for (const emissive of [1, 1.8]) combos.push({ fill, candela, emissive });
+  const rows = await page.evaluate(async (cs) => {
+    const out = [];
+    for (const c of cs) { window.__lighting.tune(c); await new Promise((r) => requestAnimationFrame(r)); out.push({ ...c, ...window.__MEASURE__() }); }
+    return out;
+  }, combos);
+  console.log('fill cd   emis | median  p98  >200%  darkRB  blueTop%  amber%');
+  for (const r of rows) console.log(`${String(r.fill).padEnd(4)} ${String(r.candela).padEnd(4)} ${String(r.emissive).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(5)} ${String(r.over200).padStart(6)} ${String(r.darkRB).padStart(7)} ${String(r.blueTop).padStart(9)} ${String(r.amberBot).padStart(7)}`);
+}
 const result = await page.evaluate(() => ({
   error: window.__ERROR__ || null,
   perf: window.__perf ? window.__perf.report() : null,
@@ -51,6 +62,7 @@ const result = await page.evaluate(() => ({
   sources: window.__lighting ? window.__lighting.sources().length : 0,
   ground: window.__lighting ? window.__lighting.groundCheck() : null,
   textures: window.__textures ? window.__textures.status() : null,
+  measure: window.__MEASURE__ ? window.__MEASURE__() : null,
   dump: (window.__DUMP__ = new URLSearchParams(location.search).get('dump')) ? window.__lighting.sources().map((l) => [l.x.toFixed(1), l.y.toFixed(2), l.z.toFixed(1), l.color.toString(16), l.intensity, l.range]) : null,
 }));
 await page.screenshot({ path: OUT });

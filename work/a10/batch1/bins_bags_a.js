@@ -1,0 +1,1 @@
+../cand/bins_bags/bins_bags_a.js

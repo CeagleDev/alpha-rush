@@ -1,0 +1,1 @@
+../cand/stool_table_set/stool_table_set_c.js

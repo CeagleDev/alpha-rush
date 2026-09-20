@@ -1,0 +1,1 @@
+../cand/umbrella_stand/umbrella_stand_a.js

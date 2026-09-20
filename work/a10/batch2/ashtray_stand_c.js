@@ -1,0 +1,1 @@
+../cand/ashtray_stand/ashtray_stand_c.js

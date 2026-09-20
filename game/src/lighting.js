@@ -44,11 +44,19 @@
  *  example idiom), one draw call, rebuilt only when the live light set changes. `?pools=0` for A/B.
  *  groundCheck() measures the result.
  *
- * Sources of practicals, in order: `ctx.modules.track.lights()` (E1, world space, cached) when it
- * exists, else every object under the scene carrying `userData.lights` (entries in that object's
- * local space, transformed by its matrixWorld; children of such an object are not descended).
- * Entry shape: { x, y, z, color, intensity (candela, clamped 2..60), range (m, clamped 2..16),
- * floor? (y of the ground under it; default track.groundY(z) or 0) }.
+ * Sources of practicals, in order: `ctx.track.lights()` / `ctx.modules.track.lights()` (E1, world
+ * space, cached and rebuilt when chunks recycle) when it exists, else every object under the scene
+ * carrying `userData.lights` (entries in that object's local space, transformed by its matrixWorld;
+ * children of such an object are not descended). Entry shape:
+ *   { x, y, z, color, intensity, range (m, clamped 2..16), floor? (ground y under it) }
+ *
+ * INTENSITY CONVENTION. Assets author `intensity` on a RELATIVE scale of roughly 0.3 to 1.6 — a
+ * paper lantern 0.6, a shop's interior spill 1.0, a wall lightbox 1.2, a sodium lamp 1.6 (see
+ * game/assets/lantern_string.js, wall_lightbox.js, shophouse_a.js, utility_pole.js). three's
+ * PointLight is in CANDELA with decay 2, where a practical that actually lights a street is tens
+ * of candela, so a pool light gets `author x CANDELA` (below), clamped to 1.5..90 cd. The clamp is
+ * also what makes an asset that authored in candela by mistake merely saturate instead of blowing
+ * the frame out. The ground pool quads read the same author value, so the two stay in step.
  *
  * State written (defaults set here): state.lights = { pool, active, warm, cool }.
  * Flags: ?fill=<x> ?lights=<N> ?pools=0 ?sky=0 (no panorama) ?fog=<x>.
@@ -65,10 +73,23 @@ export const SKY = {
 };
 export const PARAMS = {
   fill: qn('fill', 1) * 1.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
-  fillSky: 0x4d6ea8, fillGround: 0xa8683a,
+  candela: qn('lgain', 1) * 26,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
+  emissive: qn('emissive', 1),      // scale on every emissiveIntensity in the scene (1 = as authored)
+  // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
+  // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
+  // A wall sees the 50/50 mix, so the ground term is the brighter of the two on purpose.
+  fillSky: 0x3d5c92, fillGround: 0xc8763a, fillGroundGain: 1.9,
   poolPhone: 6, poolDesktop: 14,
   hysteresis: 4, ahead: 6, maxDist: 60, coolReach: 45,
-  poolsOn: Q.get('pools') !== '0', poolOpacity: 0.32,
+  // A PointLight's `distance` is a hard cutoff, and assets author `range` as the size of the glow
+  // on the fitting, not as how far the lamp throws. Multiply, or a sign 3 m up lights nothing at
+  // road level and the ground-coupling check reads the same either side of it.
+  reach: qn('reach', 1) * 1.9,
+  poolsOn: Q.get('pools') !== '0', poolOpacity: 0.34,
+  // Wet asphalt smears a reflection TOWARD the viewer, so the pool is an ellipse stretched along
+  // z, not a disc: that is C7's "the road reflects the signs" and it is what carries the amber
+  // into the bottom quarter, where a point light 3 m up cannot reach.
+  poolStretch: 3.2,
   panorama: Q.get('sky') !== '0',
   fogStart: 12, fogDensity: 0.008 * qn('fog', 1),
   envAmber: 0xe5b055, envAmberGain: 0.45,
@@ -145,7 +166,7 @@ export async function init(c) {
 
   // the fill: cool from above, warm from the street, low
   rig.hemi.color.setHex(PARAMS.fillSky);
-  rig.hemi.groundColor.setHex(PARAMS.fillGround);
+  rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
   rig.hemi.intensity = PARAMS.fill;
   report_.fill = PARAMS.fill;
 
@@ -286,7 +307,8 @@ function buildEnvironment() {
 /* ------------------------------------------------------------ sources */
 
 function gather() {
-  const track = ctx.modules && ctx.modules.track;
+  const track = (ctx.track && typeof ctx.track.lights === 'function') ? ctx.track
+    : (ctx.modules && ctx.modules.track);
   if (track && typeof track.lights === 'function') {
     const L = track.lights();
     if (Array.isArray(L)) {
@@ -318,13 +340,15 @@ function gather() {
 }
 function normalise(l) {
   const color = typeof l.color === 'number' ? l.color : 0xe5b055;
-  const track = ctx.modules && ctx.modules.track;
+  const track = (ctx.track && ctx.track.groundY) ? ctx.track : (ctx.modules && ctx.modules.track);
   let floor = l.floor;
   if (!Number.isFinite(floor)) { try { floor = track && track.groundY ? track.groundY(l.z) : 0; } catch (e) { floor = 0; } }
   if (!Number.isFinite(floor)) floor = 0;
+  const author = Number(l.intensity);
   return {
     x: l.x, y: l.y, z: l.z, color, cool: isCool(color),
-    intensity: Math.min(60, Math.max(2, Number(l.intensity) || 12)),
+    author: Number.isFinite(author) ? author : 0.8,
+    intensity: Math.min(90, Math.max(1.5, (Number.isFinite(author) ? author : 0.8) * PARAMS.candela)),
     range: Math.min(16, Math.max(2, Number(l.range) || 5)),
     floor, key: `${l.x.toFixed(2)},${l.y.toFixed(2)},${l.z.toFixed(2)}`,
   };
@@ -379,7 +403,7 @@ function assign() {
     const l = s.l;
     L.position.set(l.x, l.y, l.z);
     L.color.setHex(l.color);
-    L.distance = l.range;
+    L.distance = l.range * PARAMS.reach;
     L.intensity = l.intensity;
     active++; if (l.cool) cool++; else warm++;
   }
@@ -421,12 +445,15 @@ function rebuildPools(list) {
   for (let i = 0; i < n; i++) {
     const l = near[i];
     const r = Math.min(7, l.range * 0.8);
+    const rz = r * PARAMS.poolStretch;
     const y = l.floor + 0.012;
     const h = Math.max(0.5, l.y - l.floor);
     const fade = Math.min(1, 3.5 / h);                 // a lamp 10 m up pools fainter than a sign at 2.5
-    const a = PARAMS.poolOpacity * fade * Math.min(1, l.intensity / 18);
+    const a = PARAMS.poolOpacity * fade * Math.min(1, l.author / 0.9);
     c.setHex(l.color).multiplyScalar(a);
-    const P = [[-r, 0, -r], [r, 0, -r], [r, 0, r], [-r, 0, r]], U = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    // stretched toward the camera (-z, the way the runner came from) so the smear reads as a
+    // reflection of the sign rather than as a disc painted on the road
+    const P = [[-r, 0, -rz], [r, 0, -rz], [r, 0, r], [-r, 0, r]], U = [[0, 0], [1, 0], [1, 1], [0, 1]];
     for (let k = 0; k < 4; k++) {
       pos.set([l.x + P[k][0], y, l.z + P[k][2]], i * 12 + k * 3);
       uv.set(U[k], i * 8 + k * 2);
@@ -460,6 +487,37 @@ export function update(dt) {
 }
 
 export function report() { return { ...report_ }; }
+
+/**
+ * Live tuning, for work/e4 only: change a PARAM and have it take effect this frame without a
+ * reload. The shipped values are the defaults above; this exists so one browser launch can sweep
+ * the fill / candela / pool opacity instead of one launch per combination.
+ */
+export function tune(o = {}) {
+  Object.assign(PARAMS, o);
+  if (o.fill !== undefined) { rig.hemi.intensity = PARAMS.fill; report_.fill = PARAMS.fill; }
+  if (o.fillSky !== undefined) rig.hemi.color.setHex(PARAMS.fillSky);
+  if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
+  if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
+  if (o.emissive !== undefined) scaleEmissive(o.emissive);
+  assign();
+  rebuildPools(gather());
+  return { ...PARAMS };
+}
+
+/** emissiveIntensity x k on every lit material in the scene, relative to what the asset authored. */
+const emissive0 = new WeakMap();
+function scaleEmissive(k) {
+  scene.traverse((o) => {
+    const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of ms) {
+      if (!m || !m.emissive || m.emissiveIntensity === undefined) continue;
+      if (m.emissive.r + m.emissive.g + m.emissive.b < 0.01) continue;
+      if (!emissive0.has(m)) emissive0.set(m, m.emissiveIntensity);
+      m.emissiveIntensity = emissive0.get(m) * k;
+    }
+  });
+}
 
 /* ------------------------------------------------------------ ground check */
 
@@ -502,4 +560,4 @@ export function groundCheck() {
   return out;
 }
 
-globalThis.__lighting = { groundCheck, report, sources, PARAMS };
+globalThis.__lighting = { groundCheck, report, sources, tune, PARAMS };
