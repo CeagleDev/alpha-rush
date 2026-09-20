@@ -64,8 +64,8 @@ export default function (THREE) {
   const L = new THREE.Shape();
   L.moveTo(0, 0); L.lineTo(0.22, 0); L.lineTo(0.22, 0.025); L.lineTo(0.025, 0.025); L.lineTo(0.025, 0.14); L.lineTo(0, 0.14); L.lineTo(0, 0);
   const lGeo = new THREE.ExtrudeGeometry(L, { depth: 0.36, bevelEnabled: false });
-  lGeo.rotateY(Math.PI / 2);           // depth along +x... then re-centre
-  lGeo.translate(-0.18, 0, 0);
+  lGeo.rotateY(-Math.PI / 2);          // extrude +z -> -x, shape x -> +z (the leg runs out under the box)
+  lGeo.translate(0.18, 0, 0);
   add(lGeo, GALV, 0, Y0 - 0.14, WZ + 0.05);
   for (let i = 0; i < 4; i++) add(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6), BLACK, -0.12 + i * 0.08, Y0 - 0.125, WZ + 0.05 + 0.15);
   for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(0.01, 0.01, 0.012, 6), RUST2, sx * 0.05, Y0 - 0.05, WZ + 0.08, Math.PI / 2, 0, 0);

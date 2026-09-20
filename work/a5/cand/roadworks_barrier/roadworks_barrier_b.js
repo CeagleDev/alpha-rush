@@ -45,9 +45,10 @@ export default function (THREE) {
 
   // ---- the bar: a C-channel (profile in y/z) extruded 1.8 along x ----------
   const by = 0.98, BH = 0.16, BD = 0.10;
-  const ch = SHAPE([[-BH / 2, BD / 2], [BH / 2, BD / 2], [BH / 2, -BD / 2], [BH / 2 - 0.03, -BD / 2], [BH / 2 - 0.03, BD / 2 - 0.025], [-BH / 2 + 0.03, BD / 2 - 0.025], [-BH / 2 + 0.03, -BD / 2], [-BH / 2, -BD / 2]], 1.80, black, -0.90, by, 0);
-  ch.rotation.y = Math.PI / 2;   // shape x → world -z? keep: shape (y,z) plane; extrude along shape z → world x
-  ch.rotation.set(0, Math.PI / 2, 0); ch.rotation.z = Math.PI / 2; ch.rotation.order = 'ZYX';
+  // profile drawn with shape.x = -world z, shape.y = world y; rotation.y = +90° sends the extrusion (local z) along world +x
+  const ch = SHAPE([[-BD / 2, BH / 2], [BD / 2, BH / 2], [BD / 2, -BH / 2], [BD / 2 - 0.025, -BH / 2], [BD / 2 - 0.025, BH / 2 - 0.03], [-BD / 2 + 0.025, BH / 2 - 0.03], [-BD / 2 + 0.025, -BH / 2], [-BD / 2, -BH / 2]], 1.80, black, -0.90, by, 0);
+  ch.rotation.y = Math.PI / 2;
+  B(1.78, 0.03, BD - 0.05, 0, by - BH / 2 + 0.015, 0, black);   // web plate along the bottom of the channel
   // stripes: parallelogram shapes 6 mm proud of the face, front and back
   for (const sz of [-1, 1]) {
     for (let i = 0; i < 11; i++) {

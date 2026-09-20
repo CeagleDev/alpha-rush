@@ -35,6 +35,7 @@ import * as assets from '../../game/src/assets.js';
 import * as textures from '../../game/src/textures.js';
 import * as lighting from '../../game/src/lighting.js';
 import * as perf from '../../game/src/perf.js';
+import { bakeStatic } from '../../game/assetlib.js';
 
 const Q = new URLSearchParams(location.search);
 const canvas = document.getElementById('c');
@@ -105,11 +106,14 @@ async function build() {
     root.updateMatrixWorld(true);
     const lights = [];
     for (const inst of placed) for (const l of assets.lights(inst)) lights.push({ x: l.x, y: l.y, z: l.z, color: l.color, intensity: l.intensity, range: l.range });
-    root.userData.lights = lights;
-    root.position.set(0, 0, ci * 30);
-    root.updateMatrixWorld(true);
-    scene.add(root);
-    chunks.push(root);
+    // bake per chunk exactly as chunks.js does, so the draw count is the game's and not the fixture's
+    const chunk = new THREE.Group();
+    chunk.add(bakeStatic(root));
+    chunk.userData.lights = lights;
+    chunk.position.set(0, 0, ci * 30);
+    chunk.updateMatrixWorld(true);
+    scene.add(chunk);
+    chunks.push(chunk);
   }
   trackStub._cache = null;
 

@@ -29,7 +29,7 @@ export default function (THREE) {
   const pts = [];
   for (let i = 0; i <= 10; i++) { const x = -L / 2 + (i / 10) * L; pts.push(new THREE.Vector3(x, ROPE_Y - 0.05 * (1 - (x / (L / 2)) ** 2), 0)); }
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.012, 5, false), ROPE, 0, 0, 0);
-  for (const sx of [-1, 1]) add(new THREE.TorusGeometry(0.03, 0.013, 5, 8), ROPE2, sx * (L / 2 - 0.05), ROPE_Y - 0.05, 0, 0, sx * 0.6, 0);
+  for (const sx of [-1, 1]) add(new THREE.TorusGeometry(0.03, 0.013, 4, 7), ROPE2, sx * (L / 2 - 0.05), ROPE_Y - 0.05, 0, 0, sx * 0.6, 0);
   // banners
   for (let b = 0; b < N; b++) {
     const bx = x0 + b * pitch, mat = CLOTH[b % 3];
@@ -48,7 +48,7 @@ export default function (THREE) {
     const mud = add(new THREE.PlaneGeometry(BW * 0.9, 0.16), HEM, bx, 0.26, 0.009);
     mud.rotation.copy(m.rotation);
     // rope loops as tabs
-    for (const tx of [-0.16, 0.16]) add(new THREE.TorusGeometry(0.028, 0.008, 4, 8), ROPE2, bx + tx, ROPE_Y - 0.03, 0, 0, Math.PI / 2, 0);
+    for (const tx of [-0.16, 0.16]) add(new THREE.TorusGeometry(0.028, 0.008, 3, 6), ROPE2, bx + tx, ROPE_Y - 0.03, 0, 0, Math.PI / 2, 0);
   }
 
   g.userData.obstacle = { kind: 'roll', lanes: 1 };

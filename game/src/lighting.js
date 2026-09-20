@@ -64,7 +64,7 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 0.30,       // hemisphere intensity (linear); tuned in work/e4
+  fill: qn('fill', 1) * 1.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
   fillSky: 0x4d6ea8, fillGround: 0xa8683a,
   poolPhone: 6, poolDesktop: 14,
   hysteresis: 4, ahead: 6, maxDist: 60, coolReach: 45,
@@ -190,7 +190,7 @@ void main() {
   float v = clamp((el - uElBot) / (uElTop - uElBot), 0.0, 1.0);
   vec3 col = texture2D(tSky, vec2(u, v)).rgb * uGain;
   col = mix(col, uCap, smoothstep(uElTop, uElTop + 0.3, el));
-  col = mix(col, uBelow, smoothstep(uElBot, uElBot - 0.15, el));
+  col = mix(col, uBelow, 1.0 - smoothstep(uElBot - 0.15, uElBot, el));   // edges ascending: reversed edges are undefined in GLSL
   gl_FragColor = vec4(invACES(col), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

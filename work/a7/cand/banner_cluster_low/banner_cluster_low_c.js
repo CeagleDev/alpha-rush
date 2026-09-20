@@ -30,10 +30,10 @@ export default function (THREE) {
   const pts = [];
   for (let i = 0; i <= 10; i++) { const x = -L / 2 + (i / 10) * L; pts.push(new THREE.Vector3(x, ROPE_Y - 0.05 * (1 - (x / (L / 2)) ** 2), 0)); }
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.012, 5, false), ROPE, 0, 0, 0);
-  for (const sx of [-1, 1]) add(new THREE.TorusGeometry(0.03, 0.013, 5, 8), ROPE2, sx * (L / 2 - 0.05), ROPE_Y - 0.05, 0, 0, sx * 0.6, 0);
+  for (const sx of [-1, 1]) add(new THREE.TorusGeometry(0.03, 0.013, 4, 7), ROPE2, sx * (L / 2 - 0.05), ROPE_Y - 0.05, 0, 0, sx * 0.6, 0);
   for (let b = 0; b < N; b++) {
     const bx = x0 + b * pitch, mat = CLOTH[b % 3], phase = rnd(b) * 6.28, amp = 0.02 + rnd(b + 3) * 0.03;
-    const geo = new THREE.PlaneGeometry(BW, BH, 4, 10);
+    const geo = new THREE.PlaneGeometry(BW, BH, 3, 8);
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i);
@@ -51,7 +51,7 @@ export default function (THREE) {
     for (let s = 0; s < 6; s++) {
       const len = 0.04 + rnd(b * 19 + s) * TH;
       const x = bx - BW / 2 + (s + 0.5) * (BW / 6) + (rnd(s) - 0.5) * 0.04;
-      add(new THREE.CylinderGeometry(0.003, 0.003, len, 4), s % 2 ? THREAD : HEM, x, TH + 0.02 - len / 2, 0.004, 0, 0, (rnd(s + b) - 0.5) * 0.2);
+      add(new THREE.CylinderGeometry(0.003, 0.003, len, 4, 1, true), s % 2 ? THREAD : HEM, x, TH + 0.02 - len / 2, 0.004, 0, 0, (rnd(s + b) - 0.5) * 0.2);
     }
     // grime band (wear)
     add(new THREE.PlaneGeometry(BW * 0.85, 0.14), HEM, bx, TH + 0.14, 0.03, 0, tilt, 0);
