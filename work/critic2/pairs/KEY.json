@@ -1,0 +1,22 @@
+{
+ "pair_01.png": {
+  "build": "right",
+  "build_file": "f0.png",
+  "ref_file": "bar_v_03.jpg"
+ },
+ "pair_02.png": {
+  "build": "right",
+  "build_file": "f1.png",
+  "ref_file": "bar_v_07.jpg"
+ },
+ "pair_03.png": {
+  "build": "left",
+  "build_file": "f3.png",
+  "ref_file": "bar_v_11.jpg"
+ },
+ "pair_04.png": {
+  "build": "left",
+  "build_file": "f4.png",
+  "ref_file": "bar_v_16.jpg"
+ }
+}
