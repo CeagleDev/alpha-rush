@@ -105,6 +105,12 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
  *  because the gate has no image library: a canvas does the decode, the average and the re-encode. */
 async function averagePNGs(buffers, outFile) {
   const b64 = buffers.map((b) => Buffer.from(b).toString('base64'));
+  // created lazily: opening a second page while the game's WebGL boot is in flight starved it and
+  // pushed __READY__ past the 120 s timeout. By the first photo the game is already running.
+  if (!averagePNGs._page) {
+    averagePNGs._page = await averagePNGs._browser.newPage();
+    await averagePNGs._page.goto('about:blank');
+  }
   const page = averagePNGs._page;
   const dataUrl = await page.evaluate(async (list) => {
     const imgs = await Promise.all(list.map((d) => new Promise((res, rej) => {
@@ -152,6 +158,8 @@ const browser = await puppeteer.launch({
     `--window-size=${VIEWPORT.width},${VIEWPORT.height}`],
 });
 let exitCode = 0;
+averagePNGs._browser = browser;
+const deferredBlur = [];
 const cleanup = async () => { try { await browser.close(); } catch {} server.close(); };
 process.on('SIGINT', async () => { await cleanup(); process.exit(130); });
 
@@ -159,11 +167,6 @@ process.on('SIGINT', async () => { await cleanup(); process.exit(130); });
 async function runOnce(runNo, outDir) {
   fs.mkdirSync(outDir, { recursive: true });
   const page = await browser.newPage();
-  // a blank page of its own for shutter averaging, so decoding never touches the running game
-  if (SHUTTER > 1 && !averagePNGs._page) {
-    averagePNGs._page = await browser.newPage();
-    await averagePNGs._page.goto('about:blank');
-  }
   await page.setViewport(VIEWPORT);
   if (!DESKTOP) await page.setUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
   await page.setCacheEnabled(false);
@@ -319,12 +322,16 @@ async function runOnce(runNo, outDir) {
   const shoot = async (g, d, note) => {
     const file = path.join(outDir, `f${frames.length}.png`);
     if (SHUTTER > 1) {
+      // Grab the sub-frames fast and DEFER the averaging to after the run. Decoding inline cost
+      // ~0.4 s per photo, during which the runner kept moving while the driver was blind, and the
+      // gate's own stall detector fired at 65 m. The capture must not perturb the thing it measures.
       const subs = [];
       for (let i = 0; i < SHUTTER; i++) {
         subs.push(await page.screenshot({ type: 'png', optimizeForSpeed: true, encoding: 'binary' }));
         if (i < SHUTTER - 1) await new Promise((r) => setTimeout(r, 6));
       }
-      await averagePNGs(subs, file);
+      fs.writeFileSync(file, subs[subs.length - 1]);      // a usable frame even if averaging fails
+      deferredBlur.push({ file, subs });
     } else {
       await page.screenshot({ path: file, type: 'png', optimizeForSpeed: true });
     }
@@ -439,6 +446,13 @@ figcaption{padding:5px 2px;line-height:1.45;color:#cfcfd8;white-space:pre}</styl
 ${f.speed} m/s  ${f.fps} fps${fpsNote}
 ${f.draws} draws  ${Number(f.tris || 0).toLocaleString('en-US')} tris${f.hero != null ? '  hero ' + f.hero + '%' : ''}</figcaption></figure>`).join('')}</div>`;
     fs.writeFileSync(path.join(outDir, 'strip.html'), html);
+    if (deferredBlur.length) {
+      process.stdout.write(`  averaging ${deferredBlur.length} shutter frame(s)... `);
+      for (const d of deferredBlur) {
+        try { await averagePNGs(d.subs, d.file); } catch (e) { console.log(`(f failed: ${e.message.slice(0, 40)}) `); }
+      }
+      console.log('done');
+    }
     const sp = await browser.newPage();
     await sp.setViewport({ width: cols * (w + 8) + 24, height: 400, deviceScaleFactor: 1 });
     await sp.goto('file://' + path.join(outDir, 'strip.html'), { waitUntil: 'networkidle0' });
