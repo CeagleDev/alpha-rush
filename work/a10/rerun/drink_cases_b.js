@@ -1,0 +1,1 @@
+../cand/drink_cases/drink_cases_b.js

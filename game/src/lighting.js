@@ -495,6 +495,12 @@ export function report() { return { ...report_ }; }
  */
 export function tune(o = {}) {
   Object.assign(PARAMS, o);
+  if (o.fogDensity !== undefined || o.fogStart !== undefined) {
+    rig.atmos.uAerDensity.value = PARAMS.fogDensity;
+    rig.atmos.uAerStart.value = PARAMS.fogStart;
+    rig.fog.near = PARAMS.fogStart;
+    rig.fog.far = PARAMS.fogStart + 3 / Math.max(1e-6, PARAMS.fogDensity) * 0.35;
+  }
   if (o.fill !== undefined) { rig.hemi.intensity = PARAMS.fill; report_.fill = PARAMS.fill; }
   if (o.fillSky !== undefined) rig.hemi.color.setHex(PARAMS.fillSky);
   if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);

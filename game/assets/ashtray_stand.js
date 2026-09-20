@@ -1,4 +1,4 @@
-// ashtray_stand — arm C: a different reading. A heavy cast base ring with bolt lugs, a ribbed
+// ashtray_stand — winner (arm C): a different reading. A heavy cast base ring with bolt lugs, a ribbed
 // lower drum (vertical rib boxes) in faded paint, a 12-sided column, the top as a separate
 // wide bowl (flared open cone + rim torus) sitting on a neck, sand and butts.
 export default function (THREE) {

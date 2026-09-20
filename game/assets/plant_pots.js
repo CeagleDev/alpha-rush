@@ -1,4 +1,4 @@
-// plant_pots — arm B: profiles. Every pot is a LatheGeometry with a lip and a foot ring; the
+// plant_pots — winner (arm B): profiles. Every pot is a LatheGeometry with a lip and a foot ring; the
 // tree canopy and shrubs are lathe blobs; the watering can body is a lathe with a shoulder and
 // neck; leaves are small cones; the hose is a stacked coil of two tori.
 export default function (THREE) {

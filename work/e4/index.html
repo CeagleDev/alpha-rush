@@ -65,6 +65,7 @@ const trackStub = {
 };
 const ctx = { THREE, scene, camera, renderer, rig, config, state, assets, textures, modules: { track: trackStub } };
 
+const coarseStats = [];
 const log = [];
 const say = (s) => { log.push(s); document.getElementById('log').textContent = log.slice(-8).join('\n'); };
 
@@ -114,9 +115,16 @@ async function build() {
     root.updateMatrixWorld(true);
     const lights = [];
     for (const inst of placed) for (const l of assets.lights(inst)) lights.push({ x: l.x, y: l.y, z: l.z, color: l.color, intensity: l.intensity, range: l.range });
-    // bake per chunk exactly as chunks.js does, so the draw count is the game's and not the fixture's
+    // bake per chunk exactly as chunks.js does, so the draw count is the game's and not the fixture's,
+    // plus the second coarser bake perf.js offers E1, so its cost and its visibility can be measured
     const chunk = new THREE.Group();
+    chunk.name = 'chunk_fixture' + ci;
+    const co = perf.coarseBake(root);
+    coarseStats.push({ tris: co.tris, dropped: co.dropped, kept: co.kept });
     chunk.add(bakeStatic(root));
+    co.group.visible = false;
+    chunk.add(co.group);
+    chunk.userData.coarse = co.group;
     chunk.userData.lights = lights;
     chunk.position.set(0, 0, ci * 30);
     chunk.updateMatrixWorld(true);
@@ -124,6 +132,35 @@ async function build() {
     chunks.push(chunk);
   }
   trackStub._cache = null;
+
+  // FAR BAND stand-in for E1's src/farband.js (not my file): one merged mesh of dark blocks with
+  // lit windows at 120-300 m. Without it the alley's vanishing point is open sky, and the top of
+  // the frame measures far bluer than the bar, which is a composition difference and not lighting.
+  {
+    const rng = (() => { let a = 12345; return () => ((a = (a * 1664525 + 1013904223) >>> 0) / 4294967296); })();
+    const g = new THREE.Group();
+    const dark = new THREE.MeshStandardMaterial({ color: 0x212841, roughness: 1, metalness: 0 });
+    const win = new THREE.MeshStandardMaterial({ color: 0x110f12, emissive: 0xe5b055, emissiveIntensity: 1.8, roughness: 0.35 });
+    const winCool = new THREE.MeshStandardMaterial({ color: 0x110f12, emissive: 0x9accf2, emissiveIntensity: 1.6, roughness: 0.35 });
+    const winGeo = new THREE.BoxGeometry(1.0, 1.4, 0.2);
+    for (let i = 0; i < 64; i++) {
+      const ang = (rng() * 2 - 1) * (70 * Math.PI / 180);
+      const r = 120 + rng() * 180;
+      const cx = Math.sin(ang) * r, cz = Math.cos(ang) * r + 40;
+      const w = 12 + rng() * 18, d = 12 + rng() * 18, h = 15 + rng() * 25 + (r - 120) * 0.05;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), dark);
+      b.position.set(cx, h / 2, cz); g.add(b);
+      for (let k = 0; k < 26; k++) {
+        const m = new THREE.Mesh(winGeo, rng() < 0.22 ? winCool : win);
+        m.position.set(cx + (rng() - 0.5) * w * 0.8, 4 + rng() * (h - 6), cz - d / 2 - 0.1);
+        g.add(m);
+      }
+    }
+    const band = bakeStatic(g);
+    band.name = 'farband_stub';
+    band.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
+    scene.add(band);
+  }
 
   // the hero and a coin from the real assets
   const runner = await assets.get('runner', { keepHierarchy: true });
@@ -134,6 +171,7 @@ async function build() {
   coin2.position.set(2, 0.7, 7.5); scene.add(coin2);
   say(`runner placeholder=${runner.userData.placeholder} coin placeholder=${coin.userData.placeholder} lights/chunk=${chunks[1].userData.lights.length}`);
   say(`textures ${JSON.stringify(textures.status())}`);
+  window.__COARSE__ = coarseStats;
   rig.refresh();
   await Promise.race([rig.ready, new Promise((r) => setTimeout(r, 8000))]);
 }
@@ -194,6 +232,43 @@ window.__MEASURE__ = () => {
     blueTop: +(blueTop / Math.max(1, topN) * 100).toFixed(1),
     amberBot: +(amberBot / Math.max(1, botN) * 100).toFixed(2), probe, size: [W, H],
   };
+};
+
+/**
+ * How far away a chunk stops being worth drawing, measured against OUR fog rather than carried
+ * over from another build (traps.md). For each distance: hide every chunk past it, re-render, and
+ * compare every pixel with the full frame. "Invisible in a filmstrip" is a mean absolute difference
+ * under about 1 luma unit with no large local excursion.
+ */
+window.__LODMEASURE__ = (opts = {}) => {
+  if (opts.fogDensity !== undefined) lighting.tune({ fogDensity: opts.fogDensity, fogStart: opts.fogStart ?? 10 });
+  const gl = renderer.getContext();
+  const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const W = s.x, H = s.y, N = W * H * 4;
+  const grab = () => { const b = new Uint8Array(N); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, b); return b; };
+  const info = () => ({ draws: renderer.info.render.calls, tris: renderer.info.render.triangles });
+  const setAll = (fn) => { for (const c of chunks) { const co = c.userData.coarse; c.visible = true; for (const ch of c.children) ch.visible = ch !== co; if (co) co.visible = false; fn(c, co); } };
+  const cz = camera.position.z;
+  setAll(() => {});
+  rig.render(camera, 0.016);
+  const base = grab(), baseInfo = info();
+  const diff = (b) => { let sum = 0, max = 0; for (let i = 0; i < N; i += 4) { const d = Math.abs(b[i] - base[i]) * 0.299 + Math.abs(b[i + 1] - base[i + 1]) * 0.587 + Math.abs(b[i + 2] - base[i + 2]) * 0.114; sum += d; if (d > max) max = d; } return { mean: +(sum / (W * H)).toFixed(3), max: Math.round(max) }; };
+  const rows = [];
+  for (const D of [20, 30, 40, 55, 70, 90, 120]) {
+    setAll((c) => { c.visible = (c.position.z - cz) <= D; });
+    rig.render(camera, 0.016);
+    const i2 = info();
+    rows.push({ mode: 'cull', D, ...diff(grab()), draws: i2.draws, tris: i2.tris });
+  }
+  for (const D of [20, 30, 40, 55, 70, 90]) {
+    setAll((c, co) => { const useCoarse = (c.position.z - cz) > D; if (co) { co.visible = useCoarse; for (const ch of c.children) if (ch !== co) ch.visible = !useCoarse; } });
+    rig.render(camera, 0.016);
+    const i2 = info();
+    rows.push({ mode: 'coarse', D, ...diff(grab()), draws: i2.draws, tris: i2.tris });
+  }
+  setAll(() => {});
+  rig.render(camera, 0.016);
+  return { base: baseInfo, size: [W, H], rows, coarse: window.__COARSE__, claims: window.__MEASURE__() };
 };
 
 build().then(() => {

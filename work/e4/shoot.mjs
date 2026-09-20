@@ -55,6 +55,15 @@ if (args.sweep) {
   console.log('fill cd   emis | median  p98  >200%  darkRB  blueTop%  amber%');
   for (const r of rows) console.log(`${String(r.fill).padEnd(4)} ${String(r.candela).padEnd(4)} ${String(r.emissive).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(5)} ${String(r.over200).padStart(6)} ${String(r.darkRB).padStart(7)} ${String(r.blueTop).padStart(9)} ${String(r.amberBot).padStart(7)}`);
 }
+if (args.lod) {
+  for (const fogDensity of (args.fogs || '0.008,0.014,0.022').split(',').map(Number)) {
+    const L = await page.evaluate((f) => window.__LODMEASURE__({ fogDensity: f }), fogDensity);
+    const c = L.claims;
+    console.log(`\n== fog ${fogDensity}  full frame ${L.base.draws} draws ${L.base.tris} tris  | median ${c.median} p98 ${c.p98} >200 ${c.over200}% darkRB ${c.darkRB} blueTop ${c.blueTop}% amber ${c.amberBot}%`);
+    console.log('  mode    D(m) | meanDiff maxDiff  draws     tris');
+    for (const r of L.rows) if (r.mode === 'cull') console.log(`  ${r.mode.padEnd(7)} ${String(r.D).padEnd(4)} | ${String(r.mean).padStart(8)} ${String(r.max).padStart(7)} ${String(r.draws).padStart(6)} ${String(r.tris).padStart(8)}`);
+  }
+}
 const result = await page.evaluate(() => ({
   error: window.__ERROR__ || null,
   perf: window.__perf ? window.__perf.report() : null,

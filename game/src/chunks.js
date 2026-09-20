@@ -24,12 +24,15 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
+import { signFace, noren } from './textures.js';
 import { bakeStatic } from '../assetlib.js';
 
 export const CHUNK_LEN = 30;
 export const SHOP_X = 4.5;          // shophouse front face |x|
 export const DECK_TOP = 0.8;        // expressway_deck slab thickness (ASSETS.md: 30 × 6 × 0.8)
 export const DECK_Y = 6;            // expressway running surface height
+export const ROAD_SURF = 0.02;      // alley/ramp assets: carriageway sits this far above the asset base
+export const VERGE_TOP = 0.12;      // world height of the kerb top once the road is placed (0.14 - ROAD_SURF)
 
 export const VARIANTS = [];
 for (let i = 0; i < 6; i++) VARIANTS.push({ id: `A${i}`, zone: 'alleyA', cross: i % 2 ? (i % 4 === 1 ? 1 : -1) : 0 });
@@ -123,10 +126,43 @@ class Builder {
     const inst = p.inst.clone(true);
     inst.position.set(x, y, z); inst.rotation.y = ry;
     inst.userData.assetName = name;
+    dressSprites(inst, this.rng);
     this.root.add(inst); this.placed.push(inst);
     return { inst, size: p.size };
   }
   async size(name) { return (await proto(this.ctx, name)).size; }
+}
+
+
+// ---------------------------------------------------------------- sign sprites
+// The assets build their lit sign faces as a near-black material with a cream emissive, because an
+// asset module may not load an image (the 404 contract). The jam rules DO allow texture files, and
+// Atlas generated eight lightbox faces and two noren, so the faces get their brush-stroke sprites
+// here at placement time: a shared material per sprite, so bakeStatic still merges by value and the
+// draw-call count does not move. Without this the street is a row of blank glowing panels, which is
+// what separated our frames from the reference most visibly.
+const SIGN_EMISSIVE = new Set([0xd8ae70, 0xf1d899, 0xe5b055]);   // the cream/yellow face colours in STYLE.md
+const NOREN_ASSETS = new Set(['noren_string', 'banner_cluster_low']);
+
+function dressSprites(inst, rng) {
+  const name = inst.userData.assetName;
+  const wantNoren = NOREN_ASSETS.has(name);
+  let n = 0;
+  inst.traverse((o) => {
+    if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+    const m = o.material;
+    if (wantNoren) {
+      // the banner cloth is the 'fabric' material carrying the (currently blank) faces
+      if (m.name === 'fabric') { o.material = noren(1 + Math.floor((rng ? rng() : 0.5) * 2)); n++; }
+      return;
+    }
+    if (!m.emissive) return;
+    if (!SIGN_EMISSIVE.has(m.emissive.getHex())) return;
+    o.material = signFace(1 + Math.floor((rng ? rng() : 0.5) * 8));
+    n++;
+  });
+  if (n) inst.userData.sprites = n;
+  return n;
 }
 
 // A verge prop that is longer than it is wide is parked along the wall, not facing the road.
@@ -151,9 +187,10 @@ async function alley(ctx, variant) {
   const crossSlot = cross ? 2 + Math.floor(rng() * 2) : -1;   // slot 2 or 3 → z 12.5 or 17.5
   const crossZ = 2.5 + crossSlot * 5;
 
-  // road slab: its top is the running surface, so it sits at -thickness (measured, capped)
-  const road = await B.size('alley_road_chunk');
-  await B.put('alley_road_chunk', 0, -Math.min(road.y, 0.3), 15);
+  // road slab: A9 built it base-at-0 with the carriageway at local y = 0.02 and the kerb tops at
+  // 0.14, so it is placed at -0.02 to put the running surface exactly on the chunk's y = 0 plane.
+  // Sinking it by its own height (the old rule) buried the road 13 cm under the player's feet.
+  await B.put('alley_road_chunk', 0, -ROAD_SURF, 15);
 
   // shophouse rows, 6 slots per side, fronts on the verge line
   for (const s of [1, -1]) {
@@ -236,7 +273,11 @@ async function alley(ctx, variant) {
 
 async function expressway(ctx, variant) {
   const B = new Builder(ctx, variant), rng = B.rng;
-  await B.put('expressway_deck', 0, -DECK_TOP, 15);
+  // A9's deck is one object from the street up: base y = 0, piers included, running surface at
+  // local 6.0. The chunk group already sits at DECK_Y, so the deck is pulled back down by DECK_Y
+  // to stand on the ground. (It used to be sunk by its 0.8 m slab thickness, which assumed a
+  // free-floating slab and left this asset 5.2 m in the air.)
+  await B.put('expressway_deck', 0, -DECK_Y, 15);
   // sodium lamps every 15 m, alternating sides (parity flips per variant so the run alternates)
   const p = Number(variant.id.slice(1)) % 2 ? 1 : -1;
   await B.put('sodium_lamp', 3.5 * p, 0, 7.5, 0);
@@ -252,11 +293,11 @@ async function expressway(ctx, variant) {
 
 async function ramp(ctx, variant) {
   const B = new Builder(ctx, variant);
-  const sz = await B.size('ramp_chunk');
-  // the asset rises 0 → 6 along +z; its running surface starts at chunk y = 0, so the slab thickness
-  // below the surface (height beyond the 6 m rise, ≤ 1 m) is sunk. Mirrored by a half turn for RD.
-  const t = Math.max(0, Math.min(1, sz.y - DECK_Y));
-  await B.put('ramp_chunk', 0, -t, 15, variant.zone === 'rampDown' ? Math.PI : 0);
+  // The asset's surface runs local 0.02 at z = -15 to 6.02 at z = +15 on a constant 1:5 grade; the
+  // height it has beyond 6 m is PARAPET above that surface, not slab below it. So it is placed at
+  // -ROAD_SURF like the alley road, which lands its surface on 0 at the foot and 6.0 at the crest,
+  // meeting the alley and the deck exactly. Mirrored by a half turn for the down ramp.
+  await B.put('ramp_chunk', 0, -ROAD_SURF, 15, variant.zone === 'rampDown' ? Math.PI : 0);
   for (const s of [1, -1]) for (let k = 0; k < 7; k++) {
     const { inst } = await B.put('guard_rail', s * 3.15, 0, 2 + k * 4 + (k === 6 ? -1 : 0), 0);
     inst.position.y = 0; // rails are placed on the ramp surface below
