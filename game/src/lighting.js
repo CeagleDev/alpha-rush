@@ -61,6 +61,12 @@
  * children of such an object are not descended). Entry shape:
  *   { x, y, z, color, intensity, range (m, clamped 2..16), floor? (ground y under it) }
  *
+ * MOUNTING HEIGHT. A practical's candela is also scaled by (height above the ground / 2.5 m)^2,
+ * capped at 12x. Illuminance falls with the square of the distance, so a sodium lamp 10 m up on the
+ * expressway and a lightbox 2 m up in the alley cannot carry the same candela and both light their
+ * road: measured with one scale for both, the expressway frame came back at median luma 10.7 with
+ * a 98th percentile of 99.7 — a whole zone of the game effectively unlit.
+ *
  * INTENSITY CONVENTION. Assets author `intensity` on a RELATIVE scale of roughly 0.3 to 1.6 — a
  * paper lantern 0.6, a shop's interior spill 1.0, a wall lightbox 1.2, a sodium lamp 1.6 (see
  * game/assets/lantern_string.js, wall_lightbox.js, shophouse_a.js, utility_pole.js). three's
@@ -83,8 +89,8 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 1.8, fillSkyGain: 0.2, fillGroundGain: 3.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
-  candela: qn('lgain', 1) * 50,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
+  fill: qn('fill', 1) * 1.0, fillSkyGain: 0.1, fillGroundGain: 4.2,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
+  candela: qn('lgain', 1) * 220, heightRef: 2.5, heightExp: 1.2, heightGainMax: 4,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
   // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
   // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
   // A wall sees the 50/50 mix, so the ground term is the brighter of the two on purpose.
@@ -95,23 +101,40 @@ export const PARAMS = {
   // on the fitting, not as how far the lamp throws. Multiply, or a sign 3 m up lights nothing at
   // road level and the ground-coupling check reads the same either side of it.
   reach: qn('reach', 1) * 1.5,
-  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.12, poolRadius: 0.5,
+  // Narrow and bright, not wide and dim. A wet road returns a sign as a near-specular STREAK, so
+  // the same C7 area spent on a tight bright smear also puts pixels over luma 200 where the
+  // reference has them (its p98 is sign faces and their reflections), whereas spreading it thin
+  // lights the whole carriageway, raises the median and reads as fog on the road.
+  // Measured with the A/B below: at 0.36 these quads were carrying the frame (turning them off
+  // dropped the median from 72.7 to 3.3), which is why the carriageway read as flat glare — an
+  // additive quad has no falloff detail, no normal map and no texture in it. They are a SUPPLEMENT
+  // for practicals with no live point light; the real lights do the lighting.
+  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.11, poolRadius: 0.32,
   // A pool quad stands in for a practical that has NO live point light. Where a light does have
   // one, the road is already lit for real and the quad lands on top of it: that double count is
   // what blew the centre of the carriageway to white. Keep a fraction so the swap is not a step.
-  poolLive: 0.4,
+  poolLive: 0.15,
   // Wet asphalt smears a reflection TOWARD the viewer, so the pool is an ellipse stretched along
   // z, not a disc: that is C7's "the road reflects the signs" and it is what carries the amber
   // into the bottom quarter, where a point light 3 m up cannot reach.
-  poolStretch: 1.6, poolInset: 0.2,
+  poolStretch: 2.4, poolInset: 0.2,
   panorama: Q.get('sky') !== '0',
   fogStart: 12, fogDensity: 0.008 * qn('fog', 1),
   envAmber: 0xe5b055, envAmberGain: 0.45,
+  // The environment is a REFLECTION, and on a roughness-0.18 road a strong one is a broad sheen
+  // over the whole carriageway: it lifts the median without putting a single pixel where the
+  // reference has its brights. Kept low so the road's highlights come from the practicals.
+  envIntensity: qn('env', 1) * 0.6,
   // bounceSide is the rig's own dial and it keeps it at 0.15 so DAYLIGHT shade stays cool against
   // a warm key. At night the relationship inverts: the street is the warm source and the sky is
   // the cool one, so a wall should catch the street. Opened up, with the bounce itself driven from
   // the street colour rather than the (absent) sun.
-  bounce: qn('bounce', 1) * 3.2, bounceColor: 0xbf7c42, bounceSide: 0.6,
+  bounce: qn('bounce', 1) * 2.4, bounceColor: 0xbf7c42, bounceSide: 0.6,
+  // The rig gives an UP-FACING surface 3.5x the bounce, because in daylight an up-facing surface
+  // in shadow sees sunlit ground and walls all round it. At night the road IS the ground: pouring
+  // the street's own bounce back onto it washed the whole carriageway warm and put CLAIMS C7 at
+  // 17.5 % against the bar's 6.1 %, with the median 4 luma high. Walls and soffits keep theirs.
+  bounceFlat: 0.4,
   // The night exposure. The rig reads 1.25 off its atmosphere table for "well after sunset", which
   // is an exposure for an empty sky; a street lit by its own signs wants more, and the measured
   // build came in 13 luma under the bar's median with its 98th percentile 64 low. Set here rather
@@ -121,12 +144,12 @@ export const PARAMS = {
   // rig's bloom needs post, and the phone tier has none), and CLAIMS C2 is about exactly those
   // pixels. Assets author 1.8-3.0 per STYLE; this is the night's exposure of that channel, applied
   // to what is in the scene and re-applied as chunks spawn.
-  emissive: qn('emissive', 1) * 2.0,
+  emissive: qn('emissive', 1) * 2.4,
   // ...and a CEILING on what that reaches, because the top of the ACES curve has no colour in it.
   // Uncapped, a cream paper lantern goes to (233, 229, 217) and reads as a featureless white blob
   // with its ribs gone; the reference's brightest pixels are sign faces that still show their
   // strokes. Capped at the max emissive channel, in linear radiance before the curve.
-  emissiveCap: qn('emissivecap', 1) * 2.6,
+  emissiveCap: qn('emissivecap', 1) * 2.9,
 };
 
 let ctx = null, THREE = null, rig = null, scene = null;
@@ -239,6 +262,7 @@ function applyBounce() {
   const c = hexLin(PARAMS.bounceColor);
   B.uBounce.value.setRGB(c[0] * PARAMS.bounce, c[1] * PARAMS.bounce, c[2] * PARAMS.bounce);
   if (B.uBounceSide) B.uBounceSide.value = PARAMS.bounceSide;
+  if (B.uBounceFlat) B.uBounceFlat.value = PARAMS.bounceFlat;
 }
 
 function applySkyStops(lin) {
@@ -353,7 +377,7 @@ function buildEnvironment() {
     pm.dispose();
     const old = scene.environment;
     scene.environment = tex;
-    scene.environmentIntensity = 1.0;
+    scene.environmentIntensity = PARAMS.envIntensity;
     if (old && old !== tex) old.dispose();
   } catch (e) { console.warn('[lighting] environment build failed', e && e.message); }
 }
@@ -398,12 +422,20 @@ function normalise(l) {
   let floor = l.floor;
   if (!Number.isFinite(floor)) { try { floor = track && track.groundY ? track.groundY(l.z) : 0; } catch (e) { floor = 0; } }
   if (!Number.isFinite(floor)) floor = 0;
-  const author = Number(l.intensity);
+  const author = Number.isFinite(Number(l.intensity)) ? Number(l.intensity) : 0.8;
+  const h = Math.max(0.4, (l.y || 0) - floor);
+  // Softer than a true inverse square: a sign 4 m up lights the WALL beside it as much as the
+  // road, so compensating in full over-lights the alley (measured: median luma 54 against the
+  // bar's 39.6). An exponent of 1.2 still carries a 10 m lamp head to the deck below it.
+  const heightGain = Math.min(PARAMS.heightGainMax, Math.max(1, (h / PARAMS.heightRef) ** PARAMS.heightExp));
   return {
     x: l.x, y: l.y, z: l.z, color, cool: isCool(color),
-    author: Number.isFinite(author) ? author : 0.8,
-    intensity: Math.min(90, Math.max(1.5, (Number.isFinite(author) ? author : 0.8) * PARAMS.candela)),
-    range: Math.min(16, Math.max(2, Number(l.range) || 5)),
+    author, heightGain: +heightGain.toFixed(2),
+    intensity: Math.min(900, Math.max(1.5, author * PARAMS.candela * heightGain)),
+    // A lamp head 10 m up whose asset authored `range: 12` (the size of its own glow) throws a
+    // circle of only sqrt(12^2 - 10^2) = 6.6 m on the road below it, so the expressway deck came
+    // out unlit between lamps. Tall mounts get a range floor of 1.6x their height.
+    range: Math.min(26, Math.max(2, Number(l.range) || 5, h > 7 ? h * 1.6 : 0)),
     floor, key: `${l.x.toFixed(2)},${l.y.toFixed(2)},${l.z.toFixed(2)}`,
   };
 }
@@ -498,7 +530,7 @@ function rebuildPools(list) {
   const c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     const l = near[i];
-    const r = Math.min(5, l.range * PARAMS.poolRadius);
+    const r = Math.min(5, l.range * PARAMS.poolRadius * Math.min(2.2, Math.max(1, (l.y - l.floor) / 3)));
     const rz = r * PARAMS.poolStretch;
     const y = l.floor + 0.02;
     const h = Math.max(0.5, l.y - l.floor);
@@ -576,7 +608,7 @@ export function tune(o = {}) {
   if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
   if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.poolRadius !== undefined || o.poolInset !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
   if (o.emissive !== undefined || o.emissiveCap !== undefined) scaleEmissive(PARAMS.emissive);
-  if (o.bounce !== undefined || o.bounceColor !== undefined || o.bounceSide !== undefined) applyBounce();
+  if (o.bounce !== undefined || o.bounceColor !== undefined || o.bounceSide !== undefined || o.bounceFlat !== undefined) applyBounce();
   assign();
   rebuildPools(gather());
   return { ...PARAMS };

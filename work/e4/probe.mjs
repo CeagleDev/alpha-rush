@@ -20,7 +20,7 @@ await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile
 await page.goto(`http://localhost:${srv.address().port}/?seed=${process.argv[2] || 7}&gate=1`, { waitUntil: 'load' });
 await page.waitForFunction('window.__READY__ === true', { timeout: 90000 });
 await page.evaluate(() => window.__START__());
-const ZONE = process.argv[3] || null;
+const ZONE = process.argv.slice(3).find((a) => !a.startsWith('--')) || null;
 if (ZONE) {
   await page.waitForFunction((z) => window.__GAME__ && window.__GAME__.zone === z, { timeout: 180000, polling: 200 }, ZONE);
   await new Promise((r) => setTimeout(r, 900));
@@ -79,4 +79,69 @@ const rep = await page.evaluate(() => {
   };
 });
 console.log(JSON.stringify(rep, null, 1));
+
+// A/B: zero each contribution in turn and measure the bottom quarter, so "what is lighting the
+// road" is answered by measurement instead of by argument. One page load, one term at a time.
+if (process.argv.includes('--sweep')) {
+  const rows = await page.evaluate(async () => {
+    const ctx = window.__ctx, THREE = ctx.THREE, renderer = ctx.renderer, L = ctx.modules.lighting;
+    const measure = () => {
+      renderer.render(ctx.scene, ctx.camera);
+      const gl = renderer.getContext(); const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+      const buf = new Uint8Array(s.x * s.y * 4); gl.readPixels(0, 0, s.x, s.y, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      const W = s.x, H = s.y; const all = []; let amber = 0, botN = 0, over = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4, r = buf[i], g = buf[i + 1], b = buf[i + 2];
+        const Y = 0.299 * r + 0.587 * g + 0.114 * b; all.push(Y); if (Y > 200) over++;
+        if (y < H * 0.25) { botN++; if (Y > 100 && r - b > 40) amber++; }
+      }
+      all.sort((a, b) => a - b);
+      return { median: +all[all.length >> 1].toFixed(1), p98: +all[Math.floor(all.length * 0.98)].toFixed(1), over200: +(over / all.length * 100).toFixed(2), amber: +(amber / botN * 100).toFixed(1) };
+    };
+    const out = [];
+    for (const candela of [60, 110, 170]) for (const poolOpacity of [0.04, 0.09, 0.16]) {
+      L.tune({ candela, poolOpacity, poolLive: 0.15 });
+      await new Promise((r) => requestAnimationFrame(r));
+      out.push({ candela, poolOpacity, ...measure() });
+    }
+    return out;
+  });
+  console.log('\nsweep (alley frame)   bar: median 39.6  p98 224.5  >200 3.2%  amber 6.1%');
+  console.log('  cd   pool | median    p98   >200%  amber%');
+  for (const r of rows) console.log(`  ${String(r.candela).padEnd(4)} ${String(r.poolOpacity).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(6)} ${String(r.over200).padStart(7)} ${String(r.amber).padStart(7)}`);
+}
+if (process.argv.includes('--ab')) {
+  const rows = await page.evaluate(async () => {
+    const ctx = window.__ctx, THREE = ctx.THREE, renderer = ctx.renderer, L = ctx.modules.lighting;
+    const base = { fill: L.PARAMS.fill, bounce: L.PARAMS.bounce, candela: L.PARAMS.candela, poolOpacity: L.PARAMS.poolOpacity, emissive: L.PARAMS.emissive };
+    const envBase = ctx.scene.environmentIntensity;
+    const measure = () => {
+      renderer.render(ctx.scene, ctx.camera);
+      const gl = renderer.getContext(); const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+      const buf = new Uint8Array(s.x * s.y * 4); gl.readPixels(0, 0, s.x, s.y, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      const W = s.x, H = s.y; const all = []; let amber = 0, botN = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4, r = buf[i], g = buf[i + 1], b = buf[i + 2];
+        const Y = 0.299 * r + 0.587 * g + 0.114 * b; all.push(Y);
+        if (y < H * 0.25) { botN++; if (Y > 100 && r - b > 40) amber++; }   // readPixels is bottom-up
+      }
+      all.sort((a, b) => a - b);
+      return { median: +all[all.length >> 1].toFixed(1), p98: +all[Math.floor(all.length * 0.98)].toFixed(1), amber: +(amber / botN * 100).toFixed(1) };
+    };
+    const out = [{ term: 'all on', ...measure() }];
+    const tests = [['fill', { fill: 0 }], ['bounce', { bounce: 0 }], ['practicals', { candela: 0 }], ['pools', { poolOpacity: 0 }], ['emissive', { emissive: 0.001 }]];
+    for (const [name, off] of tests) {
+      L.tune(off); await new Promise((r) => requestAnimationFrame(r));
+      out.push({ term: 'no ' + name, ...measure() });
+      L.tune(base); await new Promise((r) => requestAnimationFrame(r));
+    }
+    ctx.scene.environmentIntensity = 0; await new Promise((r) => requestAnimationFrame(r));
+    out.push({ term: 'no environment', ...measure() });
+    ctx.scene.environmentIntensity = envBase;
+    return out;
+  });
+  console.log('\nA/B (alley frame, bottom quarter = the C7 band)');
+  console.log('  term              median    p98   amber%');
+  for (const r of rows) console.log(`  ${r.term.padEnd(17)} ${String(r.median).padStart(6)} ${String(r.p98).padStart(6)} ${String(r.amber).padStart(7)}`);
+}
 await browser.close(); srv.close();
