@@ -153,6 +153,16 @@ export const PARAMS = {
 };
 const NEAR_SOFT_M = 5.0;      // metres: below this a practical is eased down (see assign())
 const NEAR_SOFT_MIN = 0.22;   // floor, so a close lantern still reads as lit rather than switching off
+// STROBE FIX. Measured on the screencast: the runner's jacket flipped between orange and washed-out
+// 19 times in 6.4 s (~3 Hz) and the nearest-light set changed 19 times in 15 m of travel. Cause: a
+// lantern string hangs six practicals a metre apart directly over the runner's lane, and with a
+// six-light pool the nearest set churned on every lantern passed — each swap a hard cut. Two fixes
+// that belong together: (a) practicals within CLUSTER_M of each other become ONE light (a string is
+// one source, a sign and its lantern are one source), so the set stops churning; (b) pool lights
+// FADE in and out over ~0.3 s (FADE_RATE) instead of switching, so whatever churn remains is a
+// dissolve, not a strobe. A leaving light keeps its slot until it has faded.
+const CLUSTER_M = 2.2;
+const FADE_RATE = 7;          // 1/s: 90 % of the way in ~0.33 s
 
 let ctx = null, THREE = null, rig = null, scene = null;
 let pool = [];                 // PointLights
@@ -445,6 +455,28 @@ export function sources() { return gather(); }
 
 /* ------------------------------------------------------------ pool assignment */
 
+function cluster(list) {
+  const src = list.slice().sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));   // deterministic
+  const used = new Array(src.length).fill(false), out = [];
+  for (let i = 0; i < src.length; i++) {
+    if (used[i]) continue;
+    const a = src[i]; const m = [a]; used[i] = true;
+    for (let j = i + 1; j < src.length; j++) {
+      if (used[j]) continue; const b = src[j];
+      if (!!b.cool !== !!a.cool) continue;
+      if (Math.hypot(b.x - a.x, b.z - a.z) <= CLUSTER_M && Math.abs(b.y - a.y) <= 2.5) { m.push(b); used[j] = true; }
+    }
+    if (m.length === 1) { out.push(a); continue; }
+    let I = 0, x = 0, y = 0, z = 0, range = 0, strongest = a;
+    for (const q of m) { const w = q.intensity || 1; I += w; x += q.x * w; y += q.y * w; z += q.z * w; range = Math.max(range, q.range || 0); if ((q.intensity || 0) > (strongest.intensity || 0)) strongest = q; }
+    // NOT the plain sum: a six-lantern string summed to ~540 cd at one point and washed the runner to
+    // white every time he passed under it. A distributed source reads, from 2 m below its middle, as
+    // two to three of its members — so the cluster carries at most 2.5x its strongest member.
+    out.push({ ...strongest, key: a.key, x: x / I, y: y / I, z: z / I, intensity: Math.min(900, I, 2.5 * (strongest.intensity || 1)), range, members: m.length });
+  }
+  return out;
+}
+
 const camPos = { x: 0, y: 0, z: 0 };   // plain object: this module takes THREE from ctx, not an import
 function assign() {
   const _cam = (ctx && ctx.camera) || (rig && rig.camera) || null;
@@ -453,7 +485,7 @@ function assign() {
   const st = ctx.state || {};
   const cx = cam.position.x, cz = cam.position.z;
   const zRef = (Number.isFinite(st.z) ? st.z : cz) + PARAMS.ahead;
-  const list = gather();
+  const list = cluster(gather());
   const cand = [];
   for (const l of list) {
     if (l.z < cz - 4) continue;                                  // behind the camera
@@ -471,27 +503,36 @@ function assign() {
   const wantKeys = new Map(wanted.map((c) => [c.l.key, c]));
   const worst = wanted.length ? wanted[wanted.length - 1].d : 0;
   const byKey = new Map(cand.map((c) => [c.l.key, c]));
-  // keep what we have if it is still close enough (hysteresis)
+  // keep what we have if it is still close enough (hysteresis); otherwise mark it LEAVING and let
+  // applyPool() fade it out — the slot is only free once the light has actually gone dark
   const held = new Set();
   for (let i = 0; i < N; i++) {
     const s = slots[i]; if (!s) continue;
     const c = byKey.get(s.key);
-    if (c && (wantKeys.has(s.key) || c.d <= worst + PARAMS.hysteresis)) { slots[i] = { key: s.key, l: c.l }; held.add(s.key); }
-    else slots[i] = null;
+    if (c && (wantKeys.has(s.key) || c.d <= worst + PARAMS.hysteresis)) { s.l = c.l; s.target = c.l.intensity; s.leaving = false; held.add(s.key); }
+    else { s.leaving = true; s.target = 0; if (s.cur < 0.5) slots[i] = null; }
   }
-  // fill free slots with wanted lights not yet held
+  // fill free slots with wanted lights not yet held; a new light starts dark and fades in
   let wi = 0;
   for (let i = 0; i < N; i++) {
     if (slots[i]) continue;
     while (wi < wanted.length && held.has(wanted[wi].l.key)) wi++;
     if (wi >= wanted.length) break;
-    slots[i] = { key: wanted[wi].l.key, l: wanted[wi].l }; held.add(wanted[wi].l.key); wi++;
+    slots[i] = { key: wanted[wi].l.key, l: wanted[wi].l, cur: 0, target: wanted[wi].l.intensity, leaving: false }; held.add(wanted[wi].l.key); wi++;
   }
+}
+
+/** Every frame: ease each pool light toward its target and apply proximity softening. */
+function applyPool(dt) {
+  const N = pool.length; const st = ctx.state || {};
+  const k = 1 - Math.exp(-FADE_RATE * Math.max(0, Math.min(0.1, dt || 0.016)));
   let active = 0, warm = 0, cool = 0;
   for (let i = 0; i < N; i++) {
     const L = pool[i], s = slots[i];
     if (!s) { L.intensity = 0; continue; }
     const l = s.l;
+    s.cur = (s.cur ?? 0) + (s.target - (s.cur ?? 0)) * k;
+    if (s.leaving && s.cur < 0.5) { slots[i] = null; L.intensity = 0; continue; }
     L.position.set(l.x, l.y, l.z);
     L.color.setHex(l.color);
     L.distance = l.range * PARAMS.reach;
@@ -508,7 +549,7 @@ function assign() {
     const dx = L.position.x - camPos.x, dy = L.position.y - camPos.y, dz = L.position.z - camPos.z;
     const dCam = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const soft = dCam >= NEAR_SOFT_M ? 1 : Math.max(NEAR_SOFT_MIN, (dCam / NEAR_SOFT_M) ** 2);
-    L.intensity = l.intensity * soft;
+    L.intensity = s.cur * soft;
     active++; if (l.cool) cool++; else warm++;
   }
   report_.active = active; report_.warm = warm; report_.cool = cool;
@@ -594,6 +635,7 @@ export function update(dt) {
   // so a material scaled once is never scaled twice.
   if (frame < 240 ? frame % 15 === 0 : frame % 120 === 0) scaleEmissive(PARAMS.emissive);
   if (frame % 2 === 1) assign();
+  applyPool(dt);
   // the pool mesh depends on which lights are live, so rebuild it after assign(), not before
   if (frame % 10 === 0 || frame < 3) { poolsHash = ''; rebuildPools(gather()); }
   if (skyDome) skyDome.position.copy(ctx.camera.position).setY(ctx.camera.position.y);

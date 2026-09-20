@@ -342,11 +342,16 @@ async function alley(ctx, variant) {
   for (let i = 0; i < spanZ.length; i++) {
     await B.put('cable_span', [-0.35, 0.1, 0.35, -0.2, 0.25, 0][i], 4.6 + (i % 3) * 0.55, spanZ[i], 0);
   }
+  // The string assets are authored ALONG X (rope ends at x = ±3), so a string that crosses the road
+  // is placed with NO rotation. These three used to be turned by π/2, which laid each string down
+  // the lane centre instead: six lanterns a metre apart directly over the runner's head. That was
+  // the vertical column of lanterns in every frame, and it strobed the runner at ~3 Hz as the
+  // six-light pool swapped on every lantern passed (measured: 19 orange/washed flips in 6.4 s).
   const str = isB ? 'noren_string' : 'lantern_string';
   const other = isB ? 'lantern_string' : 'noren_string';
-  await B.put(str, 0, isB ? 2.0 : 2.9, range(rng, 4, 11), Math.PI / 2);
-  await B.put(other, 0, isB ? 2.9 : 2.0, range(rng, 13, 20), Math.PI / 2);
-  if (rng() < 0.7) await B.put(str, 0, isB ? 2.2 : 3.1, range(rng, 22, 28), Math.PI / 2);
+  await B.put(str, 0, isB ? 2.0 : 2.9, range(rng, 4, 11), 0);
+  await B.put(other, 0, isB ? 2.9 : 2.0, range(rng, 13, 20), 0);
+  if (rng() < 0.7) await B.put(str, 0, isB ? 2.2 : 3.1, range(rng, 22, 28), 0);
 
   return finish(ctx, B, 48);
 }
