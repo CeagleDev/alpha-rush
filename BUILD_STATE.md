@@ -45,3 +45,23 @@ Camera locked: 1.3 m high, 3.8 deg down, hero 29 % of portrait frame, pack at 2.
 Claims measured against the bar: all seven separate bar from floor 100 % (the floor is weak, so use the
 previous round as the second control from round 1 on).
 Next after the asset agents land: integrator wires it, one gate run, snapshot rounds/r0/, then critic round 1.
+
+## Integration reading, 2026-09-20 (first real gate run on the assembled game)
+BUG FOUND AND FIXED: main.js's INIT_ORDER never called assets.init, so every assets.get() threw
+"assets.init(ctx) first" and every chunk, character and obstacle built EMPTY. The gate PASSED on
+that world (8 draws, 60 fps, 0 errors) because an empty level is fast — docs/traps.md's exact
+failure. tools/diag.mjs now prints the scene graph so this is visible, not inferred.
+After the fix: 787 meshes, and the gate measures a real world.
+
+Gate, seed 7, phone 390x844, real touch: 801 m, 94 coins, 14 jumps, 8 rolls, 60 fps median,
+peak 865 draws (budget 900), 1,038,968 tris (budget 1.5M), 3.40 MB, 0 console errors.
+Only failure: 36 x 404 for assets not yet delivered — clears as the agents land.
+
+BUDGET IS THE LIVE RISK: 849-865 draws and 1.04M tris were measured with 23 of 58 assets still
+cheap placeholder boxes. E4 has been asked to buy headroom (far-band swap, a coarser second
+per-block bake, phone tier) before the remaining assets land.
+
+Filmstrip observations (round 0, 35/58 assets): the alley reads — shophouses both sides, lanterns,
+cables, wet road with reflections, runner and shiba in frame at hero 29 %. The large pale boxes
+near the camera are the placeholder dog_spitz and dog_mutt (A5 will replace them). Expressway and
+ramp zones are nearly empty pending A9's deck/ramp and A8's steel.
