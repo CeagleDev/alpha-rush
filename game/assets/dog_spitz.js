@@ -13,7 +13,7 @@ export default function (THREE) {
     if (name) m.name = name;
     return m;
   };
-  const fur = M(0xe6ddd0, 'fabric');
+  const fur = M(0xbdb3a6, 'fabric');   // was 0xe6ddd0: near-white fur blew to a featureless white blob under the alley's close warm practicals
   const furShade = M(0xd4c9b9, 'fabric');
   const dirt = M(0x8b6141, 'fabric');
   const mud = M(0x5a4a3c, 'fabric');

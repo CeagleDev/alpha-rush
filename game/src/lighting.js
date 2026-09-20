@@ -83,8 +83,8 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 2.4, fillSkyGain: 0.55, fillGroundGain: 3.0,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
-  candela: qn('lgain', 1) * 80,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
+  fill: qn('fill', 1) * 1.8, fillSkyGain: 0.2, fillGroundGain: 3.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
+  candela: qn('lgain', 1) * 50,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
   // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
   // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
   // A wall sees the 50/50 mix, so the ground term is the brighter of the two on purpose.
@@ -94,8 +94,12 @@ export const PARAMS = {
   // A PointLight's `distance` is a hard cutoff, and assets author `range` as the size of the glow
   // on the fitting, not as how far the lamp throws. Multiply, or a sign 3 m up lights nothing at
   // road level and the ground-coupling check reads the same either side of it.
-  reach: qn('reach', 1) * 1.9,
-  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.22, poolRadius: 0.5,
+  reach: qn('reach', 1) * 1.5,
+  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.12, poolRadius: 0.5,
+  // A pool quad stands in for a practical that has NO live point light. Where a light does have
+  // one, the road is already lit for real and the quad lands on top of it: that double count is
+  // what blew the centre of the carriageway to white. Keep a fraction so the swap is not a step.
+  poolLive: 0.4,
   // Wet asphalt smears a reflection TOWARD the viewer, so the pool is an ellipse stretched along
   // z, not a disc: that is C7's "the road reflects the signs" and it is what carries the amber
   // into the bottom quarter, where a point light 3 m up cannot reach.
@@ -107,17 +111,22 @@ export const PARAMS = {
   // a warm key. At night the relationship inverts: the street is the warm source and the sky is
   // the cool one, so a wall should catch the street. Opened up, with the bounce itself driven from
   // the street colour rather than the (absent) sun.
-  bounce: qn('bounce', 1) * 1.9, bounceColor: 0xbf7c42, bounceSide: 0.6,
+  bounce: qn('bounce', 1) * 3.2, bounceColor: 0xbf7c42, bounceSide: 0.6,
   // The night exposure. The rig reads 1.25 off its atmosphere table for "well after sunset", which
   // is an exposure for an empty sky; a street lit by its own signs wants more, and the measured
   // build came in 13 luma under the bar's median with its 98th percentile 64 low. Set here rather
   // than passed to createRig because main.js owns that call.
-  exposure: qn('exposure', 1) * 1.12,
+  exposure: qn('exposure', 1) * 1.05,
   // Emissive faces are the only thing in a night frame that can reach the top of the curve (the
   // rig's bloom needs post, and the phone tier has none), and CLAIMS C2 is about exactly those
   // pixels. Assets author 1.8-3.0 per STYLE; this is the night's exposure of that channel, applied
   // to what is in the scene and re-applied as chunks spawn.
-  emissive: qn('emissive', 1) * 1.8,
+  emissive: qn('emissive', 1) * 2.0,
+  // ...and a CEILING on what that reaches, because the top of the ACES curve has no colour in it.
+  // Uncapped, a cream paper lantern goes to (233, 229, 217) and reads as a featureless white blob
+  // with its ribs gone; the reference's brightest pixels are sign faces that still show their
+  // strokes. Capped at the max emissive channel, in linear radiance before the curve.
+  emissiveCap: qn('emissivecap', 1) * 2.6,
 };
 
 let ctx = null, THREE = null, rig = null, scene = null;
@@ -494,7 +503,8 @@ function rebuildPools(list) {
     const y = l.floor + 0.02;
     const h = Math.max(0.5, l.y - l.floor);
     const fade = Math.min(1, 3.5 / h);                 // a lamp 10 m up pools fainter than a sign at 2.5
-    const a = PARAMS.poolOpacity * fade * Math.min(1, l.author / 0.9);
+    const live = slots.some((sl) => sl && sl.key === l.key);
+    const a = PARAMS.poolOpacity * fade * Math.min(1, l.author / 0.9) * (live ? PARAMS.poolLive : 1);
     c.setHex(l.color).multiplyScalar(a);
     // stretched toward the camera (-z, the way the runner came from) so the smear reads as a
     // reflection of the sign rather than as a disc painted on the road
@@ -534,7 +544,8 @@ export function update(dt) {
   // so a material scaled once is never scaled twice.
   if (frame < 240 ? frame % 15 === 0 : frame % 120 === 0) scaleEmissive(PARAMS.emissive);
   if (frame % 2 === 1) assign();
-  if (frame % 10 === 0 || frame < 3) rebuildPools(gather());
+  // the pool mesh depends on which lights are live, so rebuild it after assign(), not before
+  if (frame % 10 === 0 || frame < 3) { poolsHash = ''; rebuildPools(gather()); }
   if (skyDome) skyDome.position.copy(ctx.camera.position).setY(ctx.camera.position.y);
   if (skyDome) skyDome.scale.setScalar(Math.max(10, (ctx.camera.far || 400) * 0.5));
 }
@@ -564,23 +575,29 @@ export function tune(o = {}) {
   }
   if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
   if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.poolRadius !== undefined || o.poolInset !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
-  if (o.emissive !== undefined) scaleEmissive(o.emissive);
+  if (o.emissive !== undefined || o.emissiveCap !== undefined) scaleEmissive(PARAMS.emissive);
   if (o.bounce !== undefined || o.bounceColor !== undefined || o.bounceSide !== undefined) applyBounce();
   assign();
   rebuildPools(gather());
   return { ...PARAMS };
 }
 
-/** emissiveIntensity x k on every lit material in the scene, relative to what the asset authored. */
+/**
+ * The night's exposure of the emissive channel: every authored emissiveIntensity x k, then capped
+ * so no face exceeds PARAMS.emissiveCap of linear radiance in its brightest channel. The cap is
+ * what keeps a lantern a lantern; see the note on emissiveCap above.
+ */
 const emissive0 = new WeakMap();
 function scaleEmissive(k) {
   scene.traverse((o) => {
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
     for (const m of ms) {
       if (!m || !m.emissive || m.emissiveIntensity === undefined) continue;
-      if (m.emissive.r + m.emissive.g + m.emissive.b < 0.01) continue;
+      const peak = Math.max(m.emissive.r, m.emissive.g, m.emissive.b);
+      if (peak < 0.004) continue;
       if (!emissive0.has(m)) emissive0.set(m, m.emissiveIntensity);
-      m.emissiveIntensity = emissive0.get(m) * k;
+      const want = emissive0.get(m) * k;
+      m.emissiveIntensity = Math.min(want, PARAMS.emissiveCap / peak);
     }
   });
 }

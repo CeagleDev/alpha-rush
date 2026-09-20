@@ -33,7 +33,13 @@ const rep = await page.evaluate(() => {
     byName[k] = { meshes: m, visible: c.visible, pos: [c.position.x, c.position.y, c.position.z].map((v) => +v.toFixed(1)) };
   }
   const t = ctx.modules?.track || ctx.track;
-  return { ok: true, meshes, visible, tris: Math.round(tris), placeholders, topLevel: byName,
+  // draw-call census: count VISIBLE meshes per top-level group, which is what the renderer submits
+  const census = {};
+  for (const c of scene.children) { let m = 0; c.traverse((o) => { if (o.isMesh && o.visible) m++; }); if (m) census[c.name || c.type] = m; }
+  const matsPerChunk = [];
+  const trackG = scene.children.find((c) => c.name === 'track');
+  if (trackG) for (const ch of trackG.children) { let m = 0; ch.traverse((o) => { if (o.isMesh) m++; }); matsPerChunk.push({ name: ch.name || ch.userData?.variant || '?', meshes: m, z: +ch.position.z.toFixed(0) }); }
+  return { ok: true, meshes, visible, tris: Math.round(tris), placeholders, topLevel: byName, census, matsPerChunk,
     trackStats: t?.stats ? t.stats() : 'no stats()', playerObj: !!ctx.modules?.player?.getObject?.(),
     game: { ...window.__GAME__, next: undefined }, lights: scene.children.filter((c) => c.isLight).length };
 });

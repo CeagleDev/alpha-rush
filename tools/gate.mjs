@@ -2,7 +2,7 @@
 /**
  * midnight-dash gate: drive the runner with REAL input, photograph it at fixed distances, fail loudly.
  *
- *   node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--frames=6]
+ *   node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--frames=6]
  *
  * Phone (default): 390x844 @3x, touch, Android UA. Start is a real CDP touch tap on #startb; swipes are
  * real CDP touch sequences. --desktop: 1280x720, a real click and real arrow keys. The phone run is the
@@ -42,7 +42,7 @@ const flag = (k) => argv.includes(`--${k}`);
 const opt = (k, d) => { const a = argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3).replace(/^["']|["']$/g, '') : d; };
 const targetArg = argv.find((x) => !x.startsWith('--'));
 if (!targetArg) {
-  console.error('usage: node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--frames=6]');
+  console.error('usage: node tools/gate.mjs <game dir> [--phone|--desktop] [--seed=7] [--out=<dir>] [--runs=1] [--4g] [--clip] [--nohud] [--frames=6]');
   process.exit(2);
 }
 const target = path.resolve(targetArg);
@@ -100,7 +100,10 @@ const server = createServer((req, res) => {
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${server.address().port}`;
-const GAME_URL = `${BASE}/?seed=${SEED}&gate=1`;
+// --nohud captures the frames a critic judges: a HUD in the corner identifies our frame instantly
+// in a blind pair, and the reference frames have none.
+const NOHUD = argv.includes('--nohud');
+const GAME_URL = `${BASE}/?seed=${SEED}&gate=1${NOHUD ? '&nohud=1' : ''}`;
 
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await puppeteer.launch({
