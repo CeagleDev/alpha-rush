@@ -1,0 +1,79 @@
+{
+  "game": "/Users/dev/Documents/Cursor.Code/midnight-dash/game",
+  "utc": "2026-09-20T13:50:26.835Z",
+  "run": 1,
+  "seed": 7,
+  "viewport": {
+    "width": 810,
+    "height": 1440,
+    "deviceScaleFactor": 1,
+    "isMobile": true,
+    "hasTouch": true
+  },
+  "desktop": false,
+  "fourg": false,
+  "network": null,
+  "budgets": {
+    "DIST_M": 600,
+    "DEATH_M": 400,
+    "DRAWS": 900,
+    "TRIS": 1500000,
+    "READY_S": 20,
+    "MB": 5
+  },
+  "lead": {
+    "jump": [
+      0.35,
+      1.5
+    ],
+    "lane": [
+      0.55,
+      2
+    ],
+    "coin": [
+      0.65,
+      2
+    ]
+  },
+  "gesture_s": 0.15,
+  "ready_s": null,
+  "mb": 4.433,
+  "body_bytes": 4433329,
+  "started": "",
+  "start_fallback": false,
+  "no_next": false,
+  "distance_m": 0,
+  "died_at_m": null,
+  "stall": null,
+  "coins": 0,
+  "jumps": 0,
+  "rolls": 0,
+  "deaths": 0,
+  "score": 0,
+  "peak_draws": null,
+  "peak_tris": null,
+  "median_fps": null,
+  "min_fps": null,
+  "software": false,
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)",
+  "frames": [],
+  "decisions": [],
+  "missing": [],
+  "errors": [],
+  "outside": [],
+  "external": [],
+  "cdn": [
+    "cdn.jsdelivr.net"
+  ],
+  "clip": null,
+  "fails": [
+    "no __READY__: Waiting failed: 120000ms exceeded",
+    "distance 0 m, needs 600 m",
+    "no jump was performed (jumps = 0)",
+    "no roll was performed (rolls = 0)",
+    "no coins collected (coins = 0)",
+    "__GAME__.draws not exposed",
+    "__GAME__.tris not exposed"
+  ],
+  "result": "FAIL"
+}

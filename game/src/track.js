@@ -26,10 +26,10 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js';
-import * as obstacles from './obstacles.js';
-import * as coins from './coins.js';
-import * as farband from './farband.js';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609201508';
+import * as obstacles from './obstacles.js?v=202609201508';
+import * as coins from './coins.js?v=202609201508';
+import * as farband from './farband.js?v=202609201508';
 
 const PATTERN = ['A', 'A', 'A', 'A', 'A', 'A', 'RU', 'X', 'X', 'X', 'X', 'X', 'X', 'RD', 'B', 'B', 'B', 'B', 'B', 'B'];
 const ZONE = { A: 'alleyA', RU: 'rampUp', X: 'expressway', RD: 'rampDown', B: 'alleyB' };

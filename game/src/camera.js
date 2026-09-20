@@ -19,7 +19,7 @@
  * Reads: state.x/y/z/speed/running/over, ctx.camera, ctx.renderer, ctx.track.groundPitch (optional),
  * player.getAABB()/getObject(). Listens: 'hit', 'stumble', 'death', 'start'.
  */
-import { getAABB } from './player.js';
+import { getAABB } from './player.js?v=202609201508';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
@@ -30,7 +30,13 @@ const S = {
   dead: false, deadT: 0, first: true,
   px: 0, py: 0, pz: 0, ax: 0, ay: 0, az: 0, t: 0,
 };
-const HERO_H = 1.72, LOOK_DOWN = 0.09;   // rad, the camera's elevation above the hero centre (~1.3 m up)
+// LOOK_DOWN raised 0.09 -> 0.15 rad. Both critics wanted less sky: round 3 measured 49-60 % of the
+// upper frame as sky against the reference's 21-44 %, and the claims file's C4 had it at 63 % against
+// 39.6 %. Closing the street helped the mid-band detail but barely touched the sky, because the
+// reference's height-to-width ratio is ~2.3 and ours is ~0.95 even after narrowing — the geometry
+// cannot close that gap without either 17 m buildings or a 3 m street that will not hold three lanes.
+// Tilting the camera trades sky for road and frontage directly, and pulls with both critics.
+const HERO_H = 1.72, LOOK_DOWN = 0.15;   // rad, the camera's elevation above the hero centre (~1.3 m up)
 const AIM_DY = 0.10, AIM_DZ = 0.3;        // aim point relative to the hero centre: mid-torso, just ahead
 const PITCH_MAX = 10 * Math.PI / 180;
 let _v, _size, _corners;

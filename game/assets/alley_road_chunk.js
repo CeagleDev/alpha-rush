@@ -98,7 +98,10 @@ export default function (THREE) {
   // worn centre line: 2 m dashes, 2 m gaps, a couple missing
   for (let i = 0; i < 8; i++) {
     if (i === 3) continue;                                     // dashes span z -15..15 exactly, so chunks tile without overlap
-    B(0.10, 0.003, 1.6 + hash(i, 7) * 0.4, LINE, 0, 0.0225, -14 + i * 4);
+    // REMOVED (critic round 3): the dashed centre line. "No alley has them, and they are currently
+    // the most legible graphic element on the ground plane" — it read as a generic road asset
+    // dropped into a hand-built set. Worn down was not enough; it is gone.
+    void LINE; void i;
   }
   // oil stains, dark octagons
   for (let i = 0; i < 4; i++) {

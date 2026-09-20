@@ -24,12 +24,19 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
-import { signFace, noren } from './textures.js';
-import * as perf from './perf.js';
-import { bakeStatic } from '../assetlib.js';
+import { signFace, noren } from './textures.js?v=202609201508';
+import * as perf from './perf.js?v=202609201508';
+import { bakeStatic } from '../assetlib.js?v=202609201508';
 
 export const CHUNK_LEN = 30;
-export const SHOP_X = 4.5;          // shophouse front face |x|
+// CLOSE THE STREET (critic round 3, the one property). At 4.5 the shophouse fronts stood 9 m apart
+// and the critic read the set as "a four-lane boulevard, complete with dashed lane markings", not a
+// yokocho: sky filled 49-60 % of the upper frame against the reference's 21-44 %, nothing was close
+// enough to the camera to reward detail, and with no enclosure there was no bounce light. The
+// reference alleys run 3-4 m at the runner's depth, but three 2 m lanes of dodge space cannot fit in
+// that, so per the critic's own advice this halves the excess rather than matching outright:
+// 9.0 m between fronts becomes 7.4 m. The verge prop band narrows with it (see the placement below).
+export const SHOP_X = 3.7;          // shophouse front face |x|
 export const DECK_TOP = 0.8;        // expressway_deck slab thickness (ASSETS.md: 30 × 6 × 0.8)
 export const DECK_Y = 6;            // expressway running surface height
 export const ROAD_SURF = 0.02;      // alley/ramp assets: carriageway sits this far above the asset base
@@ -313,7 +320,7 @@ async function alley(ctx, variant) {
       const sz = await B.size(name);
       const along = ALONG.has(name);
       const w = along ? Math.min(sz.z, 1.4) : Math.min(sz.x, 1.4);
-      const x = s * (3.05 + w / 2 + rng() * Math.max(0, 1.4 - w));
+      const x = s * (3.05 + w / 2 + rng() * Math.max(0, 0.6 - w));   // band 3.05..3.65, inside the new shop line
       await B.put(name, x, 0, z, along ? (rng() < 0.5 ? 0 : Math.PI) : faceRoad(s));
       n++;
     }
