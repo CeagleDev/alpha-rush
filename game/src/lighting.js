@@ -83,28 +83,41 @@ export const SKY = {
   haze: 0x212841, below: 0x231718, band: 0x1d406f,
 };
 export const PARAMS = {
-  fill: qn('fill', 1) * 2.4,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
+  fill: qn('fill', 1) * 2.4, fillSkyGain: 0.55, fillGroundGain: 3.0,        // hemisphere intensity, linear irradiance (three >= r155: no PI on hemi); tuned in work/e4
   candela: qn('lgain', 1) * 80,     // author intensity (0.3..1.6) -> candela; see INTENSITY CONVENTION
-  emissive: qn('emissive', 1),      // scale on every emissiveIntensity in the scene (1 = as authored)
   // The fill is two temperatures on its own: dusk-blue from above, and the street's own amber
   // bounce from below, which is what keeps SHADE WARM (CLAIMS C3, R-B >= 8 in the dark cluster).
   // A wall sees the 50/50 mix, so the ground term is the brighter of the two on purpose.
-  fillSky: 0x3d5c92, fillGround: 0xc8763a, fillGroundGain: 1.9,
+  fillSky: 0x3d5c92, fillGround: 0xc8763a,
   poolPhone: 6, poolDesktop: 14,
   hysteresis: 4, ahead: 6, maxDist: 60, coolReach: 45,
   // A PointLight's `distance` is a hard cutoff, and assets author `range` as the size of the glow
   // on the fitting, not as how far the lamp throws. Multiply, or a sign 3 m up lights nothing at
   // road level and the ground-coupling check reads the same either side of it.
   reach: qn('reach', 1) * 1.9,
-  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.34, poolRadius: 0.55,
+  poolsOn: Q.get('pools') !== '0', poolOpacity: qn('pool', 1) * 0.22, poolRadius: 0.5,
   // Wet asphalt smears a reflection TOWARD the viewer, so the pool is an ellipse stretched along
   // z, not a disc: that is C7's "the road reflects the signs" and it is what carries the amber
   // into the bottom quarter, where a point light 3 m up cannot reach.
-  poolStretch: 1.6,
+  poolStretch: 1.6, poolInset: 0.2,
   panorama: Q.get('sky') !== '0',
   fogStart: 12, fogDensity: 0.008 * qn('fog', 1),
   envAmber: 0xe5b055, envAmberGain: 0.45,
-  bounce: qn('bounce', 1) * 0.09, bounceColor: 0xbf7c42,
+  // bounceSide is the rig's own dial and it keeps it at 0.15 so DAYLIGHT shade stays cool against
+  // a warm key. At night the relationship inverts: the street is the warm source and the sky is
+  // the cool one, so a wall should catch the street. Opened up, with the bounce itself driven from
+  // the street colour rather than the (absent) sun.
+  bounce: qn('bounce', 1) * 1.9, bounceColor: 0xbf7c42, bounceSide: 0.6,
+  // The night exposure. The rig reads 1.25 off its atmosphere table for "well after sunset", which
+  // is an exposure for an empty sky; a street lit by its own signs wants more, and the measured
+  // build came in 13 luma under the bar's median with its 98th percentile 64 low. Set here rather
+  // than passed to createRig because main.js owns that call.
+  exposure: qn('exposure', 1) * 1.12,
+  // Emissive faces are the only thing in a night frame that can reach the top of the curve (the
+  // rig's bloom needs post, and the phone tier has none), and CLAIMS C2 is about exactly those
+  // pixels. Assets author 1.8-3.0 per STYLE; this is the night's exposure of that channel, applied
+  // to what is in the scene and re-applied as chunks spawn.
+  emissive: qn('emissive', 1) * 1.8,
 };
 
 let ctx = null, THREE = null, rig = null, scene = null;
@@ -158,7 +171,10 @@ const isCool = (hex) => ((hex & 255) > ((hex >> 16) & 255));
 
 export async function init(c) {
   ctx = c; THREE = c.THREE; rig = c.rig; scene = c.scene;
-  exposure = c.renderer.toneMappingExposure || 1.25;
+  // Set the exposure FIRST: every sky stop below is fitted through ACES at this value, so fitting
+  // at the rig's 1.25 and then rendering at ours would put the whole dome off its palette target.
+  exposure = PARAMS.exposure;
+  c.renderer.toneMappingExposure = exposure;
   // Hour 19.4: the key is below the horizon and nothing else casts, so a shadow pass would be a
   // second draw of every chunk for nothing (E1 measured ~700k live tris). Off, on every tier.
   c.renderer.shadowMap.enabled = false;
@@ -177,7 +193,11 @@ export async function init(c) {
   if (scene.background && scene.background.isColor) scene.background.copy(rig.fog.color);
 
   // the fill: cool from above, warm from the street, low
-  rig.hemi.color.setHex(PARAMS.fillSky);
+  // The fill, warm-dominant. A HemisphereLight gives its `color` to UP-facing surfaces and its
+  // `groundColor` to down-facing ones, with walls on the mix — so at night the blue belongs mostly
+  // to the sky dome and the cool signs, not to this, or every unlit surface in the alley reads
+  // blue and CLAIMS C3 inverts (measured on the assembled build: R-B -6.5 against the bar's +7).
+  rig.hemi.color.setHex(PARAMS.fillSky).multiplyScalar(PARAMS.fillSkyGain);
   rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
   rig.hemi.intensity = PARAMS.fill;
   report_.fill = PARAMS.fill;
@@ -197,6 +217,7 @@ export async function init(c) {
   }
   report_.pool = N; c.state.lights.pool = N;
 
+  scaleEmissive(PARAMS.emissive);
   buildEnvironment();
   if (PARAMS.panorama) loadPanorama();      // not awaited: never delays READY
   poolsTex = radialTexture();
@@ -204,10 +225,11 @@ export async function init(c) {
 }
 
 function applyBounce() {
-  const b = rig.bounce && rig.bounce.uBounce;
-  if (!b) return;
+  const B = rig.bounce;
+  if (!B || !B.uBounce) return;
   const c = hexLin(PARAMS.bounceColor);
-  b.value.setRGB(c[0] * PARAMS.bounce, c[1] * PARAMS.bounce, c[2] * PARAMS.bounce);
+  B.uBounce.value.setRGB(c[0] * PARAMS.bounce, c[1] * PARAMS.bounce, c[2] * PARAMS.bounce);
+  if (B.uBounceSide) B.uBounceSide.value = PARAMS.bounceSide;
 }
 
 function applySkyStops(lin) {
@@ -271,6 +293,7 @@ async function loadPanorama() {
   const hz = ACES(g(-4, 3)); rig.fog.color.setRGB(hz[0], hz[1], hz[2]);
   if (scene.background && scene.background.isColor) scene.background.copy(rig.fog.color);
   report_.sky = 'panorama';
+  scaleEmissive(PARAMS.emissive);
   buildEnvironment();
   console.info(`[lighting] sky panorama on, gain ${skyGain.map((v) => v.toFixed(2)).join('/')}`);
 }
@@ -475,9 +498,13 @@ function rebuildPools(list) {
     c.setHex(l.color).multiplyScalar(a);
     // stretched toward the camera (-z, the way the runner came from) so the smear reads as a
     // reflection of the sign rather than as a disc painted on the road
+    // A sign stands ON THE VERGE, so a pool centred under it spends half its area against the
+    // shopfront where the camera never sees it. Pull the centre toward the road, which is also
+    // where a real shopfront throws most of its light.
+    const px = l.x * PARAMS.poolInset;
     const P = [[-r, 0, -rz], [r, 0, -rz], [r, 0, r], [-r, 0, r]], U = [[0, 0], [1, 0], [1, 1], [0, 1]];
     for (let k = 0; k < 4; k++) {
-      pos.set([l.x + P[k][0], y, l.z + P[k][2]], i * 12 + k * 3);
+      pos.set([px + P[k][0], y, l.z + P[k][2]], i * 12 + k * 3);
       uv.set(U[k], i * 8 + k * 2);
       col.set([c.r, c.g, c.b], i * 12 + k * 3);
     }
@@ -502,6 +529,10 @@ function rebuildPools(list) {
 export function update(dt) {
   if (!ctx) return;
   frame++;
+  // Chunks, obstacles and the pack arrive after this module's init (main.js init order), so the
+  // emissive exposure has to keep catching up. The WeakMap of authored values makes it idempotent,
+  // so a material scaled once is never scaled twice.
+  if (frame < 240 ? frame % 15 === 0 : frame % 120 === 0) scaleEmissive(PARAMS.emissive);
   if (frame % 2 === 1) assign();
   if (frame % 10 === 0 || frame < 3) rebuildPools(gather());
   if (skyDome) skyDome.position.copy(ctx.camera.position).setY(ctx.camera.position.y);
@@ -524,11 +555,17 @@ export function tune(o = {}) {
     rig.fog.far = PARAMS.fogStart + 3 / Math.max(1e-6, PARAMS.fogDensity) * 0.35;
   }
   if (o.fill !== undefined) { rig.hemi.intensity = PARAMS.fill; report_.fill = PARAMS.fill; }
-  if (o.fillSky !== undefined) rig.hemi.color.setHex(PARAMS.fillSky);
+  if (o.fillSky !== undefined || o.fillSkyGain !== undefined) rig.hemi.color.setHex(PARAMS.fillSky).multiplyScalar(PARAMS.fillSkyGain);
+  if (o.exposure !== undefined) {
+    exposure = PARAMS.exposure;
+    ctx.renderer.toneMappingExposure = exposure;
+    applySkyStops(Object.fromEntries(Object.entries(SKY).map(([k, h]) => [k, ACES_INV(hexLin(h))])));
+    if (skyDome) skyDome.material.uniforms.uExposure.value = exposure;
+  }
   if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
-  if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.poolRadius !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
+  if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.poolRadius !== undefined || o.poolInset !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
   if (o.emissive !== undefined) scaleEmissive(o.emissive);
-  if (o.bounce !== undefined || o.bounceColor !== undefined) applyBounce();
+  if (o.bounce !== undefined || o.bounceColor !== undefined || o.bounceSide !== undefined) applyBounce();
   assign();
   rebuildPools(gather());
   return { ...PARAMS };
@@ -595,6 +632,29 @@ export function groundCheck() {
     lum.sort((a, b) => a - b);
     out[k] = { luma: Math.round(lum[24]), rgb: rgb.map((c) => Math.round(c / 49)), px: [px + 3, size.y - (py + 3)] };
   }
+  // THE measurement, and the only one a continuously lit street cannot confound: the same road
+  // point with the practicals on and with them off. A neighbouring sign can brighten the "3 m
+  // away" control, and on this street one always does; nothing can brighten the off frame.
+  const keep = pool.map((L) => L.intensity);
+  const poolsWere = poolsMesh ? poolsMesh.visible : false;
+  for (const L of pool) L.intensity = 0;
+  if (poolsMesh) poolsMesh.visible = false;
+  rig.render(cam, 0.016);
+  const off = {};
+  for (const [k, p2] of Object.entries(pts)) {
+    if (!out[k] || !p2) { off[k] = null; continue; }
+    const px = out[k].px[0] - 3, py = size.y - out[k].px[1] - 3;
+    gl.readPixels(px, py, 7, 7, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    const l2 = [];
+    for (let i = 0; i < 49; i++) l2.push(0.299 * buf[i * 4] + 0.587 * buf[i * 4 + 1] + 0.114 * buf[i * 4 + 2]);
+    l2.sort((a, b) => a - b);
+    off[k] = Math.round(l2[24]);
+  }
+  for (let i = 0; i < pool.length; i++) pool[i].intensity = keep[i];
+  if (poolsMesh) poolsMesh.visible = poolsWere;
+  rig.render(cam, 0.016);
+  out.practicalsOff = off;
+  if (out.under && off.under !== null) out.coupling = +(out.under.luma / Math.max(1, off.under)).toFixed(2);
   if (out.under && out.dark) out.contrast = +(out.under.luma / Math.max(1, out.dark.luma)).toFixed(2);
   if (out.under && out.away6) out.ratio = +(out.under.luma / Math.max(1, out.away6.luma)).toFixed(2);
   out.darkAt = dark ? [+dark[0].toFixed(1), +dark[2].toFixed(1)] : null;

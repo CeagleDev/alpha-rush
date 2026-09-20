@@ -46,14 +46,15 @@ const ready = Date.now() - t0;
 await page.waitForFunction('(window.__FRAMES__ || 0) >= 24', { timeout: 60000 }).catch(() => {});
 if (args.sweep) {
   const combos = [];
-  for (const bounce of [0, 0.06, 0.12, 0.2]) for (const fill of [2.4, 3.6, 5.0]) combos.push({ bounce, fill, candela: 80, poolRadius: 0.55, poolStretch: 1.6, poolOpacity: 0.34 });
+  // edit this list for whatever is being tuned; every combo is measured in ONE browser launch
+  for (const fill of [1.8, 2.4, 3.2]) for (const bounce of [0.3, 0.6, 1.1]) combos.push({ fill, bounce });
   const rows = await page.evaluate(async (cs) => {
     const out = [];
     for (const c of cs) { window.__lighting.tune(c); await new Promise((r) => requestAnimationFrame(r)); out.push({ ...c, ...window.__MEASURE__() }); }
     return out;
   }, combos);
-  console.log('bnc  fill | median  p98  >200%  darkRB  amber%');
-  for (const r of rows) console.log(`${String(r.bounce).padEnd(4)} ${String(r.fill).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(5)} ${String(r.over200).padStart(6)} ${String(r.darkRB).padStart(7)} ${String(r.amberBot).padStart(7)}`);
+  console.log('fill bnc  | median  p98  >200%  darkRB  amber%');
+  for (const r of rows) console.log(`${String(r.fill).padEnd(4)} ${String(r.bounce).padEnd(4)} | ${String(r.median).padStart(6)} ${String(r.p98).padStart(5)} ${String(r.over200).padStart(6)} ${String(r.darkRB).padStart(7)} ${String(r.amberBot).padStart(7)}`);
 }
 if (args.lod) {
   for (const fogDensity of (args.fogs || '0.008,0.014,0.022').split(',').map(Number)) {

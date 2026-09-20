@@ -1,0 +1,1 @@
+/Users/dev/Documents/Cursor.Code/midnight-dash/game/assets/fire_ext_box.js

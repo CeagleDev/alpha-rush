@@ -1,0 +1,1 @@
+/Users/dev/Documents/Cursor.Code/midnight-dash/work/a6/cand/tin_awning/tin_awning_b.js

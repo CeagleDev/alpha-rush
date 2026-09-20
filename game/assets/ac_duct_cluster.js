@@ -1,4 +1,4 @@
-// ac_duct_cluster — arm A: primitives. Two dirty-white AC outdoor units on rusty L-brackets
+// ac_duct_cluster — WINNER (arm A): primitives. Two dirty-white AC outdoor units on rusty L-brackets
 // side by side on a plank wall fragment 2.0 w x 1.6 h, insulated pipes dropping to a
 // horizontal run with elbows, a flexible duct swept on a curve from the left unit up and
 // over to a wall pipe, a grey junction box and a coil of cable on the right, a louvred vent
