@@ -15,12 +15,12 @@ prop chassis. Built with 404-game-recipe + Atlas MCP + the RUST 17 lessons
 - User is on a laptop on battery: keep headless browser runs small (tiny viewport, no loops).
 
 ## Phases
-- [ ] P0 floor build — separate agent, cold, one pass, no Atlas, in ../midnight-dash-floor/ (running in background)
-- [ ] P1 style lock — STYLE.md (one sentence, hex palette, sizes, material names from asset-contract)
-- [ ] P2 bar frames via Atlas (street / highway / transition) → open → USER GO-AHEAD → claims written in CLAIMS.md
-- [ ] P3 object references via Atlas (~30 objects, one style suffix) → contact sheet → open → USER GO-AHEAD
-- [ ] P4 fan-out first pass: asset agents (5-8 objects each, 3 candidates, verify, pick) + engine agents (track/chunks, player+rig, camera, input touch/keys, lighting rig, HUD, audio) + integrator
-- [ ] P5 gate: harness/gate-runner.mjs in recipe harness/ (real touch swipes, seeded chunk sequence, photos at fixed distances, filmstrip, budget checks)
+- [x] P0 floor build DONE (../midnight-dash-floor, commit 402b8a9) — separate agent, cold, one pass, no Atlas, in ../midnight-dash-floor/ (running in background)
+- [x] P1 style lock DONE (STYLE.md v2 from the video) — STYLE.md (one sentence, hex palette, sizes, material names from asset-contract)
+- [x] P2 bar frames DONE (refs/bar-video, 20 frames) + CLAIMS.md measured, tools/claims.py via Atlas (street / highway / transition) → open → USER GO-AHEAD → claims written in CLAIMS.md
+- [x] P3 object references DONE (58, all approved) via Atlas (~30 objects, one style suffix) → contact sheet → open → USER GO-AHEAD
+- [x] P4 fan-out first pass (in progress): asset agents (5-8 objects each, 3 candidates, verify, pick) + engine agents (track/chunks, player+rig, camera, input touch/keys, lighting rig, HUD, audio) + integrator
+- [x] P5 gate DONE (tools/gate.mjs + GATE_CONTRACT.md): harness/gate-runner.mjs in recipe harness/ (real touch swipes, seeded chunk sequence, photos at fixed distances, filmstrip, budget checks)
 - [ ] P6 round 1..3: fresh critic, blind pairs vs bar (pairs.mjs), name the ONE property, fix agents, snapshot to rounds/rN/
 - [ ] P7 ship.mjs --stamp, jam.mjs against local serve URL, write NOTES.md (what is still wrong, declarations)
 
@@ -35,3 +35,13 @@ prop chassis. Built with 404-game-recipe + Atlas MCP + the RUST 17 lessons
 - 2026-09-19 Refs: batch 1 (12) APPROVED; batch 2 (13) + batch 4 (20 detail) downloaded, batch 3 (13) pending re-download (project was unpublished). G1 gate DONE (tools/gate.mjs, GATE_CONTRACT.md). FAN-OUT LAUNCHED: A1 runner+shiba, A2 shophouse_a/b+utility_pole+lantern_string, A3 noren+wall_lightbox+vending+crate_stack+kei_van, A4 tau_coin (traced from logo), E1 track/chunks/obstacles/coins/farband, E2 player/pack/camera/anim, E3 index/main/config/input/hud/audio, E4 assets/textures/chamfer/lighting/perf. Remaining assets (batches 2-4, 46 objects) await user go-ahead then A5-A10.
 - 2026-09-19 Batches 2-4 (46) APPROVED. A5-A10 launched (all 58 assets in flight). A4 tau_coin DONE (22 Shape commands traced from logo, 2,056 tris); user wants the worn-gold FINISH of the Atlas reference → Atlas PBR "gold" set + coin materials renamed `gold`/`gold_tarnish`, E4 maps them. Atlas jobs running: 5 PBR sets (gold, asphalt, tin, plank, deck) in project 55d1; sky + 8 sign sprites + 2 noren in project fcc7.
 - 2026-09-19 RATE LIMIT hit (session cap, reset 19:30 Lagos): A2,A3,A5-A10,E1,E2,E4 terminated mid-run; A1 (runner, shiba), A4 (coin), E3 (index/main/config/input/hud/audio) DONE. Partial files on disk. Resumed all 11 via SendMessage on user "resume". Coin materials renamed gold/gold_tarnish for the Atlas gold PBR set. Atlas: 15 PBR maps + sky + 8 signs + 2 noren generated.
+
+## Round 0 status (2026-09-20)
+Engine: ALL 19 modules in game/src (E1 track/chunks/obstacles/coins/farband, E2 player/pack/camera/anim,
+E3 index/main/config/input/hud/audio, E4 assets/textures/chamfer/lighting/perf).
+Assets: 13/58 delivered. In flight: A5 (7), A6 (8), A7 (8), A8 (6), A9 (6), A10 (10) = 45 more; E4 finishing.
+Textures: 26 files, 2.29 MB (5 PBR sets incl. gold for the coin, dusk sky, 8 sign faces, 2 noren).
+Camera locked: 1.3 m high, 3.8 deg down, hero 29 % of portrait frame, pack at 2.6 m visible 85 % of frames.
+Claims measured against the bar: all seven separate bar from floor 100 % (the floor is weak, so use the
+previous round as the second control from round 1 on).
+Next after the asset agents land: integrator wires it, one gate run, snapshot rounds/r0/, then critic round 1.
