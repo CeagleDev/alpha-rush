@@ -89,3 +89,11 @@ Claims vs the bar after E4's lighting pass (tools/claims.py, 6 frames vs 20):
 
 Critic round 1 running on 4 blind pairs (work/critic1/bar) against 4 bar frames, HUD off.
 Stopping rule: 3 critic rounds, then ship and write down what is still wrong.
+
+## Model decision (2026-09-20, user)
+Finish this build on Opus — the fix agents and the critics. Fable is to be used as a SECOND CRITIC
+later, run on identical pairs with the identical prompt so that any difference in verdict is the
+judge and not the build. Note for whoever runs it: rounds 1 and 2 were both judged by Opus, so a
+Fable verdict on the round-2 pairs (work/critic2/pairs, key in KEY.json) is the clean A/B.
+Round 0's 58 assets, engine modules and gate were built on Fable; every fix since is Opus. That is
+not a controlled comparison (different tasks) and should not be reported as one.
