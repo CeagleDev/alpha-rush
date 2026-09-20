@@ -131,7 +131,9 @@ globalThis.__ctx = ctx;   // for the integrator's console; not part of any contr
 
 // ---------------------------------------------------------------- boot
 const INIT_ORDER = [
-  ['textures', textures], ['perf', perf], ['lighting', lighting], ['track', track], ['obstacles', obstacles],
+  // assets.init must run before anything calls assets.get(): every chunk, character and obstacle
+  // resolves through it, and without it get() throws and the world builds EMPTY while the gate passes.
+  ['textures', textures], ['assets', assetsMod], ['perf', perf], ['lighting', lighting], ['track', track], ['obstacles', obstacles],
   ['coins', coins], ['player', player], ['pack', pack], ['camera', cameraMod], ['input', input], ['hud', hud], ['audio', audio],
 ];
 const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, cameraMod, lighting, perf, hud, audio];
