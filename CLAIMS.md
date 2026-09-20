@@ -30,3 +30,19 @@ faces in frame; lanterns in frame; litter on the road; the pack is visible behin
 | C5 side / centre edge density | 0.9 ± 0.1 | 0.3 | yes |
 | C7 bottom-quarter amber share | 6.1 ± 2.7 % | 0 % | yes — no wet-road reflections in the floor |
 Run: `python3 tools/claims.py bar=refs/bar-video floor=<frames> build=<frames> --sep=bar,build`. Two samples before you believe a column.
+
+## Aspect ratio: measure at the bar's shape or not at all (learned the hard way, 2026-09-20)
+The same build measured on the phone gate (390x844, 1:2.16) and at the bar's own shape (810x1440,
+9:16) disagrees badly, because every band here is a FRACTION of the frame and so covers a different
+amount of world at each aspect:
+
+| statistic | at 390x844 | at 810x1440 | bar (810x1440) |
+|---|---|---|---|
+| C1 median luma | 36.9 | 59.5 | 39.6 |
+| C7 bottom-quarter amber | 6.5 % | 17.7 % | 6.1 % |
+
+The 390x844 reading said C1 and C7 both matched the bar; at the bar's own shape both separate. The
+wider 9:16 frame simply shows more road in its bottom quarter. So: ALWAYS capture the measurement
+pass with `node tools/gate.mjs game --seed=7 --nohud --viewport=810x1440`, quote the capture size
+with every figure, and never compare two numbers taken at different shapes. The filmstrip a critic
+judges for PLAY still uses the phone viewport, because that is the shape people play.
