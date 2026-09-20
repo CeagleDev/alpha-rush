@@ -36,7 +36,11 @@ const S = {
 // reference's height-to-width ratio is ~2.3 and ours is ~0.95 even after narrowing — the geometry
 // cannot close that gap without either 17 m buildings or a 3 m street that will not hold three lanes.
 // Tilting the camera trades sky for road and frontage directly, and pulls with both critics.
-const HERO_H = 1.72, LOOK_DOWN = 0.15;   // rad, the camera's elevation above the hero centre (~1.3 m up)
+// 0.15 -> 0.24 rad (elevation ~1.9 m). The behaviour critic showed a crate in the runner's own lane
+// is invisible behind him until ~2-3 m at 1.3 m camera height: a human cannot react to what the
+// hero's back hides, and a 1.25 m crate stack then passes through the lens. From 1.9 m the next
+// row shows over the hero's shoulder and obstacle tops clear the camera.
+const HERO_H = 1.72, LOOK_DOWN = 0.24;   // rad, the camera's elevation above the hero centre
 const AIM_DY = 0.10, AIM_DZ = 0.3;        // aim point relative to the hero centre: mid-torso, just ahead
 const PITCH_MAX = 10 * Math.PI / 180;
 let _v, _size, _corners;
@@ -104,7 +108,9 @@ export function update(a, b) {
   if (S.dead) {
     S.deadT += dt;
     const e = 1 - Math.exp(-S.deadT * 1.2);
-    elev = LOOK_DOWN + 0.40 * e; yaw = 0.6 * e; aheadZ = 0.4; aheadY = AIM_DY - 0.5 * e; lagX = 1.6; lagY = 1.6;
+    // death cam: rise and come in a little but KEEP THE RUNNER IN FRAME - the old yaw of 0.6 rad
+    // swung the view onto the shophouse facade and the fall was never seen
+    elev = LOOK_DOWN + 0.30 * e; yaw = 0.18 * e; aheadZ = 0.2; aheadY = AIM_DY - 0.75 * e; lagX = 1.6; lagY = 1.6;
     dist *= 1 + 0.25 * e;
   }
   // offset in the slope frame, rotated by −pitch about X so ramps tilt the view

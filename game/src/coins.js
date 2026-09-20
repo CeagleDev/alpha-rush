@@ -140,7 +140,7 @@ export function update(dt = 0.016) {
   let got = 0;
   for (let i = 0; i < live.length; i++) {
     const r = live[i];
-    if (st.running !== false && r.z >= zLo && r.z <= zHi && Math.abs(r.x - px) <= MAGNET && Math.abs(r.y - chest) <= 1.15) {
+    if (st.running !== false && r.z >= zLo && r.z <= zHi && Math.abs(r.x - px) <= MAGNET && Math.abs(r.y - chest) <= 0.6) {   // was 1.15: arc-apex coins were collected from the ground, so jump arcs were decoration
       live[i] = live[live.length - 1]; live.pop(); i--; got++;
       if (ctx.events?.emit) ctx.events.emit('coin', { lane: r.lane, z: r.z });
       continue;
@@ -152,5 +152,8 @@ export function update(dt = 0.016) {
   mesh.instanceMatrix.needsUpdate = true;
   if (got) st.coins = (st.coins || 0) + got;
   st.score = Math.floor((st.coins || 0) + (st.distance || 0) / 10);
+  // a missed coin flies past the runner and, 0.4 s later, through the camera lens (it filled the
+  // frame in the critic's strips). Drop it once it is a metre in front of the lens (camera ~4.9 m back).
+  if (live.length) { const cut = pz - 4.0; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
   prevZ = pz;
 }

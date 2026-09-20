@@ -35,7 +35,7 @@ const DOGS = [
 ];
 const dogs = [];        // { name, obj, root, anim, x, z, y, dist, barkT, laneHist: [] , prevX, laneX }
 const HIT_CLOSE = 1.4;
-let packDist = 2.6, caught = false, dead = false, deadT = 0, clock = 0;
+let packDist = 2.6, closeTo = null, caught = false, dead = false, deadT = 0, clock = 0;   // closeTo: a hit's target distance, eased toward (was an instant 1.4 m lurch)
 let drawInfo = { before: 0, after: 0 };
 
 function cfgv(k, d) { return cfg && typeof cfg[k] === 'number' ? cfg[k] : d; }
@@ -48,7 +48,7 @@ function rnd() { const r = C && C.state && typeof C.state.rng === 'function' ? C
 
 function resetPack() {
   const s = C.state;
-  packDist = cfgv('PACK_DIST', 5); caught = false; dead = false; deadT = 0;
+  packDist = cfgv('PACK_DIST', 5); closeTo = null; caught = false; dead = false; deadT = 0;
   s.packDist = packDist;
   for (const d of dogs) {
     d.x = d.def.xOff; d.rel = -packDist + d.def.zOff; d.z = d.rel; d.y = groundY(d.z); d.dist = 0; d.prevX = d.x; d.laneX = 0;
@@ -81,8 +81,8 @@ export async function init(ctx) {
   if (ev && typeof ev.on === 'function') {
     ev.on('start', () => resetPack());
     // a hit closes the pack to ~1.2 m (PACK_DIST − 1.4), a stumble half that; catch stays at < 0.8 m
-    ev.on('hit', () => { packDist = Math.max(0, packDist - HIT_CLOSE); for (const d of dogs) d.barkT = Math.min(d.barkT, 0.1 + rnd() * 0.3); });
-    ev.on('stumble', () => { packDist = Math.max(0, packDist - HIT_CLOSE * 0.5); });
+    ev.on('hit', () => { closeTo = Math.max(0, (closeTo ?? packDist) - HIT_CLOSE); for (const d of dogs) d.barkT = Math.min(d.barkT, 0.1 + rnd() * 0.3); });
+    ev.on('stumble', () => { closeTo = Math.max(0, (closeTo ?? packDist) - HIT_CLOSE * 0.5); });
     ev.on('death', () => { dead = true; deadT = 0; });
   }
 }
@@ -95,7 +95,8 @@ export function update(a, b) {
   const live = s.running && !s.over && !dead;
 
   if (live) {
-    if (packDist < PD) packDist = Math.min(PD, packDist + 1.0 * dt);
+    if (closeTo !== null) { packDist = damp(packDist, closeTo, 3.5, dt); if (packDist - closeTo < 0.05) closeTo = null; }   // the dogs RUN up, ~0.6 s
+    else if (packDist < PD) packDist = Math.min(PD, packDist + 1.0 * dt);
     if (packDist < 0.8 && !caught) {
       caught = true; dead = true; deadT = 0;
       emit('death', { reason: 'caught', distance: s.distance });

@@ -292,7 +292,10 @@ export class RunnerAnim {
     } else if (mode === 'roll') {
       const T = s.T || 0.5;
       const u = clamp(t / T, 0, 1);
-      const k = smooth(t / 0.08) * smooth((T - t) / 0.10);
+      // hold the ball almost to the end: the critic found the runner upright by ~70 % of the window
+      // with the hitbox still halved, so the head passed through a 1.3 m bar with no hit. The tuck
+      // now releases only in the last 0.05 s.
+      const k = smooth(t / 0.07) * smooth((T - t) / 0.05);
       w = 1 - k;
       // tight ball
       b.rot('l_hip', f * -1.9 * k); b.rot('r_hip', f * -1.85 * k);
@@ -309,7 +312,9 @@ export class RunnerAnim {
       const k = Math.sin(u * Math.PI) * (s.hard ? 1 : 0.7);
       w = 1 - 0.45 * k;
       b.rot('spine', 0.55 * k); b.rot('chest', 0.25 * k); b.rot('head', -0.35 * k, 0.2 * k, 0);
-      b.rot('l_shoulder', f * -1.1 * k, 0, 0.9 * k); b.rot('r_shoulder', f * -0.6 * k, 0, -0.7 * k);
+      // arms forward and down (a catch-yourself stagger), not out to the sides - spread arms read
+      // as the jump pose in the critic's strips
+      b.rot('l_shoulder', f * -1.4 * k, 0, 0.25 * k); b.rot('r_shoulder', f * -1.0 * k, 0, -0.15 * k);
       b.rot('l_elbow', f * -0.4 * k); b.rot('r_elbow', f * -0.9 * k);
       b.rot('r_knee', f * 0.8 * k); b.rot('l_hip', f * -0.3 * k);
       b.pos('hips', 0, -0.12 * k, 0);
@@ -336,7 +341,7 @@ export class RunnerAnim {
       }
     }
     // lateral lean during lane changes and the ground pitch (half on the hips, head stays level)
-    const lv = clamp((s.laneVel || 0) / 12, -1, 1);
+    const lv = clamp((s.laneVel || 0) / 5, -1, 1);   // was /12: at a 0.18 s lane change the lean never registered
     const gp = clamp(s.groundPitch || 0, -0.35, 0.35);
     b.rot('hips', -gp * 0.5, 0, 0);
     b.rot('head', gp * 0.5, 0, 0);

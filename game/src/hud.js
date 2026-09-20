@@ -55,7 +55,9 @@ export async function init(c) {
   shown = { score: -1, coins: -1, dist: -1, zone: '', pack: -1, hot: null };
 
   c.events.on('start', () => { show('title', false); show('dead', false); showHud(true); shown.zone = ''; });
-  c.events.on('death', () => { fillDeath(); showHud(false); show('dead', true); });
+  // the overlay used to appear on the very frame of death, hiding the 0.8 s fall and the dogs'
+  // run-up behind a dimmed panel. Let it play, then show the card.
+  c.events.on('death', () => { fillDeath(); showHud(false); setTimeout(() => { if (c.state.over) show('dead', true); }, 1400); });
   c.events.on('restart', () => { show('dead', false); });
   c.events.on('hit', () => { if (el.pack) { el.pack.classList.add('hot'); shown.hot = true; } });
 }

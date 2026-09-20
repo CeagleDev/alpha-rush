@@ -33,10 +33,15 @@ const KINDS = {
     roll: ['banner_cluster_low', 'awning_strut_low'],
     block: ['kei_van', 'yatai_cart', 'vending_machine', 'parked_sedan'],
   },
-  expressway: { jump: ['roadworks_barrier'], roll: ['gantry_board_low'], block: ['concrete_divider'] },
+  // concrete_divider (1.02 m) was the expressway's BLOCK while roadworks_barrier (1.2 m) is its JUMP:
+  // a player who had just hopped the barrier would jump the lower divider and die. Blocks on the
+  // expressway are now broken-down vehicles; dividers stay as edge scenery placed by chunks.js.
+  expressway: { jump: ['roadworks_barrier'], roll: ['gantry_board_low'], block: ['parked_sedan', 'kei_van'] },
 };
 const LANES_WIDE = { gantry_board_low: 2 };
-const ROLL_CLEAR = 1.3, JUMP_CAP = 0.75, MAX_ROLL_LEN = 2.5, NEXT_RANGE = 60;
+// JUMP_CAP was 0.75: a 1.25 m crate stack only "existed" to 0.75 m, so a late jump ploughed the
+// shins through the top two crates with no hit. 0.9 leaves 20 cm under the 1.1 m apex.
+const ROLL_CLEAR = 1.3, JUMP_CAP = 0.9, MAX_ROLL_LEN = 2.5, NEXT_RANGE = 60;
 
 let ctx = null, seed = 1, root = null, LANE_X = [-2, 0, 2];
 const pools = new Map();     // type → {proto, size, kind, lanes, free: []}
@@ -117,12 +122,24 @@ function makeRow(rng, z, zone, d, chunkIndex) {
     const inst = acquire(it.type);
     const x = it.lanes.reduce((a, l) => a + LANE_X[l + 1], 0) / it.lanes.length;
     const zc = z + p.size.z / 2;
+    // Only banner_cluster_low is authored with its base at the HEM (hoist it to the clearance line);
+    // awning_strut_low and gantry_board_low stand on the ground with their bar/board already at
+    // 1.3 m. Hoisting all three put a scaffold pole at 2.6 m with its legs dangling in mid-air while
+    // its box still "hit" a runner walking underneath - the Fable critic's number one finding.
+    // Two different heights: where the INSTANCE stands, and where its HITBOX starts.
+    //  - banner_cluster_low is authored base-at-hem, so the instance is hoisted to ROLL_CLEAR;
+    //    awning_strut_low and gantry_board_low stand on the ground with their bar/board already at
+    //    1.3 m (hoisting them put a scaffold in mid-air - the Fable critic's number one finding).
+    //  - every ROLL hitbox starts at ROLL_CLEAR regardless: the thing in the LANE is the bar or the
+    //    board, and the legs stand outside it. Boxing a ground-standing strut from y = 0 made a
+    //    rolling runner collide with its legs (three deaths in one gate run).
+    const yInst = g + (it.kind === 'roll' && it.type === 'banner_cluster_low' ? ROLL_CLEAR : 0);
     const yBase = g + (it.kind === 'roll' ? ROLL_CLEAR : 0);
-    inst.position.set(x, yBase, zc);
+    inst.position.set(x, yInst, zc);
     inst.rotation.set(-pitch, 0, 0);
     inst.updateMatrixWorld(true);
     const hw = Math.min(p.size.x / 2, it.lanes.length > 1 ? p.size.x / 2 : 0.95);
-    const yTop = it.kind === 'jump' ? yBase + Math.min(p.size.y, JUMP_CAP) : yBase + p.size.y;
+    const yTop = it.kind === 'jump' ? yBase + Math.min(p.size.y, JUMP_CAP) : yInst + p.size.y;
     const box = new THREE.Box3(new THREE.Vector3(x - hw, yBase, z), new THREE.Vector3(x + hw, yTop, z + p.size.z));
     const lane = it.lanes.length === 1 ? it.lanes[0] : it.lanes[0];
     row.items.push({ id: row.id * 4 + it.lanes[0] + 1, kind: it.kind, type: it.type, lane, lanes: it.lanes, box, inst, row });
