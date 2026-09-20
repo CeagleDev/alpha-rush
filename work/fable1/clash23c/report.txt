@@ -1,0 +1,30 @@
+clashcheck  seed 23  1792 samples over 800 m  78 s  over=false  coins=71  hits=0
+console/page errors: 0
+
+PASS_THROUGH          0 distinct  (0 samples)
+
+JUMP_INTO_ROLL        0 distinct  (0 samples)
+
+ROLL_INTO_JUMP        0 distinct  (0 samples)
+
+DOG_IN_OBSTACLE       0 distinct  (0 samples)
+
+DOG_ON_RUNNER         0 distinct  (0 samples)
+
+DOG_ON_DOG            0 distinct  (0 samples)
+
+COIN_IN_OBSTACLE      0 distinct  (0 samples)
+
+RUNNER_SUNK           0 distinct  (0 samples)
+
+RUNNER_FLOAT          0 distinct  (0 samples)
+
+DOG_SUNK              0 distinct  (0 samples)
+
+DOG_FLOAT             0 distinct  (0 samples)
+
+NO_FREE_LANE          0 distinct  (0 samples)
+
+LANE_X_DRIFT          0 distinct  (0 samples)
+
+TOTAL distinct clashes: 0

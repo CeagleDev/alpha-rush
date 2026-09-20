@@ -72,7 +72,7 @@ export async function init(ctx) {
     after += countMeshes(asset);
     const obj = new THREE.Group(); obj.name = def.name; obj.add(asset);
     ctx.scene.add(obj);
-    dogs.push({ name: def.name, def, obj, root: asset, anim: new DogAnim(THREE, asset, i), x: 0, y: 0, z: 0, rel: 0, dist: 0, barkT: 2, laneHist: [], prevX: 0, laneX: 0 });
+    dogs.push({ name: def.name, def, obj, root: asset, anim: new DogAnim(THREE, asset, i), x: 0, y: 0, z: 0, rel: 0, dist: 0, barkT: 2, laneHist: [], prevX: 0, laneX: 0, avoid: null });
   }
   drawInfo = { before, after };
   ctx.state.packDraws = after;
@@ -116,7 +116,41 @@ export function update(a, b) {
     while (d.laneHist.length > 2 && d.laneHist[1][0] <= clock - def.lag) d.laneHist.shift();
     const lagLane = d.laneHist[0][1];
     const weave = live ? Math.sin(clock * def.weave + i * 2.1) * 0.15 : 0;
-    const tx = laneToX(lagLane) + def.xOff + weave;
+    // OBSTACLE AVOIDANCE. The pack used to follow the runner's lane blindly and ran straight through
+    // vans, carts, sedans and crates (the in-engine probe counted 58 and 83 instances over 800 m on
+    // two seeds). A dog steps to the nearest free lane at the next row ahead of it - free, or a
+    // hanging ROLL item, which a 0.6 m dog runs under - and holds that lane until it has passed
+    // the row, so it does not flip-flop on the boundary. Flank offsets shrink while avoiding so the
+    // dog stays inside its lane, and x is clamped to the carriageway so a dog beside a runner in an
+    // outer lane never runs along the verge through the props.
+    // The flank dogs run 1.35 m to the side of the runner's lane, which puts their BODY inside the
+    // neighbouring lane - so the test is on where the dog actually is (both edges of its 0.5 m body),
+    // not on the lane it is nominally following. First pass of this checked the nominal lane and
+    // left the flank dogs running through vans and sedans in the lane beside it.
+    let xT = laneToX(lagLane) + def.xOff;
+    const laneOf = (x) => Math.max(-1, Math.min(1, Math.round(x / 2)));
+    const obs = C.modules && C.modules.obstacles;
+    if (d.avoid && d.z > d.avoid.until) d.avoid = null;
+    if (d.avoid) xT = laneToX(d.avoid.lane) + def.xOff * 0.25;
+    else if (obs && typeof obs.rows === 'function') {
+      const ahead = 5 + 0.45 * speed;
+      for (const r of obs.rows()) {
+        const half = (r.len || 1) / 2;
+        if (r.z + half < d.z - 0.3) continue;
+        if (r.z - half > d.z + ahead) break;
+        const blocked = (l) => { const kk = r.lanes && r.lanes[l + 1]; return kk === 'jump' || kk === 'block'; };
+        const hit = blocked(laneOf(xT - 0.3)) || blocked(laneOf(xT + 0.3));
+        if (hit) {
+          const from = laneOf(xT);
+          const order = [from, ...[-1, 0, 1].filter((l) => l !== from).sort((a, b) => Math.abs(a - from) - Math.abs(b - from))];
+          // a lane is usable if its centre and the dog's body edges in it are all clear
+          const free = order.find((l) => !blocked(l) && !blocked(laneOf(laneToX(l) + def.xOff * 0.25 - 0.3)) && !blocked(laneOf(laneToX(l) + def.xOff * 0.25 + 0.3)));
+          if (free !== undefined) { xT = laneToX(free) + def.xOff * 0.25; d.avoid = { lane: free, until: r.z + half + 0.8 }; }
+        }
+        break;   // the nearest relevant row decides
+      }
+    }
+    const tx = clamp(xT + weave, -2.6, 2.6);
     // z is followed as an offset RELATIVE to the runner (damping toward a target that moves at 10–20 m/s
     // would settle v/rate metres short); only changes of packDist are smoothed
     const relT = -packDist + def.zOff - (dead ? 0.4 * i : 0);
