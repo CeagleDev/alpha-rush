@@ -23,9 +23,9 @@
  * coin (null | {dist, lane}), coinLane (null | -1|0|1) — exactly tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211528';
-import { groundY, groundPitch, frame } from './track.js?v=202609211528';
-import * as coins from './coins.js?v=202609211528';
+import { mulberry32, hash32 } from './chunks.js?v=202609211652';
+import { groundY, groundPitch, frame } from './track.js?v=202609211652';
+import * as coins from './coins.js?v=202609211652';
 
 const KINDS = {
   alley: {
@@ -50,6 +50,7 @@ const ROLL_CLEAR = 1.3, JUMP_CAP = 0.9, MAX_ROLL_LEN = 2.5, NEXT_RANGE = 60;
 let ctx = null, seed = 1, root = null, LANE_X = [-2, 0, 2];
 const pools = new Map();     // type → {proto, size, kind, lanes, free: []}
 let rowsList = [];           // live rows sorted by z
+const knocked = [];          // items mid-tumble: {it, t, dir, x0, y0, heavy}
 let rowId = 0, nextRowZ = 0, lastChunkZ0 = -1, prevFree = [-1, 0, 1], doneFrame = -1;
 
 // ---------------------------------------------------------------- pools
@@ -174,6 +175,8 @@ export function spawnChunk(rec) {
   return out;
 }
 export function releaseChunk(index) {
+  // an item still mid-tumble belongs to its row: drop the tumble, or it is released to the pool twice
+  for (let i = knocked.length - 1; i >= 0; i--) if (knocked[i].it.row && knocked[i].it.row.chunk === index) { knocked[i].it.inst.rotation.set(0, 0, 0); knocked.splice(i, 1); }
   rowsList = rowsList.filter((row) => {
     if (row.chunk !== index) return true;
     for (const it of row.items) releaseInst(it.type, it.inst);
@@ -204,13 +207,12 @@ export function hit(aabb) {
 // inside of a crate. Light items (JUMP kind: crates, coolers, a bicycle, a barrier) now get knocked
 // over: they tumble sideways off the lane, sink, and are released, and the row's lane is freed so
 // `next` and the dogs stop treating it as solid. BLOCK items are not knockable - a van stops you.
-const knocked = [];
 export function knock(item, dir = 1, force = false) {
   if (!item || item.knocked || (item.kind === 'block' && !force)) return false;
   item.knocked = true;
   // force = the charm took the crash: even a van or a hanging board is shoved clear. Heavy things
   // SLIDE out of the lane rather than tumble (heavy: true), a spinning van reads as a toy.
-  knocked.push({ it: item, t: 0, dir: dir >= 0 ? 1 : -1, x0: item.inst.position.x, y0: item.inst.position.y, heavy: item.kind !== 'jump' });
+  knocked.push({ it: item, t: 0, dir: dir >= 0 ? 1 : -1, x0: item.inst.position.x, y0: item.inst.position.y, heavy: item.kind === 'block' });
   const row = item.row;
   if (row && Array.isArray(row.lanes)) for (const l of item.lanes) row.lanes[l + 1] = null;
   return true;

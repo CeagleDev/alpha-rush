@@ -21,6 +21,7 @@
  */
 const KEY = 'md.save.v1';
 let ctx = null, S = null, save = null, lastDist = 0, cleanFrom = 0, dirty = false, saveT = 0;
+let base = { dist: 0, score: 0 };   // where the current set's one-run missions started counting
 
 function load() {
   try { const j = JSON.parse(localStorage.getItem(KEY) || 'null'); if (j && typeof j === 'object') return j; } catch (e) { /* no storage */ }
@@ -71,6 +72,8 @@ function bump(id, n = 1, absolute = false) {
     save.set = (save.set | 0) + 1; save.have = [0, 0, 0]; save.done = [false, false, false];
     ctx.events.emit('missionset', { mult: Math.min(30, 1 + save.set) });
     lastRunReset(true);
+    // QA 2026-09-21: a new set's "score N in one run" used to complete the instant it appeared
+    base = { dist: S.distance || 0, score: S.score || 0 }; cleanFrom = S.distance || 0;
   }
   dirty = true; publish();
 }
@@ -89,7 +92,7 @@ export async function init(c) {
   S.score = 0; S.mult = 1; S.newBest = false;
   publish();
   const ev = c.events;
-  ev.on('start', () => { S.score = 0; S.newBest = false; lastDist = 0; cleanFrom = 0; lastRunReset(false); publish(); });
+  ev.on('start', () => { S.score = 0; S.newBest = false; lastDist = 0; cleanFrom = 0; base = { dist: 0, score: 0 }; lastRunReset(false); publish(); });
   ev.on('coin', () => { S.score += 10 * (S.mult || 1); bump('coin', 1); });
   ev.on('jump', () => bump('jump', 1));
   ev.on('roll', () => bump('roll', 1));
@@ -110,8 +113,8 @@ export function update(dt) {
     const d = S.distance || 0;
     if (d > lastDist) S.score += (d - lastDist) * S.mult;
     lastDist = d;
-    bump('dist', d, true);
-    bump('score', S.score, true);
+    bump('dist', d - base.dist, true);
+    bump('score', S.score - base.score, true);
     bump('clean', d - cleanFrom, true);
   }
   saveT += dt;

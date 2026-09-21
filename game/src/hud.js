@@ -9,7 +9,7 @@
  * Palette: cream 0xeee2c8 on the dark frame, one accent 0xe5b055 (index.html :root). The τ mark is an inline SVG.
  * The restart button #restartb is wired by main.js; this file only shows and hides the overlay.
  */
-import config from './config.js?v=202609211528';
+import config from './config.js?v=202609211652';
 
 let ctx = null, state = null;
 let root = null, el = {};
@@ -85,6 +85,13 @@ export async function init(c) {
   c.events.on('start', () => { show('title', false); show('dead', false); showHud(true); shown.zone = ''; });
   // the overlay used to appear on the very frame of death, hiding the 0.8 s fall and the dogs'
   // run-up behind a dimmed panel. Let it play, then show the card.
+  c.events.on('death', (p) => {
+    // QA 2026-09-21: the card said "caught, the pack got you" after a head-on crash into a van
+    const crash = p && p.reason === 'block';
+    const h = document.querySelector('#dead h1'), t = document.querySelector('#dead .tag');
+    if (h) h.textContent = crash ? 'CRASHED' : 'CAUGHT';
+    if (t) t.textContent = crash ? 'straight into it' : 'the pack got you';
+  });
   c.events.on('death', () => { fillDeath(); fillMeta(); showHud(false); setTimeout(() => { if (c.state.over) show('dead', true); }, 1400); });
   c.events.on('restart', () => { show('dead', false); });
   c.events.on('powerup', (p) => toast(`${p.label}!`, 1400));

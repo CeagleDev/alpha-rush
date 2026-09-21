@@ -22,12 +22,12 @@
  * window.__GAME__ is rebuilt every frame with every field in tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { createRig } from '../rig.js?v=202609211528';
-import config from './config.js?v=202609211528';
-import * as input from './input.js?v=202609211528';
-import * as hud from './hud.js?v=202609211528';
-import * as audio from './audio.js?v=202609211528';
-import * as roadfx from './roadfx.js?v=202609211528';   // wet-road reflections + contact shadows (see ARCH.md addendum)
+import { createRig } from '../rig.js?v=202609211652';
+import config from './config.js?v=202609211652';
+import * as input from './input.js?v=202609211652';
+import * as hud from './hud.js?v=202609211652';
+import * as audio from './audio.js?v=202609211652';
+import * as roadfx from './roadfx.js?v=202609211652';   // wet-road reflections + contact shadows (see ARCH.md addendum)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -190,6 +190,7 @@ function start() {
     events.emit('restart');
   }
   state.over = false;
+  state.paused = false; { const pe = $('paused'); if (pe) pe.classList.remove('on'); }
   state.running = true;
   state.speed = config.SPEED0;
   events.emit('start', { restart });
@@ -209,6 +210,24 @@ for (const id of ['startb', 'restartb']) {
   b.addEventListener('click', start);
   b.addEventListener('touchend', () => { start(); });   // no preventDefault: the click still follows and start() is idempotent
 }
+
+// ---------------------------------------------------------------- pause
+// QA 2026-09-21: leaving the tab mid-run left the runner to die unattended (a hidden tab's frames stop,
+// then the run carried on the moment it was visible again, with nobody at the controls). Like the
+// reference games, the run PAUSES when the page is hidden or loses focus, and resumes on a tap.
+function setPaused(on) {
+  on = !!on && state.running && !state.over;
+  if (on === !!state.paused) return;
+  state.paused = on;
+  const el = $('paused'); if (el) el.classList.toggle('on', on);
+  try { if (audio.setPaused) audio.setPaused(on); } catch (e) { /* optional */ }
+  if (!on) { last = performance.now(); try { input.clear && input.clear(); } catch (e) { /* none queued */ } }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
+addEventListener('blur', () => { if (!config.GATE) setPaused(true); });
+{ const el = $('paused'); if (el) for (const ev of ['click', 'touchend']) el.addEventListener(ev, (e) => { e.preventDefault(); setPaused(false); }); }
+addEventListener('keydown', (e) => { if (state.paused && (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape' || e.key === 'p')) setPaused(false); else if (!state.paused && (e.key === 'Escape' || e.key === 'p')) setPaused(true); });
+window.__PAUSE__ = setPaused;
 
 // ---------------------------------------------------------------- resize
 function resize() {
@@ -230,10 +249,12 @@ function loop(now) {
   const inst = 1 / raw;
   fpsEma = fpsEma ? fpsEma + (inst - fpsEma) * 0.15 : inst;
   state.fps = fpsEma;
-  const dt = Math.min(raw, config.MAX_DT);
-  if (state.running) state.time += dt;
+  let dt = Math.min(raw, config.MAX_DT);
+  // PAUSED (tab hidden or window blurred mid-run): the world holds still, the frame still draws
+  if (state.paused) dt = 0;
+  if (state.running && !state.paused) state.time += dt;
 
-  for (const m of UPDATE_ORDER) {
+  if (!state.paused) for (const m of UPDATE_ORDER) {
     if (typeof m.update === 'function') m.update(dt, ctx);
   }
   rig.render(camera, dt);
@@ -266,7 +287,7 @@ function telemetry() {
     heroBox: state.heroBox,
     packDist: state.packDist,
     mult: state.mult, best: state.best, power: { magnet: state.magnetT || 0, shield: state.shieldT || 0, x2: state.x2T || 0, sneakers: state.sneakT || 0 },
-    running: state.running,
+    running: state.running, paused: !!state.paused,
     seed: config.SEED,
     tier: rig.tier?.name,
     time: state.time,

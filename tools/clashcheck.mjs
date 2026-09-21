@@ -66,7 +66,8 @@ const probe = () => {
   const items = [];
   for (const r of rows) for (const it of r.items) { const b = it.box; if (b && near((b.min.z + b.max.z) / 2)) items.push({ kind: it.kind, type: it.type, lane: it.lane, row: r.id, ...box(b) }); }
   const coins = (M.coins.liveCoins ? M.coins.liveCoins() : []).filter((k) => near(k.z)).map((k) => ({ x: k.x, y: k.y, z: k.z, lane: k.lane }));
-  const dogs = (M.pack.getDogs ? M.pack.getDogs() : []).map((d) => ({ name: d.name, x: d.obj.position.x, y: d.obj.position.y, z: d.obj.position.z }));
+  // only dogs the player can SEE: pack.js hides them once they drop 6 m behind, and a hidden dog's path is not a glitch
+  const dogs = (M.pack.getDogs ? M.pack.getDogs() : []).filter((d) => d.obj.visible !== false).map((d) => ({ name: d.name, x: d.obj.position.x, y: d.obj.position.y, z: d.obj.position.z }));
   const a = M.player.getAABB ? M.player.getAABB() : null;
   const gy = (z) => (M.track.groundY ? M.track.groundY(z) : 0);
   const freeLanes = rows.filter((r) => near(r.z)).map((r) => ({ id: r.id, z: r.z, free: (r.lanes || []).filter((l) => !l).length }));

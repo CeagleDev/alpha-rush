@@ -5,7 +5,7 @@
  *   omamori  20 s  a protective charm = Subway Surfers' hoverboard: absorbs ONE crash, then it is spent
  *                  (player.js reads state.shieldT and calls absorb())
  *   x2       12 s  doubles the score multiplier (progress.js reads state.x2T)
- *   sneakers 10 s  super sneakers: jump apex 1.1 m -> 2.0 m (player.js reads state.sneakT)
+ *   sneakers 10 s  super sneakers: jump apex 1.1 m -> 1.75 m (player.js reads state.sneakT)
  *
  * exports: init(ctx), update(dt), live() (for tools/clashcheck), absorb() -> true when a shield took the hit
  *
@@ -20,9 +20,9 @@
  * Emits 'powerup' {type}, 'shieldbreak'. Listens 'start' (clear everything).
  */
 import * as THREE from 'three';
-import { mulberry32, hash32, CHUNK_LEN } from './chunks.js?v=202609211528';
-import { groundY, chunkAt } from './track.js?v=202609211528';
-import * as obstacles from './obstacles.js?v=202609211528';
+import { mulberry32, hash32, CHUNK_LEN } from './chunks.js?v=202609211652';
+import { groundY, chunkAt } from './track.js?v=202609211652';
+import * as obstacles from './obstacles.js?v=202609211652';
 
 export const TYPES = {
   magnet:   { asset: 'pickup_magnet',   dur: 10, key: 'magnetT', ring: 0xff5a4a, label: 'magnet' },
@@ -113,8 +113,14 @@ export async function init(c) {
   root = new THREE.Group(); root.name = 'powerups'; c.scene.add(root);
   await Promise.all(ORDER.map(loadProto));
   // the charm's protection, shown: a thin pale shell round the runner while it lasts
-  shield = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18),
-    new THREE.MeshBasicMaterial({ color: 0x9fdcff, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide }));
+  // QA 2026-09-21: a flat additive sphere read as a milky egg that HID the runner (worst by day and with
+  // bloom). A shield is its rim: opacity follows the grazing angle, so the middle is clear glass and
+  // only the silhouette glows.
+  shield = new THREE.Mesh(new THREE.SphereGeometry(1, 36, 24), new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(0x9fdcff) }, uOpacity: { value: 1 } },
+    vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 uColor; uniform float uOpacity; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 3.2); gl_FragColor = vec4(uColor, (0.03 + 0.62 * f) * uOpacity); }',
+    transparent: true, depthWrite: false, blending: THREE.NormalBlending, side: THREE.FrontSide, fog: false, toneMapped: false }));
   shield.name = 'shield'; shield.visible = false; shield.renderOrder = 4; shield.scale.set(0.62, 0.95, 0.62);
   c.scene.add(shield);
   c.events.on('start', clearAll);
@@ -143,7 +149,8 @@ export function update(dt = 0.016) {
   spin += dt * 2.4;
   if (prevZ === null || pz < prevZ - 5) prevZ = pz;
   const zLo = Math.min(prevZ, pz) - REACH, zHi = Math.max(prevZ, pz) + REACH;
-  const camZ = ctx.camera ? ctx.camera.position.z : pz - 5;
+  const cz0 = ctx.camera ? ctx.camera.position.z : NaN;
+  const camZ = Number.isFinite(cz0) && cz0 < pz && cz0 > pz - 30 ? cz0 : pz - 5.7;   // see coins.js: never cull against a camera that has not arrived
   for (let k = items.length - 1; k >= 0; k--) {
     const it = items[k];
     const sp = it.obj.getObjectByName('spin'); if (sp) { sp.rotation.y = spin; sp.position.y = Math.sin(spin * 1.3 + it.z) * 0.06; }
@@ -164,7 +171,7 @@ export function update(dt = 0.016) {
     if (on) {
       shield.position.set(px, py + (st.rolling ? 0.5 : 0.82), pz);
       const blink = st.shieldT < 3 ? (Math.sin(st.shieldT * 14) > 0 ? 1 : 0.35) : 1;
-      shield.material.opacity = 0.13 * blink;
+      shield.material.uniforms.uOpacity.value = blink;
       shield.scale.set(0.62, st.rolling ? 0.55 : 0.95, 0.62);
     }
   }

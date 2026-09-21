@@ -26,10 +26,10 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609211528';
-import * as obstacles from './obstacles.js?v=202609211528';
-import * as coins from './coins.js?v=202609211528';
-import * as farband from './farband.js?v=202609211528';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609211652';
+import * as obstacles from './obstacles.js?v=202609211652';
+import * as coins from './coins.js?v=202609211652';
+import * as farband from './farband.js?v=202609211652';
 
 // THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
 // last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls
@@ -168,6 +168,9 @@ export async function init(c) {
   await coins.init(ctx);
   await farband.init(ctx);
   lastZone = null;
+  // QA 2026-09-21: a restart after an EARLY death kept the chunks that were still live, with their
+  // coins already collected and their knocked-over obstacles gone. A new run gets a new street.
+  if (ctx.events && ctx.events.on) ctx.events.on('start', () => { for (const i of [...live.keys()]) release(i); lastZone = null; update(0); });
   update(0);
 }
 

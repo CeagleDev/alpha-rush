@@ -155,3 +155,34 @@ Still wrong / not done
 - Not built from the reference games: running on vehicle roofs via ramps, moving traffic, a flight section,
   revive, daily challenge. Power-up pickups were not three-candidate assets.
 - The rebuilt runner's face and hands are simple; fine from the chase camera, weak on the title screen.
+
+## 2026-09-21, QA pass (owner: "run a check for glitches ... play the game yourself")
+
+Played in the owner's Chrome (landscape, high tier, bloom) and in headless runs. New tools: tools/qa_death.mjs
+(films stumble / crash / caught), tools/qa_restart.mjs, tools/qa_pause.mjs.
+
+Found and fixed
+1. Head-on hit on a slide-under bar: the runner stumbled THROUGH it and it stayed standing. It is knocked away now.
+2. Restart after a far death: the new run had NO coins (the coin cull was keyed to a camera still at the death spot).
+3. Restart after an early death: chunks still live kept their collected coins and knocked-over obstacles. All
+   chunks are rebuilt on 'start'; a mid-tumble item released with its chunk is no longer pooled twice.
+4. Death camera rose to ~4.3 m, into the lantern strings: a lantern filled the top of the death screen. It now
+   stays under 2.5 m and comes in instead.
+5. Death card said "CAUGHT, the pack got you" after a vehicle crash. Now "CRASHED" for block deaths.
+6. A new set's "score N in one run" mission completed the instant it appeared. One-run missions count from the
+   moment their set starts.
+7. No pause: leaving the tab left the run unattended. Auto-pause on hidden / blur, PAUSED overlay, tap / Space to resume.
+8. Cloth strings hung at 2.0 m (below the 2.2 m lens) and lanterns at 2.9 m: the camera flew through cloth and a
+   jump put his head through lanterns. Raised to 2.85 m / 3.35 m; super-sneaker apex 2.0 -> 1.75 m.
+9. The charm's shield was a milky egg hiding the runner. It is a rim-glow shell now.
+Not a game bug: a "stall" at start in Chrome was Chrome pausing a HIDDEN tab (window behind the editor).
+clashcheck now ignores dogs that pack.js has hidden.
+
+Measured after the fixes: gate PASS (802 m, 95 coins, peak 482 draws, 1.33M tris, 0 errors); jam PASS (ready 14.5 s
+on 4G, 4.5 MB); clashcheck 0 clashes on seeds 7, 23, 41, 101 steered and 7, 23 unsteered; 1,561 m two-cycle run with
+every pickup forced: 0 errors, no growth in draws or triangles.
+
+Seen, not fixed
+- Owner's Chrome runs ~30 fps (min 22) at 1414x1035 on the high tier on battery; peak 1.47M triangles there.
+- In landscape, missed coins in a side lane pass large and close to the lens before they are culled.
+- The fall is a forward collapse onto hands and knees; there is no separate "thrown back" animation for a vehicle crash.

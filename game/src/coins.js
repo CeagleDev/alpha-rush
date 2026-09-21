@@ -17,8 +17,8 @@
  * state fields written (defaults in init): coins (0), score (0). Reads x, y, z, distance.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211528';
-import { groundY, frame } from './track.js?v=202609211528';
+import { mulberry32, hash32 } from './chunks.js?v=202609211652';
+import { groundY, frame } from './track.js?v=202609211652';
 
 const CAP = 512, HOVER = 1.0, SPACING = 1.5, MAGNET = 0.9, MAGNET_AHEAD = 9, MAGNET_PULL = 9;
 let ctx = null, seed = 1, mesh = null, LANE_X = [-2, 0, 2];
@@ -184,7 +184,11 @@ export function update(dt = 0.016) {
   // frame in the critic's strips). Drop it once it is a metre in front of the lens (camera ~4.9 m back).
   // keyed to the CAMERA, not the runner: after a hit the camera closes in on him (fov/distance
   // follow speed), and a runner-relative margin let a missed coin fill the lens on the death sheet.
-  const camZ = ctx.camera ? ctx.camera.position.z : pz - 4.9;
+  // ...but only a camera that is actually BEHIND the runner: on the first frame of a restart the camera
+  // is still at the old death spot (camera.js updates after this module), and keying the cull to it
+  // deleted every coin of the new run (QA 2026-09-21: a restarted run had no coins at all).
+  const cz0 = ctx.camera ? ctx.camera.position.z : NaN;
+  const camZ = Number.isFinite(cz0) && cz0 < pz && cz0 > pz - 30 ? cz0 : pz - 5.7;
   if (live.length) { const cut = camZ + 0.9; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
   prevZ = pz;
 }

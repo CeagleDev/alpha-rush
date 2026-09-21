@@ -28,7 +28,7 @@
  * The speed ramp is a pure function of distance (9 → 20 m/s, +0.6 per 150 m), so ?gate=1 is
  * satisfied by construction; the stumble factor multiplies it.
  */
-import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609211528';
+import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609211652';
 
 const HERO_ALBEDO = 0.62;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -131,7 +131,8 @@ function startJump() {
   // SUPER SNEAKERS (powerups.js): while they last the apex goes 1.1 m -> 2.0 m and the hang time with it.
   // Fixed at take-off so a power-up that runs out mid-air does not drop him out of the sky.
   const boots = (s.sneakT || 0) > 0;
-  P.jumpH = boots ? 2.0 : cfgv('JUMP_H', 1.1); P.jumpHalf = boots ? 0.70 : cfgv('JUMP_T', 0.55);
+  // 2.0 -> 1.75 (QA): at 2.0 m his head reached 3.55 m, into the lantern strings that now hang at 3.35 m
+  P.jumpH = boots ? 1.75 : cfgv('JUMP_H', 1.1); P.jumpHalf = boots ? 0.66 : cfgv('JUMP_T', 0.55);
   P.jumpT = 0; P.mode = 'jump'; P.modeT = 0; P.modeLen = 2 * P.jumpHalf;
   s.airborne = true; s.jumps = (s.jumps | 0) + 1;
   emit('jump', { z: s.z });
@@ -299,7 +300,9 @@ export function update(a, b) {
         // front of it and cannot run into it, and unless he dodges out of the lane within ~0.6 s
         // the pack has him. That is the spec's "head-on block = caught", made physical.
         const bx = r && r.box ? (r.box.min.x + r.box.max.x) / 2 : s.x;
-        if (info.kind === 'jump' && r && obstaclesMod().knock) { obstaclesMod().knock(r, s.x <= bx ? -1 : 1); s.z -= 0.3; s.distance = s.z; }
+        // QA 2026-09-21: a ROLL item (bar, banner, board) hit head-on used to stay standing while the
+        // runner stumbled THROUGH it. It is knocked away like the light ground items are.
+        if ((info.kind === 'jump' || info.kind === 'roll') && r && obstaclesMod().knock) { obstaclesMod().knock(r, s.x <= bx ? -1 : 1, info.kind === 'roll'); s.z -= 0.3; s.distance = s.z; }
         if (info.kind === 'block' && r && r.box) { P.wall = { z: r.box.min.z - 0.55, x: bx, t: 0 }; s.z = Math.min(s.z, P.wall.z); s.distance = s.z; }
         // CRASH vs STUMBLE, as the reference games rule it: a HARD obstacle head-on (van, cart, sedan,
         // vending machine) ends the run on the spot; a LIGHT one (crates, cooler, bicycle, barrier, a

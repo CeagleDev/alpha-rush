@@ -1,0 +1,22 @@
+// qa_pause.mjs — leave the tab mid-run, come back: the run must hold still, show PAUSED, and resume on a tap.
+import { createRequire } from 'module';
+const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const puppeteer = require('puppeteer');
+const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--use-angle=metal', '--enable-gpu'] });
+const page = await browser.newPage(); await page.setViewport({ width: 405, height: 720, deviceScaleFactor: 1 });
+const logs = []; page.on('pageerror', (e) => logs.push('PAGEERROR ' + String(e).slice(0, 200)));
+await page.goto(`http://localhost:8080/__game__/game/?seed=7&mute=1&r=${Date.now()}`, { waitUntil: 'load' });
+await page.waitForFunction('window.__READY__ === true', { timeout: 90000 });
+await page.click('#startb'); await new Promise((r) => setTimeout(r, 1500));
+const g = () => page.evaluate(() => ({ d: +window.__GAME__.distance.toFixed(1), paused: window.__GAME__.paused, overlay: document.getElementById('paused').classList.contains('on'), vis: document.visibilityState, over: window.__GAME__.over }));
+console.log('running      ', JSON.stringify(await g()));
+const other = await browser.newPage(); await other.goto('about:blank'); await other.bringToFront();
+await new Promise((r) => setTimeout(r, 2500));
+const a = await g(); console.log('tab hidden   ', JSON.stringify(a));
+await page.bringToFront(); await new Promise((r) => setTimeout(r, 1500));
+const b = await g(); console.log('back, waiting', JSON.stringify(b));
+await page.screenshot({ path: 'work/qa/paused.png' });
+await page.click('#paused'); await new Promise((r) => setTimeout(r, 1500));
+const c = await g(); console.log('after tap    ', JSON.stringify(c));
+console.log(b.d === a.d && b.paused && b.overlay && !c.paused && c.d > b.d + 5 ? 'PAUSE PASS' : 'PAUSE FAIL');
+logs.forEach((l) => console.log(l)); await browser.close();

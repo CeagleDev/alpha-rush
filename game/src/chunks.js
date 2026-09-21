@@ -24,9 +24,9 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
-import { signFace, noren } from './textures.js?v=202609211528';
-import * as perf from './perf.js?v=202609211528';
-import { bakeStatic } from '../assetlib.js?v=202609211528';
+import { signFace, noren } from './textures.js?v=202609211652';
+import * as perf from './perf.js?v=202609211652';
+import { bakeStatic } from '../assetlib.js?v=202609211652';
 
 export const CHUNK_LEN = 30;
 // CLOSE THE STREET (critic round 3, the one property). At 4.5 the shophouse fronts stood 9 m apart
@@ -360,15 +360,19 @@ async function alley(ctx, variant) {
   // six-light pool swapped on every lantern passed (measured: 19 orange/washed flips in 6.4 s).
   if (isDay) {
     // cloth, not light: a noren string and laundry across the street, high enough to run under
-    await B.put('noren_string', 0, 2.3, range(rng, 5, 12), 0);
-    if (rng() < 0.6) await B.put('noren_string', 0, 2.5, range(rng, 18, 26), 0);
+    await B.put('noren_string', 0, 2.85, range(rng, 5, 12), 0);
+    if (rng() < 0.6) await B.put('noren_string', 0, 3.0, range(rng, 18, 26), 0);
     return finish(ctx, B, 30);
   }
   const str = isB ? 'noren_string' : 'lantern_string';
   const other = isB ? 'lantern_string' : 'noren_string';
-  await B.put(str, 0, isB ? 2.0 : 2.9, range(rng, 4, 11), 0);
-  await B.put(other, 0, isB ? 2.9 : 2.0, range(rng, 13, 20), 0);
-  if (rng() < 0.7) await B.put(str, 0, isB ? 2.2 : 3.1, range(rng, 22, 28), 0);
+  // HEIGHTS (QA 2026-09-21). Cloth hung at 2.0 m and lanterns at 2.9 m put both BELOW or AT the lens
+  // (2.2 m) and the jumping runner's head (2.7 m): the camera flew through the cloth and a jump put
+  // his head through a lantern. Everything that crosses the lanes now clears a jumping runner.
+  const NOREN_Y = 2.85, LANTERN_Y = 3.35;
+  await B.put(str, 0, isB ? NOREN_Y : LANTERN_Y, range(rng, 4, 11), 0);
+  await B.put(other, 0, isB ? LANTERN_Y : NOREN_Y, range(rng, 13, 20), 0);
+  if (rng() < 0.7) await B.put(str, 0, isB ? NOREN_Y + 0.15 : LANTERN_Y + 0.15, range(rng, 22, 28), 0);
 
   return finish(ctx, B, 48);
 }

@@ -19,7 +19,7 @@
  * Reads: state.x/y/z/speed/running/over, ctx.camera, ctx.renderer, ctx.track.groundPitch (optional),
  * player.getAABB()/getObject(). Listens: 'hit', 'stumble', 'death', 'start'.
  */
-import { getAABB } from './player.js?v=202609211528';
+import { getAABB } from './player.js?v=202609211652';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
@@ -114,8 +114,12 @@ export function update(a, b) {
     const e = 1 - Math.exp(-S.deadT * 1.2);
     // death cam: rise and come in a little but KEEP THE RUNNER IN FRAME - the old yaw of 0.6 rad
     // swung the view onto the shophouse facade and the fall was never seen
-    elev = LOOK_DOWN + 0.30 * e; yaw = 0.18 * e; aheadZ = 0.2; aheadY = AIM_DY - 0.75 * e; lagX = 1.6; lagY = 1.6;
-    dist *= 1 + 0.25 * e;
+    // QA 2026-09-21: rising 0.30 rad at 1.25x the distance took the lens to ~4.3 m - INTO the lantern
+    // strings (2.4-3.1 m) and cable spans (4.6 m+), so a paper lantern filled the top of the death
+    // screen. The camera now stays under the street's clutter (<= ~2.5 m): it comes IN and tips
+    // down a little instead of going up.
+    elev = LOOK_DOWN + 0.08 * e; yaw = 0.18 * e; aheadZ = 0.2; aheadY = AIM_DY - 0.55 * e; lagX = 1.6; lagY = 1.6;
+    dist *= 1 - 0.12 * e;
   }
   // offset in the slope frame, rotated by −pitch about X so ramps tilt the view
   const back = dist * Math.cos(elev), up = dist * Math.sin(elev);
