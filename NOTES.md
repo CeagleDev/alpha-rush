@@ -107,3 +107,21 @@ Still open from that round:
  - a hit on a ROLL bar while upright: the head passes through the thin pole after the stumble.
  - the critic's hand-test list: swipe feel and latency on a real phone; restart in place; death by
    pack on open road; the banner_cluster hems at 1.3 m; landscape aspect; expressway pop-in at 150 m.
+
+## Rules pass from the reference games (2026-09-21)
+Looked up Subway Surfers, Temple Run, Talking Tom Gold Run and Sonic Dash and aligned our rules:
+ - CHASER VISIBILITY (SS guard / TR monkeys): pack 2.4 m behind for the first 3.5 s, then falls out of
+   frame (hidden outright beyond 6 m); any stumble brings it surging to 1.9 m for 6 s
+   (state.packChase counts down); a SECOND stumble inside that window = caught.
+ - CRASH vs STUMBLE: a hard obstacle head-on (van, cart, sedan, vending machine) ends the run on the
+   spot; light obstacles (crates, cooler, bicycle, barrier, banner/bar to the head) and side clips are
+   stumbles. Light items still get knocked over.
+ - SIDE CLIP mid lane-change bounces the runner back to the lane he came from (SS train-side bump).
+ - SLIDE 0.5 -> 0.8 s (user: "too quick"); swipe UP during a slide cancels into a jump; swipe DOWN in
+   mid-air is a fast-fall that lands into a slide (SS's jump-cancel). Lane changes in the air were
+   already allowed.
+ - Expressway "barricades" the runner passed through were guard rails placed ACROSS the road (asset
+   authored along X, no rotation): edge furniture now runs along the road.
+Not built yet, proposed from the same research: power-ups (magnet, shield/helmet, score multiplier,
+jetpack-style flight section), running on top of vehicles via ramps, coins as one-hit protection
+(Sonic Dash rings), a dash meter filled by coins, missions/daily goals, a boss section (Tom Gold Run).

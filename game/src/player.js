@@ -45,7 +45,7 @@ let drawInfo = { before: 0, after: 0 };
 const P = {
   mode: 'idle', modeT: 0, modeLen: 0,
   laneFrom: 0, laneTo: 0, laneT: 1, laneVel: 0, prevX: 0,
-  jumpT: -1, rollT: -1, wall: null,
+  jumpT: -1, rollT: -1, wall: null, fastFall: false, fallY: 0, rollOnLand: false, prevLaneIdx: 0,
   stumbleAnimT: 0, stumbleHard: false,
   invulnT: 0, lastHitAt: -1e9, clock: 0, deathT: 0,
 };
@@ -67,7 +67,7 @@ export function reset() {
   s.distance = 0; s.z = 0; s.speed = 0; s.speedMul = 1;
   s.lane = 0; s.laneX = 0; s.x = 0; s.y = groundY(0);
   s.airborne = false; s.rolling = false; s.stumbleT = 0;
-  s.jumps = 0; s.rolls = 0; s.hits = 0; s.hitT = -1; P.wall = null;
+  s.jumps = 0; s.rolls = 0; s.hits = 0; s.hitT = -1; P.wall = null; P.fastFall = false; P.rollOnLand = false; s.packChase = 0;
   s.playerState = 'idle';
   P.mode = 'idle'; P.modeT = 0; P.modeLen = 0;
   P.laneFrom = 0; P.laneTo = 0; P.laneT = 1; P.laneVel = 0; P.prevX = 0;
@@ -130,6 +130,7 @@ function startRoll() {
   emit('roll', { z: s.z });
 }
 function startLane(dir) {
+  P.prevLaneIdx = C.state.lane;                       // for the bounce-back on a side clip
   const s = C.state;
   const to = clamp((s.lane | 0) + dir, -1, 1);
   if (to === s.lane) return false;
@@ -140,6 +141,9 @@ function startLane(dir) {
 
 function stumble(hard, info) {
   const s = C.state;
+  // TWO STUMBLES = CAUGHT (Subway Surfers' guard, Temple Run's monkeys): the first stumble brings
+  // the pack into view; stumble again while they are still there and they have you.
+  if ((s.packChase || 0) > 0) { emit('hit', { x: s.x, z: s.z, kind: info.kind, type: info.type, hits: s.hits, fatal: true }); enterDead('caught'); return; }
   s.speedMul = Math.min(s.speedMul, 0.65);
   s.stumbleT = Math.max(s.stumbleT, 0.4);
   P.stumbleAnimT = 0; P.stumbleHard = !!hard;
@@ -184,8 +188,11 @@ export function update(a, b) {
     if (s.stumbleT > 0) { /* 0.4 s of no input after a stumble */ }
     else if (inp === 'left') startLane(-1);
     else if (inp === 'right') startLane(1);
-    else if (inp === 'up') { if (!s.airborne && !s.rolling) startJump(); }
-    else if (inp === 'down') { if (!s.airborne && !s.rolling) startRoll(); }
+    // MOVE CANCELS (Subway Surfers): swipe up during a roll cancels it into a jump; swipe down in
+    // mid-air is a fast-fall that lands straight into a roll - the move that beats "hurdle, then an
+    // overhang right behind it". Lane changes were already allowed in the air.
+    else if (inp === 'up') { if (s.rolling) { P.rollT = -1; s.rolling = false; } if (!s.airborne) startJump(); }
+    else if (inp === 'down') { if (s.airborne) { if (!P.fastFall) { P.fastFall = true; P.fallY = Math.max(0, s.y - groundY(s.z)); P.rollOnLand = true; } } else if (!s.rolling) startRoll(); }
   }
 
   const live = s.running && !s.over && P.mode !== 'dead' && P.mode !== 'idle';
@@ -215,7 +222,11 @@ export function update(a, b) {
   // ---- vertical: jump over the ground
   const JT = cfgv('JUMP_T', 0.55), JH = cfgv('JUMP_H', 1.1);
   let jumpY = 0;
-  if (P.jumpT >= 0) {
+  if (P.jumpT >= 0 && P.fastFall) {                      // fast-fall: drop at 9 m/s, then roll on landing
+    if (live) P.fallY = Math.max(0, P.fallY - 9 * dt);
+    jumpY = P.fallY;
+    if (P.fallY <= 0) { P.jumpT = -1; P.fastFall = false; s.airborne = false; if (P.mode === 'jump') { P.mode = 'run'; P.modeT = 0; } if (P.rollOnLand) { P.rollOnLand = false; startRoll(); } }
+  } else if (P.jumpT >= 0) {
     if (live) P.jumpT += dt;
     const u = (P.jumpT - JT) / JT;                    // −1 at take-off, 0 at apex, +1 at landing
     jumpY = Math.max(0, JH * (1 - u * u));
@@ -240,7 +251,7 @@ export function update(a, b) {
     else {
       if (s.z > P.wall.z) { s.z = P.wall.z; s.distance = s.z; }
       P.wall.t += dt;
-      if (P.wall.t > 0.6) { P.wall = null; emit('hit', { x: s.x, z: s.z, kind: 'block', type: 'wall', hits: s.hits, fatal: true }); enterDead('block'); }
+      // (a block is an instant crash now; the pin only keeps the falling body out of the van)
     }
   }
   // ---- AABB and collision
@@ -252,8 +263,12 @@ export function update(a, b) {
     if (r) {
       const info = classifyHit(r, aabb);
       P.invulnT = 0.7;
-      if (info.side) stumble(false, info);
-      else {
+      if (info.side) {
+        // SIDE CLIP: bumping the flank of something mid lane-change bounces you back into the lane
+        // you came from (Subway Surfers' train-side bump) instead of letting you slide on through it.
+        if (P.laneT < 1 && Number.isFinite(P.prevLaneIdx) && P.prevLaneIdx !== s.lane) { const d = Math.sign(P.prevLaneIdx - s.lane); if (d) startLane(d); }
+        stumble(false, info);
+      } else {
         const dtHit = P.clock - P.lastHitAt;
         P.lastHitAt = P.clock;
         s.hits = (s.hits | 0) + 1; s.hitT = 0;
@@ -266,12 +281,16 @@ export function update(a, b) {
         const bx = r && r.box ? (r.box.min.x + r.box.max.x) / 2 : s.x;
         if (info.kind === 'jump' && r && obstaclesMod().knock) { obstaclesMod().knock(r, s.x <= bx ? -1 : 1); s.z -= 0.3; s.distance = s.z; }
         if (info.kind === 'block' && r && r.box) { P.wall = { z: r.box.min.z - 0.55, x: bx, t: 0 }; s.z = Math.min(s.z, P.wall.z); s.distance = s.z; }
-        if (dtHit < 5) {
+        // CRASH vs STUMBLE, as the reference games rule it: a HARD obstacle head-on (van, cart, sedan,
+        // vending machine) ends the run on the spot; a LIGHT one (crates, cooler, bicycle, barrier, a
+        // banner or a bar to the head) is a stumble - and stumble() applies the two-stumbles rule.
+        void dtHit;
+        if (info.kind === 'block') {
           emit('hit', { x: s.x, z: s.z, kind: info.kind, type: info.type, hits: s.hits, fatal: true });
-          enterDead(info.kind === 'block' ? 'block' : 'hit');
+          enterDead('block');
         } else {
           stumble(true, info);
-          emit('hit', { x: s.x, z: s.z, kind: info.kind, type: info.type, hits: s.hits, fatal: false });
+          if (P.mode !== 'dead') emit('hit', { x: s.x, z: s.z, kind: info.kind, type: info.type, hits: s.hits, fatal: false });
         }
       }
     }

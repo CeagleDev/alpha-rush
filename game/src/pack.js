@@ -35,6 +35,12 @@ const DOGS = [
 ];
 const dogs = [];        // { name, obj, root, anim, x, z, y, dist, barkT, laneHist: [] , prevX, laneX }
 const HIT_CLOSE = 1.4;
+// VISIBILITY, as in Subway Surfers and Temple Run: the chaser is right behind you for the first
+// few seconds, then drops out of frame; a stumble brings it surging back into view for CHASE_T
+// seconds (state.packChase counts it down, and player.js ends the run on a second stumble inside
+// that window); then it falls away again. Out of frame the dogs are hidden outright.
+const NEAR_D = 2.4, CHASE_D = 1.9, AWAY_D = 9.5, INTRO_T = 3.5, CHASE_T = 6.0, HIDE_BEYOND = 6.0;
+let phase = 'intro', phaseT = 0, chaseLeft = 0;
 let packDist = 2.6, closeTo = null, caught = false, dead = false, deadT = 0, clock = 0;   // closeTo: a hit's target distance, eased toward (was an instant 1.4 m lurch)
 let drawInfo = { before: 0, after: 0 };
 
@@ -48,12 +54,12 @@ function rnd() { const r = C && C.state && typeof C.state.rng === 'function' ? C
 
 function resetPack() {
   const s = C.state;
-  packDist = cfgv('PACK_DIST', 5); closeTo = null; caught = false; dead = false; deadT = 0;
+  packDist = NEAR_D; closeTo = null; phase = 'intro'; phaseT = 0; chaseLeft = 0; caught = false; dead = false; deadT = 0;
   s.packDist = packDist;
   for (const d of dogs) {
     d.x = d.def.xOff; d.rel = -packDist + d.def.zOff; d.z = d.rel; d.y = groundY(d.z); d.dist = 0; d.prevX = d.x; d.laneX = 0;
     d.laneHist.length = 0; d.barkT = 1.5 + rnd() * 3;
-    d.obj.position.set(d.x, d.y, d.z); d.obj.rotation.set(0, 0, 0);
+    d.obj.position.set(d.x, d.y, d.z); d.obj.visible = true; d.obj.rotation.set(0, 0, 0);
   }
 }
 
@@ -81,8 +87,9 @@ export async function init(ctx) {
   if (ev && typeof ev.on === 'function') {
     ev.on('start', () => resetPack());
     // a hit closes the pack to ~1.2 m (PACK_DIST − 1.4), a stumble half that; catch stays at < 0.8 m
-    ev.on('hit', () => { closeTo = Math.max(0, (closeTo ?? packDist) - HIT_CLOSE); for (const d of dogs) d.barkT = Math.min(d.barkT, 0.1 + rnd() * 0.3); });
-    ev.on('stumble', () => { closeTo = Math.max(0, (closeTo ?? packDist) - HIT_CLOSE * 0.5); });
+    const surge = () => { phase = 'chase'; chaseLeft = CHASE_T; for (const d of dogs) d.barkT = Math.min(d.barkT, 0.1 + rnd() * 0.3); };
+    ev.on('hit', surge);
+    ev.on('stumble', surge);
     ev.on('death', () => { dead = true; deadT = 0; });
   }
 }
@@ -95,12 +102,13 @@ export function update(a, b) {
   const live = s.running && !s.over && !dead;
 
   if (live) {
-    if (closeTo !== null) { packDist = damp(packDist, closeTo, 3.5, dt); if (packDist - closeTo < 0.05) closeTo = null; }   // the dogs RUN up, ~0.6 s
-    else if (packDist < PD) packDist = Math.min(PD, packDist + 1.0 * dt);
-    if (packDist < 0.8 && !caught) {
-      caught = true; dead = true; deadT = 0;
-      emit('death', { reason: 'caught', distance: s.distance });
-    }
+    phaseT += dt;
+    let target = AWAY_D;
+    if (phase === 'intro') { target = NEAR_D; if (phaseT > INTRO_T) phase = 'away'; }
+    else if (phase === 'chase') { target = CHASE_D; chaseLeft -= dt; if (chaseLeft <= 0) phase = 'away'; }
+    packDist = damp(packDist, target, target < packDist ? 3.5 : 0.9, dt);      // surge in fast, fall away slowly
+    s.packChase = phase === 'chase' ? Math.max(0, chaseLeft) : 0;
+    void PD; void caught;
   } else if (dead) {
     deadT += dt;
     packDist = damp(packDist, 0.9, 2.0, dt);          // run up to the fallen runner
@@ -167,6 +175,7 @@ export function update(a, b) {
     d.prevX = d.x;
     d.y = groundY(d.z);
     d.obj.position.set(d.x, d.y, d.z);
+    d.obj.visible = dead || (pz - d.z) < HIDE_BEYOND;          // behind the camera: not drawn at all
     let mode = 'idle';
     if (live) mode = 'run';
     else if (dead) mode = (Math.abs(vz) > 1.5) ? 'run' : 'excited';
