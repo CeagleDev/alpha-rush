@@ -26,10 +26,10 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609211517';
-import * as obstacles from './obstacles.js?v=202609211517';
-import * as coins from './coins.js?v=202609211517';
-import * as farband from './farband.js?v=202609211517';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609211528';
+import * as obstacles from './obstacles.js?v=202609211528';
+import * as coins from './coins.js?v=202609211528';
+import * as farband from './farband.js?v=202609211528';
 
 // THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
 // last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls

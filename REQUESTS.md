@@ -3,6 +3,12 @@
 Everything the owner has asked for, in their words where possible, with status. Update the status
 column as work lands; never delete a line.
 
+## 2026-09-21, later
+
+| # | Request | Status |
+|---|---|---|
+| 8 | On the bridge, the slide-under barricade takes up two lanes. | fixed: it was planted on the lane line, half across two lanes; now one lane, centred |
+
 ## Batch 2026-09-21 (after the rules pass)
 
 | # | Request | Status |

@@ -23,9 +23,9 @@
  * coin (null | {dist, lane}), coinLane (null | -1|0|1) — exactly tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211517';
-import { groundY, groundPitch, frame } from './track.js?v=202609211517';
-import * as coins from './coins.js?v=202609211517';
+import { mulberry32, hash32 } from './chunks.js?v=202609211528';
+import { groundY, groundPitch, frame } from './track.js?v=202609211528';
+import * as coins from './coins.js?v=202609211528';
 
 const KINDS = {
   alley: {
@@ -38,7 +38,11 @@ const KINDS = {
   // expressway are now broken-down vehicles; dividers stay as edge scenery placed by chunks.js.
   expressway: { jump: ['roadworks_barrier'], roll: ['gantry_board_low'], block: ['parked_sedan', 'kei_van'] },
 };
-const LANES_WIDE = { gantry_board_low: 2 };
+// gantry_board_low WAS listed here as 2 lanes wide. The asset is ONE lane wide (1.86 m after its 0.7
+// x-scale) and says so in userData.obstacle, but the asset loader drops that field, so this table
+// won and every expressway slide-under was planted ON the lane line, half across each of two lanes
+// (owner, 2026-09-21: "the barricade is taking up two lanes"). One lane, centred in it, like the rest.
+const LANES_WIDE = {};
 // JUMP_CAP was 0.75: a 1.25 m crate stack only "existed" to 0.75 m, so a late jump ploughed the
 // shins through the top two crates with no hit. 0.9 leaves 20 cm under the 1.1 m apex.
 const ROLL_CLEAR = 1.3, JUMP_CAP = 0.9, MAX_ROLL_LEN = 2.5, NEXT_RANGE = 60;

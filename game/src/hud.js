@@ -9,7 +9,7 @@
  * Palette: cream 0xeee2c8 on the dark frame, one accent 0xe5b055 (index.html :root). The τ mark is an inline SVG.
  * The restart button #restartb is wired by main.js; this file only shows and hides the overlay.
  */
-import config from './config.js?v=202609211517';
+import config from './config.js?v=202609211528';
 
 let ctx = null, state = null;
 let root = null, el = {};
