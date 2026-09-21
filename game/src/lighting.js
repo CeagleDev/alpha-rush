@@ -78,8 +78,8 @@
  * State written (defaults set here): state.lights = { pool, active, warm, cool }.
  * Flags: ?fill=<x> ?lights=<N> ?pools=0 ?sky=0 (no panorama) ?fog=<x>.
  */
-import * as textures from './textures.js?v=202609211323';
-import { ATMOS_KEYS } from '../rig.js?v=202609211323';
+import * as textures from './textures.js?v=202609211517';
+import { ATMOS_KEYS } from '../rig.js?v=202609211517';
 
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };
@@ -272,6 +272,7 @@ export async function init(c) {
   snapshotNight();
   buildDayEnvironment();
   if (PARAMS.panorama) loadPanorama();      // not awaited: never delays READY
+  if (DAY_PANORAMA) loadDayPanorama();
   poolsTex = radialTexture();
   console.info(`[lighting] dusk: ${N} practicals, fill ${PARAMS.fill.toFixed(2)}, pools ${PARAMS.poolsOn ? 'on' : 'off'}`);
 }
@@ -647,6 +648,37 @@ function rebuildPools(list) {
   scene.add(poolsMesh);
 }
 
+/* ------------------------------------------------------------ day panorama (Atlas) */
+// textures/sky_day.webp: an Atlas FLUX.2 Max morning sky with cumulus, 2048x864. OFF until the owner
+// approves the image (standing rule: every Atlas image is signed off before it is built on);
+// preview with ?daysky=1. It is laid over the rig's analytic day sky, which keeps the sun disc, the
+// sunrise colours and the sky-to-haze handshake; mirrored-repeat in u so the 360 degree wrap has no seam.
+const DAY_PANORAMA = Q.get('daysky') === '1';
+let dayDome = null;
+const DAYPANO_FS = /* glsl */`
+uniform sampler2D tSky; uniform float uGain, uAlpha, uElTop, uElBot; varying vec3 vDir;
+void main() {
+  vec3 d = normalize(vDir); float el = asin(clamp(d.y, -1.0, 1.0));
+  float u = (atan(d.z, d.x) / 6.2831853 + 0.5) * 2.0;
+  float v = clamp((el - uElBot) / (uElTop - uElBot), 0.0, 1.0);
+  vec3 col = texture2D(tSky, vec2(u, v)).rgb * uGain;
+  float edge = smoothstep(0.0, 0.06, el) * (1.0 - smoothstep(uElTop - 0.25, uElTop, el));
+  gl_FragColor = vec4(col, uAlpha * edge);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`;
+async function loadDayPanorama() {
+  const t = await textures.load('sky_day.webp'); if (!t || !scene) return;
+  t.wrapS = THREE.MirroredRepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+  dayDome = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), new THREE.ShaderMaterial({
+    uniforms: { tSky: { value: t }, // a chase camera only ever sees the bottom ~35 degrees of sky, so the strip is mapped across THAT, with
+    // its pale lower third pushed under the rooftops; a gain under 1 keeps the blue through ACES
+    uGain: { value: 0.8 }, uAlpha: { value: 0 }, uElTop: { value: 52 * Math.PI / 180 }, uElBot: { value: -14 * Math.PI / 180 } },
+    vertexShader: PANO_VS, fragmentShader: DAYPANO_FS, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true }));
+  dayDome.frustumCulled = false; dayDome.renderOrder = -998; dayDome.name = 'lighting.daySky'; dayDome.visible = false;
+  scene.add(dayDome); dayNow = -1;
+}
+
 /* ------------------------------------------------------------ time of day */
 
 /**
@@ -757,6 +789,7 @@ function applyTimeOfDay() {
     const sd = rigSky.material && rigSky.material.uniforms && rigSky.material.uniforms.uSunDisc;
     if (sd) sd.value.setRGB(a.sun[0] * a.intensity * below * 0.9 * w, a.sun[1] * a.intensity * below * 0.9 * w, a.sun[2] * a.intensity * below * 0.9 * w);
   }
+  if (dayDome) { const al = ss(0.45, 0.9, d); dayDome.material.uniforms.uAlpha.value = al; dayDome.visible = al > 0.002; }
   if (skyDome) { const al = 1 - ss(0.01, 0.30, d); skyDome.material.uniforms.uAlpha.value = al; skyDome.visible = al > 0.002; }
 
   // the fill, as the rig derives it from the sky it is under
@@ -822,6 +855,7 @@ export function update(dt) {
   if (frame % 10 === 0 || frame < 3) { poolsHash = ''; rebuildPools(gather()); }
   if (skyDome) skyDome.position.copy(ctx.camera.position).setY(ctx.camera.position.y);
   if (skyDome) skyDome.scale.setScalar(Math.max(10, (ctx.camera.far || 400) * 0.5));
+  if (dayDome) { dayDome.position.copy(ctx.camera.position); dayDome.scale.setScalar(Math.max(10, (ctx.camera.far || 400) * 0.5)); }
 }
 
 export function report() { return { ...report_ }; }

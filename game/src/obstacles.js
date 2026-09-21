@@ -23,9 +23,9 @@
  * coin (null | {dist, lane}), coinLane (null | -1|0|1) — exactly tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211323';
-import { groundY, groundPitch, frame } from './track.js?v=202609211323';
-import * as coins from './coins.js?v=202609211323';
+import { mulberry32, hash32 } from './chunks.js?v=202609211517';
+import { groundY, groundPitch, frame } from './track.js?v=202609211517';
+import * as coins from './coins.js?v=202609211517';
 
 const KINDS = {
   alley: {

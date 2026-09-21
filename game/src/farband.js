@@ -6,8 +6,8 @@
  * exports: init(ctx), update(dt), stats()
  */
 import * as THREE from 'three';
-import { bakeStatic } from '../assetlib.js?v=202609211323';
-import { mulberry32, hash32 } from './chunks.js?v=202609211323';
+import { bakeStatic } from '../assetlib.js?v=202609211517';
+import { mulberry32, hash32 } from './chunks.js?v=202609211517';
 
 let ctx = null, group = null, info = { draws: 0, tris: 0, blocks: 0, windows: 0 };
 

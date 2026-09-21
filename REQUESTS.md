@@ -7,13 +7,13 @@ column as work lands; never delete a line.
 
 | # | Request | Status |
 |---|---|---|
-| 1 | **Top priority.** Subway Surfers is the base reference: review how it is built (runner interactions, rules) and adapt our build to it. | in progress |
-| 2 | Expand the scenes. We only have two (street, highway). Add one run scene that **transitions to daytime**, then goes back into the **night Korean-style street**. | in progress |
-| 3 | It is an endless runner: keep it as **engaging as possible until the runner fails**. | in progress |
-| 4 | Make the **gold coins more yellow** so the TAO logo on the coin shows. | in progress |
-| 5 | There is an **unusual glow on the runner**. He must look naturally lit by whatever location he is in. | in progress |
-| 6 | The runner is **too tall**. Reduce his height a little, like other runner games. | in progress |
-| 7 | His body is **not well built, he looks like a wooden sculpture**. Bring him to a better level of realism. | in progress |
+| 1 | **Top priority.** Subway Surfers is the base reference: review how it is built (runner interactions, rules) and adapt our build to it. | done for this pass: power-ups (magnet, charm shield, x2, super sneakers), score x multiplier, missions in sets of three that raise the multiplier for good, saved best; earlier: guard rule, crash vs stumble, move cancels. Not yet: running on top of vehicles, moving traffic, a flight section |
+| 2 | Expand the scenes. We only have two (street, highway). Add one run scene that **transitions to daytime**, then goes back into the **night Korean-style street**. | done: dawn on the expressway, a daylight morning-market street (6 chunks), golden dusk into the night market. 780 m cycle. No sun shadow pass yet. An Atlas cloud sky is generated and waits for sign-off (?daysky=1) |
+| 3 | It is an endless runner: keep it as **engaging as possible until the runner fails**. | in progress: pickups, missions, multiplier, best score, new scene in; see 'not yet' in #1 |
+| 4 | Make the **gold coins more yellow** so the TAO logo on the coin shows. | done: yellow gold, dark recessed field, the tau reads |
+| 5 | There is an **unusual glow on the runner**. He must look naturally lit by whatever location he is in. | done: hero albedo scaled into the street's range + per-lamp cap on light landing on him; he is lit only by the location's own lights |
+| 6 | The runner is **too tall**. Reduce his height a little, like other runner games. | done: 1.72 m to 1.56 m, camera holds him at 25 % of the frame (was 29 %) |
+| 7 | His body is **not well built, he looks like a wooden sculpture**. Bring him to a better level of realism. | done: rebuilt from three candidates (picked C): organic cloth volumes, no boxes. Face and hands are still simple up close |
 
 ## Earlier batch 2026-09-21
 

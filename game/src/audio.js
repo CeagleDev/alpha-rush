@@ -14,7 +14,7 @@
  * list a file below when it lands in game/audio/ (mp3 or webm), leave null for the procedural sound. Every name the
  * spec asks for is here.
  */
-import config from './config.js?v=202609211323';
+import config from './config.js?v=202609211517';
 
 const FILES = {
   coin: null, jump: null, roll: null, hit: null, bark1: null, bark2: null, whoosh: null,

@@ -125,3 +125,33 @@ Looked up Subway Surfers, Temple Run, Talking Tom Gold Run and Sonic Dash and al
 Not built yet, proposed from the same research: power-ups (magnet, shield/helmet, score multiplier,
 jetpack-style flight section), running on top of vehicles via ramps, coins as one-hit protection
 (Sonic Dash rings), a dash meter filled by coins, missions/daily goals, a boss section (Tom Gold Run).
+
+
+## 2026-09-21, second batch (owner's seven requests, see REQUESTS.md)
+
+What changed
+- Subway Surfers layer: `src/powerups.js` (magnet 10 s, omamori charm = one-crash shield 20 s, x2 score 12 s,
+  super sneakers 10 s; one pickup per chunk at most, none before 120 m, always in a lane that is free in the
+  row ahead), `src/progress.js` (score = metres x multiplier + 10 x multiplier per coin; three missions per
+  set; a finished set raises the multiplier for good, cap x30; best score; localStorage `md.save.v1`).
+  Four new code-geometry assets `pickup_*.js` (single candidate each, verified clean, picked by eye).
+- Third scene: track pattern is now A x6, RU, X x6, RD, D x6, B x6 (26 chunks, 780 m). `track.dayAt(z)` drives
+  `lighting.applyTimeOfDay()`: sky stops, own DirectionalLight sun (ahead-left at sunrise, round the left,
+  behind-left at sunset), fill, bounce, exposure, haze, emissive exposure, practical pool, ground pools,
+  reflection streaks, road ambient light map, road dries and lightens by day, day PMREM swapped at the midpoint.
+- Runner: candidate C of three (work/v2/runner/{a,b,c}); 1.56 m; hitbox 1.55 / 0.8 m; camera HERO_H 1.56, 25 %.
+- Runner "glow": HERO_ALBEDO 0.62 in player.js; HERO_SOFT_M / HERO_E_MAX in lighting.applyPool.
+- Coins: vertex tones (rim/tau full, field dark bronze), near-white-yellow colour, metalness 0.62, emissive 0.16.
+
+Measured: tools/gate.mjs PASS (802 m, 88 coins, 14 jumps, 8 rolls, peak 484 draws, 1.33M tris, 0 errors);
+clashcheck seed 7: 0 clashes over 801 m; harness/jam.mjs PASS (ready 11.6 s on 4G, 4.5 MB, 402 draws, 1.27M tris).
+
+Still wrong / not done
+- Daylight has NO cast shadows (a sun shadow pass would redraw ~1M triangles); grounding is contact shadows only.
+- The far skyline keeps some lit windows by day and reads blue in the haze.
+- Day street reuses the night street's kit; it has no assets of its own yet (market stalls, trees, awnings in colour).
+- A 1-lane low gantry's leg fills a third of the frame for ~0.1 s as the camera passes it on the expressway.
+- textures/sky_day.webp (Atlas FLUX.2 Max) ships in the folder but is OFF until the owner signs it off (?daysky=1).
+- Not built from the reference games: running on vehicle roofs via ramps, moving traffic, a flight section,
+  revive, daily challenge. Power-up pickups were not three-candidate assets.
+- The rebuilt runner's face and hands are simple; fine from the chase camera, weak on the title screen.
