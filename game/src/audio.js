@@ -14,7 +14,7 @@
  * list a file below when it lands in game/audio/ (mp3 or webm), leave null for the procedural sound. Every name the
  * spec asks for is here.
  */
-import config from './config.js?v=202609211301';
+import config from './config.js?v=202609211323';
 
 const FILES = {
   coin: null, jump: null, roll: null, hit: null, bark1: null, bark2: null, whoosh: null,
@@ -250,7 +250,7 @@ export async function init(c) {
 export function update(dt) {
   if (!ok) return;
   musicTick();
-  if (!buffers.ambience_alley && ambSrcs.length && state.running && (state.zone === 'alleyA' || state.zone === 'alleyB')) {
+  if (!buffers.ambience_alley && ambSrcs.length && state.running && (state.zone === 'alleyA' || state.zone === 'alleyB' || state.zone === 'day')) {
     dripTimer -= dt;
     if (dripTimer <= 0) {
       dripTimer = 1.2 + Math.random() * 2.6;

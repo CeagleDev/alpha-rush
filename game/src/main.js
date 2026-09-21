@@ -22,12 +22,12 @@
  * window.__GAME__ is rebuilt every frame with every field in tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { createRig } from '../rig.js?v=202609211301';
-import config from './config.js?v=202609211301';
-import * as input from './input.js?v=202609211301';
-import * as hud from './hud.js?v=202609211301';
-import * as audio from './audio.js?v=202609211301';
-import * as roadfx from './roadfx.js?v=202609211301';   // wet-road reflections + contact shadows (see ARCH.md addendum)
+import { createRig } from '../rig.js?v=202609211323';
+import config from './config.js?v=202609211323';
+import * as input from './input.js?v=202609211323';
+import * as hud from './hud.js?v=202609211323';
+import * as audio from './audio.js?v=202609211323';
+import * as roadfx from './roadfx.js?v=202609211323';   // wet-road reflections + contact shadows (see ARCH.md addendum)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -124,7 +124,7 @@ async function load(name, stub) {
 }
 const noop = () => {};
 const noopMod = { init: noop, update: noop };
-const [textures, perf, lighting, track, obstacles, coins, player, pack, cameraMod, assetsMod] = await Promise.all([
+const [textures, perf, lighting, track, obstacles, coins, player, pack, cameraMod, assetsMod, powerups, progress] = await Promise.all([
   load('textures', { ...noopMod, apply: noop }),
   load('perf', noopMod),
   load('lighting', noopMod),
@@ -140,12 +140,14 @@ const [textures, perf, lighting, track, obstacles, coins, player, pack, cameraMo
     },
     lights: () => [],
   }),
+  load('powerups', { ...noopMod, absorb: () => false }),
+  load('progress', { ...noopMod, summary: () => null }),
 ]);
 
 const ctx = {
   THREE, scene, camera, renderer, rig, config, state, events, canvas,
   assets: assetsMod, textures, input,
-  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod },
+  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod, powerups, progress },
 };
 globalThis.__ctx = ctx;   // for the integrator's console; not part of any contract
 
@@ -154,9 +156,9 @@ const INIT_ORDER = [
   // assets.init must run before anything calls assets.get(): every chunk, character and obstacle
   // resolves through it, and without it get() throws and the world builds EMPTY while the gate passes.
   ['textures', textures], ['assets', assetsMod], ['perf', perf], ['lighting', lighting], ['track', track], ['obstacles', obstacles],
-  ['coins', coins], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['audio', audio],
+  ['coins', coins], ['powerups', powerups], ['progress', progress], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['audio', audio],
 ];
-const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, cameraMod, roadfx, lighting, perf, hud, audio];
+const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, powerups, progress, cameraMod, roadfx, lighting, perf, hud, audio];
 
 async function boot() {
   const t0 = performance.now();
@@ -263,6 +265,7 @@ function telemetry() {
     coinLane: state.coinLane ?? null,
     heroBox: state.heroBox,
     packDist: state.packDist,
+    mult: state.mult, best: state.best, power: { magnet: state.magnetT || 0, shield: state.shieldT || 0, x2: state.x2T || 0, sneakers: state.sneakT || 0 },
     running: state.running,
     seed: config.SEED,
     tier: rig.tier?.name,

@@ -24,9 +24,9 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
-import { signFace, noren } from './textures.js?v=202609211301';
-import * as perf from './perf.js?v=202609211301';
-import { bakeStatic } from '../assetlib.js?v=202609211301';
+import { signFace, noren } from './textures.js?v=202609211323';
+import * as perf from './perf.js?v=202609211323';
+import { bakeStatic } from '../assetlib.js?v=202609211323';
 
 export const CHUNK_LEN = 30;
 // CLOSE THE STREET (critic round 3, the one property). At 4.5 the shophouse fronts stood 9 m apart
@@ -47,6 +47,7 @@ for (let i = 0; i < 6; i++) VARIANTS.push({ id: `A${i}`, zone: 'alleyA', cross: 
 VARIANTS.push({ id: 'RU', zone: 'rampUp', cross: 0 });
 for (let i = 0; i < 6; i++) VARIANTS.push({ id: `X${i}`, zone: 'expressway', cross: 0, gantry: i % 2 === 0 });
 VARIANTS.push({ id: 'RD', zone: 'rampDown', cross: 0 });
+for (let i = 0; i < 6; i++) VARIANTS.push({ id: `D${i}`, zone: 'day', cross: i % 2 ? (i % 4 === 1 ? 1 : -1) : 0 });
 for (let i = 0; i < 6; i++) VARIANTS.push({ id: `B${i}`, zone: 'alleyB', cross: i % 2 ? (i % 4 === 1 ? -1 : 1) : 0 });
 
 // ---------------------------------------------------------------- seeded helpers
@@ -242,6 +243,11 @@ const PROPS_A = ['vending_machine', 'standing_lightbox', 'bins_bags', 'beer_keg'
 const PROPS_B = ['crate_stack', 'cardboard_boxes', 'drink_cases', 'bins_bags', 'beer_keg', 'gas_cylinders',
   'vending_machine', 'road_cones', 'bicycle_parked', 'scooter', 'plant_pots', 'electrical_box', 'post_box',
   'menu_board', 'standing_lightbox', 'umbrella_stand', 'fire_ext_box', 'traffic_mirror', 'ashtray_stand', 'stool_table_set'];
+const PROPS_D = ['plant_pots', 'plant_pots', 'bicycle_parked', 'bicycle_parked', 'crate_stack', 'drink_cases', 'cardboard_boxes',
+  'stool_table_set', 'stool_table_set', 'menu_board', 'umbrella_stand', 'vending_machine', 'post_box', 'scooter', 'beer_keg',
+  'cooler_bin', 'bins_bags', 'traffic_mirror', 'fire_ext_box', 'standing_lightbox'];
+const UNITS_D = ['shophouse_a', 'shophouse_b', 'shophouse_b', 'shophouse_d', 'shophouse_c'];
+const WALL_D = [['laundry_line', 4.6], ['laundry_line', 4.4], ['ac_duct_cluster', 3.6], ['vertical_sign', 3.4], ['wall_lightbox', 4.2]];
 const UNITS_A = ['shophouse_a', 'shophouse_a', 'shophouse_b', 'shophouse_b', 'shophouse_c'];
 const UNITS_B = ['shophouse_c', 'shophouse_c', 'shophouse_c', 'shophouse_b', 'shophouse_a'];
 const WALL = [['wall_lightbox', 4.2], ['ac_duct_cluster', 3.6], ['vertical_sign', 3.4], ['laundry_line', 4.6]];
@@ -250,8 +256,13 @@ const WALL = [['wall_lightbox', 4.2], ['ac_duct_cluster', 3.6], ['vertical_sign'
 const faceRoad = (s) => (s > 0 ? -Math.PI / 2 : Math.PI / 2);
 
 async function alley(ctx, variant) {
-  const B = new Builder(ctx, variant), rng = B.rng, isB = variant.zone === 'alleyB';
-  const UNITS = isB ? UNITS_B : UNITS_A, PROPS = isB ? PROPS_B : PROPS_A;
+  const B = new Builder(ctx, variant), rng = B.rng, isB = variant.zone === 'alleyB', isDay = variant.zone === 'day';
+  // THE MORNING MARKET (zone 'day'). Same street furniture family, dressed for daylight: open sky
+  // (three cable spans instead of six, no lit strings), the verge given to market life - carts,
+  // crates, plants, bicycles, laundry - and no lantern rows. It is lit by lighting.js's sun, not by
+  // practicals, so what reads here is form and colour, where the night street reads by its lights.
+  const UNITS = isDay ? UNITS_D : isB ? UNITS_B : UNITS_A, PROPS = isDay ? PROPS_D : isB ? PROPS_B : PROPS_A;
+  const WALLS = isDay ? WALL_D : WALL;
   const cross = variant.cross;                          // 0 | -1 | +1
   const crossSlot = cross ? 2 + Math.floor(rng() * 2) : -1;   // slot 2 or 3 → z 12.5 or 17.5
   const crossZ = 2.5 + crossSlot * 5;
@@ -278,7 +289,7 @@ async function alley(ctx, variant) {
       await B.put('tin_awning', s * (SHOP_X - awd / 2), 3.0, zc, ry);
       // wall-mounted things
       if (rng() < 0.7) {
-        const [w, y] = pick(rng, WALL);
+        const [w, y] = pick(rng, WALLS);
         const ws = await B.size(w); const wd = ws.z > 0.02 ? ws.z : 0.15;
         await B.put(w, s * (SHOP_X - wd / 2), y, zc + range(rng, -1.6, 1.6), ry);
       }
@@ -325,8 +336,8 @@ async function alley(ctx, variant) {
       n++;
     }
     B.props += n;
-    // a lantern hung at the awning edge
-    for (let i = 0; i < 2; i++) await B.put('paper_lantern', s * 3.7, 2.6, range(rng, 1, 29), 0);
+    // a lantern hung at the awning edge (the day street keeps one: unlit paper, a spot of red)
+    for (let i = 0; i < (isDay ? 1 : 2); i++) await B.put('paper_lantern', s * 3.7, 2.6, range(rng, 1, 29), 0);
   }
 
   // one utility pole per side, three cable spans, one string across the road
@@ -338,7 +349,7 @@ async function alley(ctx, variant) {
   // The reference's upper half is a mat of cables, strings and eaves. So: six cable bundles at
   // staggered heights across the chunk, and two to three lit strings, which also buys C2 brights
   // and the warm bounce for C3, since every lantern is a practical.
-  const spanZ = [4, 9, 14, 18, 23, 28];
+  const spanZ = isDay ? [6, 16, 25] : [4, 9, 14, 18, 23, 28];
   for (let i = 0; i < spanZ.length; i++) {
     await B.put('cable_span', [-0.35, 0.1, 0.35, -0.2, 0.25, 0][i], 4.6 + (i % 3) * 0.55, spanZ[i], 0);
   }
@@ -347,6 +358,12 @@ async function alley(ctx, variant) {
   // the lane centre instead: six lanterns a metre apart directly over the runner's head. That was
   // the vertical column of lanterns in every frame, and it strobed the runner at ~3 Hz as the
   // six-light pool swapped on every lantern passed (measured: 19 orange/washed flips in 6.4 s).
+  if (isDay) {
+    // cloth, not light: a noren string and laundry across the street, high enough to run under
+    await B.put('noren_string', 0, 2.3, range(rng, 5, 12), 0);
+    if (rng() < 0.6) await B.put('noren_string', 0, 2.5, range(rng, 18, 26), 0);
+    return finish(ctx, B, 30);
+  }
   const str = isB ? 'noren_string' : 'lantern_string';
   const other = isB ? 'lantern_string' : 'noren_string';
   await B.put(str, 0, isB ? 2.0 : 2.9, range(rng, 4, 11), 0);
@@ -498,5 +515,6 @@ async function finish(ctx, B, litterCount) {
 export async function buildVariant(ctx, variant) {
   if (variant.zone === 'expressway') return expressway(ctx, variant);
   if (variant.zone === 'rampUp' || variant.zone === 'rampDown') return ramp(ctx, variant);
+  // 'day' is built by alley(): same street kit, daylight dressing
   return alley(ctx, variant);
 }

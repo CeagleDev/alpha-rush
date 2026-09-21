@@ -109,3 +109,15 @@ Found in motion, fixed: the runner strobed at ~3 Hz because the road-crossing la
 were placed rotated pi/2 and lay DOWN the lane (six lanterns 1 m apart over the runner) — also the
 vertical lantern column seen in every frame. Strings now cross; practicals cluster (cap 2.5x strongest)
 and fade over 0.3 s. Jacket exposure steps >12 luma per 6.4 s: 7 -> 0-3.
+
+## PAUSED 2026-09-21 (owner moving; resume on their word)
+Batch in REQUESTS.md (7 items). State at pause:
+- DONE, unverified in-game: coin yellow + dark recessed field behind the tau (game/src/coins.js, uncommitted).
+- STOPPED mid-work, files on disk: 3 runner candidate agents (work/v2/runner/{a,b,c}, brief work/v2/RUNNER_BRIEF.md)
+  and the pickups agent (work/v2/pickups, brief work/v2/PICKUPS_BRIEF.md). On resume: relaunch each with
+  "continue from what is in your directory", then pick the runner by eye.
+- Runner glow diagnosed: jacket albedo 0xe8852a far brighter than the scene; fixed in the new runner's palette.
+- NOT STARTED: daytime zone (pattern A, RU, X, RD, D x6, B; lighting blend in lighting.js, no rig.setTime per
+  frame because it rebuilds the PMREM), power-up logic + HUD timers, score multiplier + missions + high score,
+  moving expressway traffic, camera framing for the 1.56 m runner (camera.js HERO_H), gate + clashcheck, commit.
+- New tool: tools/shot.mjs (cheap autopilot screenshots). Baseline frames: work/v2/base/.

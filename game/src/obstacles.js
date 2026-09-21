@@ -23,9 +23,9 @@
  * coin (null | {dist, lane}), coinLane (null | -1|0|1) — exactly tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211301';
-import { groundY, groundPitch, frame } from './track.js?v=202609211301';
-import * as coins from './coins.js?v=202609211301';
+import { mulberry32, hash32 } from './chunks.js?v=202609211323';
+import { groundY, groundPitch, frame } from './track.js?v=202609211323';
+import * as coins from './coins.js?v=202609211323';
 
 const KINDS = {
   alley: {
@@ -85,7 +85,7 @@ function rowClass(rng, d) {
 }
 
 function makeRow(rng, z, zone, d, chunkIndex) {
-  const set = KINDS[zone === 'alleyA' || zone === 'alleyB' ? 'alley' : 'expressway'];
+  const set = KINDS[zone === 'alleyA' || zone === 'alleyB' || zone === 'day' ? 'alley' : 'expressway'];
   const cls = rowClass(rng, d);
   let n = rng() < 0.25 + 0.5 * d ? 2 : 1;
   const rollWide = cls === 'roll' && set.roll.every((t) => (pools.get(t)?.lanes || 1) >= 2);
@@ -201,10 +201,12 @@ export function hit(aabb) {
 // over: they tumble sideways off the lane, sink, and are released, and the row's lane is freed so
 // `next` and the dogs stop treating it as solid. BLOCK items are not knockable - a van stops you.
 const knocked = [];
-export function knock(item, dir = 1) {
-  if (!item || item.knocked || item.kind === 'block') return false;
+export function knock(item, dir = 1, force = false) {
+  if (!item || item.knocked || (item.kind === 'block' && !force)) return false;
   item.knocked = true;
-  knocked.push({ it: item, t: 0, dir: dir >= 0 ? 1 : -1, x0: item.inst.position.x, y0: item.inst.position.y });
+  // force = the charm took the crash: even a van or a hanging board is shoved clear. Heavy things
+  // SLIDE out of the lane rather than tumble (heavy: true), a spinning van reads as a toy.
+  knocked.push({ it: item, t: 0, dir: dir >= 0 ? 1 : -1, x0: item.inst.position.x, y0: item.inst.position.y, heavy: item.kind !== 'jump' });
   const row = item.row;
   if (row && Array.isArray(row.lanes)) for (const l of item.lanes) row.lanes[l + 1] = null;
   return true;
@@ -212,10 +214,15 @@ export function knock(item, dir = 1) {
 function tumble(dt) {
   for (let i = knocked.length - 1; i >= 0; i--) {
     const k = knocked[i]; k.t += dt; const inst = k.it.inst; const u = k.t / 0.9;
-    inst.rotation.z += -k.dir * dt * 6.5;                       // rolls over sideways
-    inst.rotation.x += dt * 2.0;
-    inst.position.x = k.x0 + k.dir * Math.min(1.4, k.t * 2.6);  // slides off the lane
-    inst.position.y = k.y0 + (u < 0.35 ? 0.25 * Math.sin(u / 0.35 * Math.PI) : -Math.max(0, (u - 0.35)) * 3);   // a hop, then sinks
+    if (k.heavy) {
+      inst.rotation.y += -k.dir * dt * 0.9;                                   // a shove: it yaws and slides
+      inst.position.x = k.x0 + k.dir * 2.4 * (1 - Math.pow(1 - Math.min(1, k.t / 0.45), 3));
+    } else {
+      inst.rotation.z += -k.dir * dt * 6.5;                       // rolls over sideways
+      inst.rotation.x += dt * 2.0;
+      inst.position.x = k.x0 + k.dir * Math.min(1.4, k.t * 2.6);  // slides off the lane
+      inst.position.y = k.y0 + (u < 0.35 ? 0.25 * Math.sin(u / 0.35 * Math.PI) : -Math.max(0, (u - 0.35)) * 3);   // a hop, then sinks
+    }
     if (k.t >= 0.9) {
       const row = k.it.row; if (row) row.items = row.items.filter((x) => x !== k.it);
       releaseInst(k.it.type, inst); inst.rotation.set(0, 0, 0); knocked.splice(i, 1);

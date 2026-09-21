@@ -59,7 +59,7 @@
  * it did with the shared procedural maps. A material that arrives without maps (surfaces off)
  * gets the procedural set from surfaces.js so the look holds either way.
  */
-import { surface, RECIPES } from '../surfaces.js?v=202609211301';
+import { surface, RECIPES } from '../surfaces.js?v=202609211323';
 
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };
@@ -403,6 +403,10 @@ export function tune(o = {}) {
   const hit = (m) => {
     if (!m || m.lightMap !== ambientTex) return;
     m.lightMapIntensity = A.intensity;
+    // DAY (lighting.js): the night road is WET, dark asphalt, authored that way on purpose. By the time
+    // the sun is up it has dried: dry asphalt is about twice as light and has lost its mirror.
+    if (o.albedoGain !== undefined) { if (!m.userData.c0) m.userData.c0 = m.color.clone(); m.color.copy(m.userData.c0).multiplyScalar(o.albedoGain); }
+    if (o.dry !== undefined) { if (m.userData.r0 === undefined) m.userData.r0 = m.roughness; m.roughness = m.userData.r0 + (1 - m.userData.r0) * 0.75 * o.dry; }
     if (o.normalScale !== undefined && m.normalScale) m.normalScale.set(o.normalScale, o.normalScale);
     n++;
   };

@@ -78,7 +78,8 @@
  * State written (defaults set here): state.lights = { pool, active, warm, cool }.
  * Flags: ?fill=<x> ?lights=<N> ?pools=0 ?sky=0 (no panorama) ?fog=<x>.
  */
-import * as textures from './textures.js?v=202609211301';
+import * as textures from './textures.js?v=202609211323';
+import { ATMOS_KEYS } from '../rig.js?v=202609211323';
 
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };
@@ -152,7 +153,8 @@ export const PARAMS = {
   emissiveCap: qn('emissivecap', 1) * 2.1,
 };
 const NEAR_SOFT_M = 5.0;      // metres: below this a practical is eased down (see assign())
-const NEAR_SOFT_MIN = 0.22;   // floor, so a close lantern still reads as lit rather than switching off
+const NEAR_SOFT_MIN = 0.22;
+const HERO_SOFT_M = 3.4, HERO_SOFT_MIN = 0.12, HERO_E_MAX = qn('heroe', 7);   // see applyPool(): the cap on what any practical delivers at the runner   // floor, so a close lantern still reads as lit rather than switching off
 // STROBE FIX. Measured on the screencast: the runner's jacket flipped between orange and washed-out
 // 19 times in 6.4 s (~3 Hz) and the nearest-light set changed 19 times in 15 m of travel. Cause: a
 // lantern string hangs six practicals a metre apart directly over the runner's lane, and with a
@@ -263,6 +265,12 @@ export async function init(c) {
 
   scaleEmissive(PARAMS.emissive);
   buildEnvironment();
+  // the day's key: always in the scene (adding a light later recompiles every material), dark at night
+  daySun = new THREE.DirectionalLight(0xffffff, 0);
+  daySun.name = 'lighting.daySun'; daySun.castShadow = false;
+  scene.add(daySun); scene.add(daySun.target);
+  snapshotNight();
+  buildDayEnvironment();
   if (PARAMS.panorama) loadPanorama();      // not awaited: never delays READY
   poolsTex = radialTexture();
   console.info(`[lighting] dusk: ${N} practicals, fill ${PARAMS.fill.toFixed(2)}, pools ${PARAMS.poolsOn ? 'on' : 'off'}`);
@@ -287,7 +295,7 @@ function applySkyStops(lin) {
 
 const PANO_VS = 'varying vec3 vDir; void main() { vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); p.z = p.w * 0.999999; gl_Position = p; }';
 const PANO_FS = /* glsl */`
-uniform sampler2D tSky; uniform vec3 uGain, uCap, uBelow; uniform float uExposure, uElTop, uElBot;
+uniform sampler2D tSky; uniform vec3 uGain, uCap, uBelow; uniform float uExposure, uElTop, uElBot, uAlpha;
 uniform mat3 uInInv, uOutInv;
 varying vec3 vDir;
 vec3 fitInv(vec3 y) { vec3 a = 1.0 - 0.983729 * y; vec3 b = 0.0245786 - 0.432951 * y; vec3 c = -0.000090537 - 0.238081 * y;
@@ -301,7 +309,7 @@ void main() {
   vec3 col = texture2D(tSky, vec2(u, v)).rgb * uGain;
   col = mix(col, uCap, smoothstep(uElTop, uElTop + 0.3, el));
   col = mix(col, uBelow, 1.0 - smoothstep(uElBot - 0.15, uElBot, el));   // edges ascending: reversed edges are undefined in GLSL
-  gl_FragColor = vec4(invACES(col), 1.0);
+  gl_FragColor = vec4(invACES(col), uAlpha);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
@@ -323,10 +331,10 @@ async function loadPanorama() {
     uniforms: {
       tSky: { value: t }, uGain: { value: new THREE.Vector3(...skyGain) },
       uCap: { value: new THREE.Vector3(...cap) }, uBelow: { value: new THREE.Vector3(...hexLin(SKY.below)) },
-      uExposure: { value: exposure }, uElTop: { value: EL_TOP }, uElBot: { value: EL_BOT },
+      uExposure: { value: exposure }, uElTop: { value: EL_TOP }, uElBot: { value: EL_BOT }, uAlpha: { value: 1 },
       uInInv: { value: m3(ACES_IN_INV) }, uOutInv: { value: m3(ACES_OUT_INV) },
     },
-    vertexShader: PANO_VS, fragmentShader: PANO_FS, side: THREE.BackSide, depthWrite: false, fog: false,
+    vertexShader: PANO_VS, fragmentShader: PANO_FS, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true,
   });
   skyDome = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), mat);
   skyDome.frustumCulled = false; skyDome.renderOrder = -999; skyDome.name = 'lighting.sky';
@@ -340,6 +348,7 @@ async function loadPanorama() {
   report_.sky = 'panorama';
   scaleEmissive(PARAMS.emissive);
   buildEnvironment();
+  snapshotNight();
   console.info(`[lighting] sky panorama on, gain ${skyGain.map((v) => v.toFixed(2)).join('/')}`);
 }
 
@@ -387,10 +396,10 @@ function buildEnvironment() {
     const pm = new THREE.PMREMGenerator(renderer);
     const tex = pm.fromScene(envScene, 0.04, 0.5, 100).texture;
     pm.dispose();
-    const old = scene.environment;
-    scene.environment = tex;
-    scene.environmentIntensity = PARAMS.envIntensity;
-    if (old && old !== tex) old.dispose();
+    const old = envNight;
+    envNight = tex;
+    if (!envIsDay) { scene.environment = tex; scene.environmentIntensity = PARAMS.envIntensity; }
+    if (old && old !== tex && old !== envDay) old.dispose();
   } catch (e) { console.warn('[lighting] environment build failed', e && e.message); }
 }
 
@@ -549,7 +558,20 @@ function applyPool(dt) {
     const dx = L.position.x - camPos.x, dy = L.position.y - camPos.y, dz = L.position.z - camPos.z;
     const dCam = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const soft = dCam >= NEAR_SOFT_M ? 1 : Math.max(NEAR_SOFT_MIN, (dCam / NEAR_SOFT_M) ** 2);
-    L.intensity = s.cur * soft;
+    // THE RUNNER'S "GLOW" (owner, 2026-09-21). The same 1/d^2 problem, at the hero: the pool is tuned so
+    // a fitting 3 m up lights the ROAD, and a lantern string hangs 1-1.5 m over the runner's head, so
+    // as he passes under it his head and shoulders take 4-9x what the road takes and bleach to cream
+    // - he looks self-lit, and it comes and goes with every string. No real lantern does that; the
+    // candela is a stand-in, so it is eased by distance to the runner's chest exactly as it is eased
+    // by distance to the lens: nothing delivers more to him than it would from HERO_SOFT_M away.
+    const hx = Number.isFinite(st.x) ? st.x : 0, hy = (Number.isFinite(st.y) ? st.y : 0) + 1.0, hz = Number.isFinite(st.z) ? st.z : 0;
+    const dH = Math.sqrt((l.x - hx) ** 2 + (l.y - hy) ** 2 + (l.z - hz) ** 2);
+    const softH = dH >= HERO_SOFT_M ? 1 : Math.max(HERO_SOFT_MIN, (dH / HERO_SOFT_M) ** 2);
+    // ...and a ceiling on the irradiance any ONE practical lands on him (candela / d^2 <= HERO_E_MAX):
+    // the clustered, height-compensated shop lights run to ~600 cd so that they reach the road from
+    // 3-6 m up, and the same lamp 4.5 m from the runner's flank gave him ~28 where the road gets ~3.
+    const capH = Math.min(1, HERO_E_MAX * dH * dH / Math.max(1, s.cur));
+    L.intensity = s.cur * Math.min(soft, softH, capH) * nightK;
     active++; if (l.cool) cool++; else warm++;
   }
   report_.active = active; report_.warm = warm; report_.cool = cool;
@@ -625,6 +647,165 @@ function rebuildPools(list) {
   scene.add(poolsMesh);
 }
 
+/* ------------------------------------------------------------ time of day */
+
+/**
+ * DAWN AND DUSK (owner, 2026-09-21: "one run scene where it transitions to daytime before entering
+ * the night street again"). track.dayAt(z) says how much day there is at the runner's z, 0..1; this
+ * blends EVERYTHING that makes the night - fitted sky stops, fill, street bounce, exposure, haze,
+ * emissive exposure, the practical pool, the ground pools, the road's ambient light map, the
+ * reflection streaks, the environment - toward the rig's own daylight atmosphere (ATMOS_KEYS, read
+ * at the sun elevation the blend implies, so the run passes through a real sunrise: orange horizon
+ * at 2 deg, gold at 12, blue at 38). rig.setTime() is NOT used: it rebuilds the PMREM on every call.
+ * The sun is this module's own DirectionalLight, ahead-left at dawn so the runner comes down the
+ * ramp INTO the sunrise, swinging to ahead-right for the sunset that ends the day street.
+ * No shadow pass (a second draw of ~1M triangles); grounding by day is roadfx's contact shadows.
+ * Because the runner, dogs, coins and obstacles are lit by exactly these lights and nothing else,
+ * they change with the location for free - there is no character light anywhere in the game.
+ */
+export const DAY = {
+  elNight: -7, elMax: 40, azDawn: -28, azDusk: -152,   // ahead-left at sunrise, round the LEFT side, behind-left at sunset: the evening street ahead is front-lit gold
+  sun: qn('sun', 1) * 1.2,            // x the rig's key: these materials were authored dark, for night
+  exposure: qn('dexp', 1.0), emissive: 0.12, practicals: 0.04,
+  // The rig's afternoon horizon is near-white through ACES, and a portrait chase camera looks AT the
+  // horizon: the sky filled the top of the frame with blank white. Pulled down toward the blue the
+  // zenith already has, once the sunrise colours (el < 12) are over.
+  // (first try: scale the rig's stops down. That gave a grey, overcast lid. A clear morning is a
+  // SATURATED blue overhead paling to a lighter blue at the horizon, so the day has its own stops.)
+  sky: { horizon: [0.50, 0.66, 0.98], low: [0.30, 0.50, 0.98], mid: [0.17, 0.37, 0.95], high: [0.11, 0.28, 0.86], zenith: [0.07, 0.20, 0.74],
+    haze: [0.62, 0.70, 0.86], below: [0.34, 0.37, 0.42] },
+  fogStart: 26, fogDensity: 0.0042,    // a morning haze, thicker than the rig's clear afternoon
+  envIntensity: 0.85, bloom: 3.4, groundAmbient: 0.0, fill: qn('dfill', 0.8), roadGain: 2.0, fillChroma: 1.1, bounce: 1.0,
+};
+let night = null, dayNow = -1, slowDay = -1, nightK = 1, emissiveNow = PARAMS.emissive;
+let daySun = null, envNight = null, envDay = null, envIsDay = false;
+const lerp = (a, b, t) => a + (b - a) * t;
+const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const STOPS_ = ['horizon', 'low', 'mid', 'high', 'zenith', 'haze', 'below'];
+const uName = (k) => 'uAtm' + k[0].toUpperCase() + k.slice(1);
+
+function atmAt(el) {
+  const K = ATMOS_KEYS; let i = 0;
+  while (i < K.length - 2 && el > K[i + 1].el) i++;
+  const a = K[i], b = K[i + 1], t = Math.min(1, Math.max(0, (el - a.el) / (b.el - a.el)));
+  const out = { intensity: lerp(a.intensity, b.intensity, t), exposure: lerp(a.exposure, b.exposure, t) };
+  for (const k of [...STOPS_, 'sunGlow']) out[k] = [0, 1, 2].map((c) => lerp(a[k][c], b[k][c], t));
+  const sa = hexLin(a.sun), sb = hexLin(b.sun); out.sun = [0, 1, 2].map((c) => lerp(sa[c], sb[c], t));
+  return out;
+}
+function snapshotNight() {
+  if (!rig) return;
+  const U = rig.atmos, B = rig.bounce || {};
+  night = {
+    stops: Object.fromEntries(STOPS_.map((k) => [k, U[uName(k)] ? U[uName(k)].value.clone() : null])),
+    hemi: rig.hemi.color.clone().multiplyScalar(rig.hemi.intensity), hemiG: rig.hemi.groundColor.clone().multiplyScalar(rig.hemi.intensity),
+    bounce: B.uBounce ? B.uBounce.value.clone() : null, side: B.uBounceSide ? B.uBounceSide.value : 0.6, flat: B.uBounceFlat ? B.uBounceFlat.value : 0.4,
+    fog: rig.fog.color.clone(), fogNear: rig.fog.near, fogFar: rig.fog.far, aerStart: U.uAerStart.value, aerDensity: U.uAerDensity.value,
+    exposure, emissive: PARAMS.emissive, env: PARAMS.envIntensity, gamb: textures.GROUND_AMBIENT ? textures.GROUND_AMBIENT.intensity : 2.85,
+    refl: (globalThis.__roadfx && globalThis.__roadfx.PARAMS.reflGain) || 0.16,
+  };
+  dayNow = -1; slowDay = -1;
+}
+/** A PMREM of the rig's own daylight sky, built once: what the wet road and the coin reflect by day. */
+function buildDayEnvironment() {
+  const rigSky = scene.getObjectByName('rig.sky'); if (!rigSky || !night) return;
+  const U = rig.atmos, a = atmAt(DAY.elMax), keep = {};
+  for (const k of STOPS_) { const u = U[uName(k)]; if (!u) continue; keep[k] = u.value.clone(); u.value.setRGB(a[k][0], a[k][1], a[k][2]); }
+  try {
+    const es = new THREE.Scene(); const d = rigSky.clone(); d.visible = true; d.scale.setScalar(60); es.add(d);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(45, 32), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.20, 0.19, 0.18), fog: false, toneMapped: false }));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.5; es.add(floor);
+    const pm = new THREE.PMREMGenerator(ctx.renderer); envDay = pm.fromScene(es, 0.04, 0.5, 100).texture; pm.dispose();
+  } catch (e) { console.warn('[lighting] day environment failed', e && e.message); envDay = null; }
+  for (const k of STOPS_) if (keep[k]) U[uName(k)].value.copy(keep[k]);
+}
+
+const _sunDir = { x: 0, y: 1, z: 0 };
+function applyTimeOfDay() {
+  if (!night || Q.get('tod') === '0') return;
+  const track = (ctx.track && ctx.track.dayAt) ? ctx.track : (ctx.modules && ctx.modules.track);
+  const st = ctx.state || {};
+  const z = Number.isFinite(st.z) ? st.z : 0;
+  const d = qn('day', -1) >= 0 ? qn('day', 0) : (track && track.dayAt ? track.dayAt(z) : 0);
+  // the sun rides with the camera every frame, even when d has not moved
+  if (daySun && d > 0) {
+    const cam = ctx.camera.position;
+    daySun.target.position.set(cam.x, cam.y, cam.z); daySun.target.updateMatrixWorld();
+    daySun.position.set(cam.x + _sunDir.x * 120, cam.y + _sunDir.y * 120, cam.z + _sunDir.z * 120);
+  }
+  if (Math.abs(d - dayNow) < 0.0015) return;
+  dayNow = d;
+  const U = rig.atmos, B = rig.bounce || {};
+  const el = lerp(DAY.elNight, DAY.elMax, d), a = atmAt(el);
+  { const kk = ss(8, 30, el); for (const k of STOPS_) { const t = DAY.sky[k]; if (t) a[k] = a[k].map((v, c) => lerp(v, t[c], kk)); } }
+  const w = ss(0.0, 0.24, d);                       // how much of the frame is the rig's atmosphere, not the fitted night
+  const azT = track && track.sunAzT ? track.sunAzT(z) : 0;
+  const az = lerp(DAY.azDawn, DAY.azDusk, azT) * Math.PI / 180, elr = Math.max(1.5, el) * Math.PI / 180;
+  _sunDir.x = Math.sin(az) * Math.cos(elr); _sunDir.y = Math.sin(elr); _sunDir.z = Math.cos(az) * Math.cos(elr);
+
+  for (const k of STOPS_) { const u = U[uName(k)], n = night.stops[k]; if (u && n) u.value.setRGB(lerp(n.r, a[k][0], w), lerp(n.g, a[k][1], w), lerp(n.b, a[k][2], w)); }
+  if (U.uAtmSunGlow) U.uAtmSunGlow.value.setRGB(a.sunGlow[0] * w, a.sunGlow[1] * w, a.sunGlow[2] * w);
+  if (U.uAtmSunDir) U.uAtmSunDir.value.set(_sunDir.x, _sunDir.y, _sunDir.z);
+
+  const below = Math.min(1, Math.max(0, (el + 0.5) / 2.0));
+  // capped: the rig's golden-hour key (16) on top of DAY.sun bleached the runner's jacket to cream at dusk
+  const sunI = Math.min(9.5, a.intensity * below * DAY.sun) * w;
+  if (daySun) { daySun.color.setRGB(a.sun[0], a.sun[1], a.sun[2]); daySun.intensity = sunI; }
+  const rigSky = scene.getObjectByName('rig.sky');
+  if (rigSky) {
+    rigSky.visible = !skyDome || d > 0.004; rigSky.renderOrder = -1000;
+    const sd = rigSky.material && rigSky.material.uniforms && rigSky.material.uniforms.uSunDisc;
+    if (sd) sd.value.setRGB(a.sun[0] * a.intensity * below * 0.9 * w, a.sun[1] * a.intensity * below * 0.9 * w, a.sun[2] * a.intensity * below * 0.9 * w);
+  }
+  if (skyDome) { const al = 1 - ss(0.01, 0.30, d); skyDome.material.uniforms.uAlpha.value = al; skyDome.visible = al > 0.002; }
+
+  // the fill, as the rig derives it from the sky it is under
+  const lumOf = (v) => 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  const skyLin = [0, 1, 2].map((c) => lerp(a.mid[c], a.high[c], 0.45)), skyMag = Math.max(1e-4, lumOf(skyLin));
+  const gndLin = [0, 1, 2].map((c) => lerp(skyLin[c], a.below[c], 0.18)), gndMag = Math.max(1e-4, lumOf(gndLin));
+  const I = skyMag * 5.4 * DAY.fill;
+  const hc = skyLin.map((v) => (1 + (v / skyMag - 1) * DAY.fillChroma) * I), gc = gndLin.map((v) => (1 + (v / gndMag - 1) * DAY.fillChroma * 0.7) * 0.62 * I);
+  rig.hemi.intensity = 1;
+  rig.hemi.color.setRGB(lerp(night.hemi.r, hc[0], w), lerp(night.hemi.g, hc[1], w), lerp(night.hemi.b, hc[2], w));
+  rig.hemi.groundColor.setRGB(lerp(night.hemiG.r, gc[0], w), lerp(night.hemiG.g, gc[1], w), lerp(night.hemiG.b, gc[2], w));
+
+  if (B.uBounce && night.bounce) {
+    const k = a.intensity * below * DAY.sun * Math.max(0, Math.sin(el * Math.PI / 180)) * 0.034 * DAY.bounce;
+    B.uBounce.value.setRGB(lerp(night.bounce.r, a.sun[0] * k, w), lerp(night.bounce.g, a.sun[1] * k, w), lerp(night.bounce.b, a.sun[2] * k, w));
+    if (B.uBounceSide) B.uBounceSide.value = lerp(night.side, 0.15, w);
+    if (B.uBounceFlat) B.uBounceFlat.value = lerp(night.flat, 3.5, w);
+  }
+
+  exposure = lerp(night.exposure, DAY.exposure, w);
+  ctx.renderer.toneMappingExposure = exposure;
+  if (skyDome) skyDome.material.uniforms.uExposure.value = exposure;
+  const tm = (v) => { const x = v * exposure; return Math.min(1, Math.max(0, (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14))); };
+  const hzD = new THREE.Color().setRGB(tm(a.haze[0]), tm(a.haze[1]), tm(a.haze[2]), THREE.SRGBColorSpace);
+  rig.fog.color.copy(night.fog).lerp(hzD, w);
+  if (scene.background && scene.background.isColor) scene.background.copy(rig.fog.color);
+  const fs = lerp(night.aerStart, DAY.fogStart, w), fd = lerp(night.aerDensity, DAY.fogDensity, w);
+  U.uAerStart.value = fs; U.uAerDensity.value = fd; rig.fog.near = fs; rig.fog.far = fs + 3 / Math.max(1e-6, fd) * 0.35;
+
+  // the street switches itself off as the day comes up
+  nightK = 1 - (1 - DAY.practicals) * ss(0.08, 0.5, d);
+  if (rebuildPools.mat) rebuildPools.mat.color.setScalar(nightK);
+  if (globalThis.__roadfx) globalThis.__roadfx.PARAMS.reflGain = night.refl * nightK;
+  if (rig.post && rig.post.bloom && rig.post.bloom.setThreshold) rig.post.bloom.setThreshold(lerp(1.6, DAY.bloom, w));
+  const wantDayEnv = d > 0.5 && !!envDay;
+  if (wantDayEnv !== envIsDay) { envIsDay = wantDayEnv; scene.environment = envIsDay ? envDay : (envNight || scene.environment); }
+  scene.environmentIntensity = (envIsDay ? DAY.envIntensity : night.env) * (0.25 + 0.75 * Math.abs(2 * d - 1));
+  const fb = ctx.modules && ctx.modules.farband; if (fb && fb.setDay) fb.setDay(d);
+
+  // the slow pass walks the scene, so it runs only when the day has moved by 3 %
+  if (Math.abs(d - slowDay) >= 0.03 || (d === 0 || d === 1) && slowDay !== d) {
+    slowDay = d;
+    emissiveNow = lerp(night.emissive, DAY.emissive, ss(0.1, 0.55, d));
+    scaleEmissive(emissiveNow);
+    if (textures.tune) textures.tune({ intensity: lerp(night.gamb, DAY.groundAmbient, w), albedoGain: lerp(1, DAY.roadGain, ss(0.3, 0.9, d)), dry: ss(0.3, 0.9, d) });
+  }
+  report_.day = +d.toFixed(3);
+}
+
 /* ------------------------------------------------------------ per frame */
 
 export function update(dt) {
@@ -633,7 +814,8 @@ export function update(dt) {
   // Chunks, obstacles and the pack arrive after this module's init (main.js init order), so the
   // emissive exposure has to keep catching up. The WeakMap of authored values makes it idempotent,
   // so a material scaled once is never scaled twice.
-  if (frame < 240 ? frame % 15 === 0 : frame % 120 === 0) scaleEmissive(PARAMS.emissive);
+  applyTimeOfDay();
+  if (frame < 240 ? frame % 15 === 0 : frame % 120 === 0) scaleEmissive(emissiveNow);
   if (frame % 2 === 1) assign();
   applyPool(dt);
   // the pool mesh depends on which lights are live, so rebuild it after assign(), not before
@@ -667,7 +849,8 @@ export function tune(o = {}) {
   }
   if (o.fillGround !== undefined || o.fillGroundGain !== undefined) rig.hemi.groundColor.setHex(PARAMS.fillGround).multiplyScalar(PARAMS.fillGroundGain);
   if (o.candela !== undefined || o.poolOpacity !== undefined || o.poolStretch !== undefined || o.poolRadius !== undefined || o.poolInset !== undefined || o.reach !== undefined) { srcRef = null; srcList = []; srcFrame = -999; poolsHash = ''; }
-  if (o.emissive !== undefined || o.emissiveCap !== undefined) scaleEmissive(PARAMS.emissive);
+  if (o.emissive !== undefined || o.emissiveCap !== undefined) { emissiveNow = PARAMS.emissive; scaleEmissive(PARAMS.emissive); }
+  snapshotNight();
   if (o.bounce !== undefined || o.bounceColor !== undefined || o.bounceSide !== undefined || o.bounceFlat !== undefined) applyBounce();
   assign();
   rebuildPools(gather());

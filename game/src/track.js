@@ -5,7 +5,7 @@
  * main.js also inits/updates obstacles.js and coins.js directly; both are idempotent (init returns when
  * already done for this ctx, update runs once per track frame via frame()), so either order works.
  *
- * Sequence: [A×6, RU, X×6, RD, B×6] cycling (20 chunks = 600 m per cycle). Within each 6-chunk
+ * Sequence: [A×6, RU, X×6, RD, D×6, B×6] cycling (26 chunks = 780 m per cycle); D is the daylight street. Within each 6-chunk
  * segment the six variants are a seeded permutation (config.SEED) that alternates odd/even variants,
  * so an alley cross-street and an expressway gantry land on every other chunk. Chunk i covers world
  * z ∈ [30 i, 30 i + 30). Pool: every variant is built and baked ONCE at init (chunks.js), a second
@@ -26,14 +26,31 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609211301';
-import * as obstacles from './obstacles.js?v=202609211301';
-import * as coins from './coins.js?v=202609211301';
-import * as farband from './farband.js?v=202609211301';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609211323';
+import * as obstacles from './obstacles.js?v=202609211323';
+import * as coins from './coins.js?v=202609211323';
+import * as farband from './farband.js?v=202609211323';
 
-const PATTERN = ['A', 'A', 'A', 'A', 'A', 'A', 'RU', 'X', 'X', 'X', 'X', 'X', 'X', 'RD', 'B', 'B', 'B', 'B', 'B', 'B'];
-const ZONE = { A: 'alleyA', RU: 'rampUp', X: 'expressway', RD: 'rampDown', B: 'alleyB' };
-const SEG_START = { A: 0, X: 7, B: 14 };
+// THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
+// last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls
+// over its last chunks -> the night market street (B) -> and round again. 26 chunks = 780 m a cycle.
+const PATTERN = ['A', 'A', 'A', 'A', 'A', 'A', 'RU', 'X', 'X', 'X', 'X', 'X', 'X', 'RD', 'D', 'D', 'D', 'D', 'D', 'D', 'B', 'B', 'B', 'B', 'B', 'B'];
+const ZONE = { A: 'alleyA', RU: 'rampUp', X: 'expressway', RD: 'rampDown', D: 'day', B: 'alleyB' };
+const SEG_START = { A: 0, X: 7, D: 14, B: 20 };
+const CYCLE = PATTERN.length;
+// time of day along one cycle, in chunk units: 0 = night, 1 = full day
+const DAWN0 = 9.5, DAWN1 = 13.6, DUSK0 = 18.4, DUSK1 = 20.6;
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+/** 0 (night) .. 1 (day) at world z. Pure function of z, so the camera, the lights and a photo at a fixed distance agree. */
+export function dayAt(z) {
+  if (!(z > 0)) return 0;
+  const u = (z / CHUNK_LEN) % CYCLE;
+  return sstep(DAWN0, DAWN1, u) * (1 - sstep(DUSK0, DUSK1, u));
+}
+/** 0 at first light .. 1 at last light: lighting.js swings the sun from ahead-left to ahead-right across the day. */
+export function sunAzT(z) { const u = ((z > 0 ? z : 0) / CHUNK_LEN) % CYCLE; return Math.min(1, Math.max(0, (u - DAWN0) / (DUSK1 - DAWN0))); }
+/** +1 while the sun is coming up, -1 while it goes down (lighting.js puts the sun ahead at dawn, behind at dusk). */
+export function dayPhase(z) { const u = ((z > 0 ? z : 0) / CHUNK_LEN) % CYCLE; return u < (DAWN1 + DUSK0) / 2 ? 1 : -1; }
 const AHEAD = 5, BEHIND = 1;
 const RAMP_PITCH = Math.atan2(DECK_Y, CHUNK_LEN);
 
@@ -59,11 +76,11 @@ function segmentOrder(cycle, seg) {
   segOrders.set(key, out);
   return out;
 }
-function slotOf(i) { return ((i % 20) + 20) % 20; }
+function slotOf(i) { return ((i % CYCLE) + CYCLE) % CYCLE; }
 export function variantIdAt(i) {
   const s = slotOf(i), k = PATTERN[s];
   if (k === 'RU' || k === 'RD') return k;
-  return segmentOrder(Math.floor(i / 20), k)[s - SEG_START[k]];
+  return segmentOrder(Math.floor(i / CYCLE), k)[s - SEG_START[k]];
 }
 export function zoneAt(z) { return z < 0 ? 'alleyA' : ZONE[PATTERN[slotOf(Math.floor(z / CHUNK_LEN))]]; }
 export function groundY(z) {

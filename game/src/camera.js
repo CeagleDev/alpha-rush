@@ -19,7 +19,7 @@
  * Reads: state.x/y/z/speed/running/over, ctx.camera, ctx.renderer, ctx.track.groundPitch (optional),
  * player.getAABB()/getObject(). Listens: 'hit', 'stumble', 'death', 'start'.
  */
-import { getAABB } from './player.js?v=202609211301';
+import { getAABB } from './player.js?v=202609211323';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
@@ -40,7 +40,8 @@ const S = {
 // is invisible behind him until ~2-3 m at 1.3 m camera height: a human cannot react to what the
 // hero's back hides, and a 1.25 m crate stack then passes through the lens. From 1.9 m the next
 // row shows over the hero's shoulder and obstacle tops clear the camera.
-const HERO_H = 1.72, LOOK_DOWN = 0.24;   // rad, the camera's elevation above the hero centre
+// HERO_H 1.72 -> 1.56 with the rebuilt runner (owner: "he's too tall ... like other runner games").
+const HERO_H = 1.56, LOOK_DOWN = 0.24;   // rad, the camera's elevation above the hero centre
 const AIM_DY = 0.10, AIM_DZ = 0.3;        // aim point relative to the hero centre: mid-torso, just ahead
 const PITCH_MAX = 10 * Math.PI / 180;
 let _v, _size, _corners;
@@ -78,7 +79,10 @@ export function update(a, b) {
   S.t += dt;
   const size = frameSize();
   const portrait = size.y >= size.x;
-  const targetFrac = portrait ? 0.29 : 0.25;
+  // 0.29 -> 0.25: the camera holds the hero at a FRACTION of the frame, so a shorter model alone would
+  // just have pulled the camera in. Subway Surfers keeps its runner near a fifth of the screen; a
+  // quarter leaves this street's detail readable and shows more road ahead of him.
+  const targetFrac = portrait ? 0.25 : 0.22;
 
   // fov by speed; on death ease it in a little
   const spd = clamp(((s.speed || 0) - 9) / 11, 0, 1);

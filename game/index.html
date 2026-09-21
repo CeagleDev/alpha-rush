@@ -36,6 +36,27 @@
   #hud.on { display: block; }
   #hud .top { display: flex; justify-content: space-between; align-items: flex-start; }
   #hud .score { font-size: clamp(26px, 8vw, 40px); line-height: 1; letter-spacing: .04em; text-shadow: 0 1px 0 #000, 0 0 12px rgba(0,0,0,.6); }
+  #hud .scorerow { display: flex; align-items: baseline; gap: 8px; }
+  #hud .mult { font-size: 13px; letter-spacing: .08em; color: var(--frame); background: var(--accent); border-radius: 4px; padding: 2px 6px; }
+  #hud .mult.hot { background: #ffd24a; box-shadow: 0 0 10px rgba(255,210,74,.7); }
+  #hud .powers { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; width: 120px; }
+  #hud .pw { display: none; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; text-shadow: 0 1px 0 #000; }
+  #hud .pw.on { display: block; }
+  #hud .pw i { display: block; height: 4px; margin-top: 3px; background: rgba(238,226,200,.2); border-radius: 2px; overflow: hidden; }
+  #hud .pw b { display: block; height: 100%; width: 100%; background: var(--accent); }
+  #hud .pw-magnetT b { background: #ff5a4a; } #hud .pw-shieldT b { background: #7fd4ff; } #hud .pw-x2T b { background: #ffd24a; } #hud .pw-sneakT b { background: #5af0d0; }
+  #hud .toast { position: absolute; left: 50%; top: calc(64px + var(--sat)); transform: translateX(-50%) translateY(-6px); max-width: 86vw; text-align: center;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--frame); background: rgba(229,176,85,.95); padding: 7px 12px; border-radius: 6px;
+    opacity: 0; transition: opacity .18s, transform .18s; }
+  #hud .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .missions { width: min(340px, 86vw); margin: 16px auto 0; text-align: left; font-size: 11px; letter-spacing: .08em; }
+  .missions .mhead { text-transform: uppercase; letter-spacing: .2em; font-size: 10px; color: var(--accent); margin-bottom: 6px; text-align: center; }
+  .missions .m { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid rgba(238,226,200,.12); opacity: .85; }
+  .missions .m em { font-style: normal; opacity: .7; white-space: nowrap; }
+  .missions .m.done { color: var(--accent); }
+  .best { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; opacity: .7; margin-top: 8px; min-height: 14px; }
+  #d-newbest { display: none; color: #ffd24a; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; margin-top: 6px; }
+  #d-newbest.on { display: block; }
   #hud .sub { font-size: 11px; letter-spacing: .18em; opacity: .7; margin-top: 4px; text-transform: uppercase; }
   #hud .coins { display: flex; align-items: center; gap: 6px; font-size: clamp(18px, 5vw, 24px); color: var(--accent);
     text-shadow: 0 1px 0 #000, 0 0 10px rgba(0,0,0,.6); }
@@ -79,7 +100,9 @@
 <div class="screen on" id="title">
   <h1>MIDNIGHT DASH</h1>
   <div class="tag">yokocho at blue dusk</div>
-  <p class="help" id="help">swipe left / right to change lane<br>swipe up to jump &nbsp;·&nbsp; swipe down to roll<br>don't let the pack catch you</p>
+  <p class="help" id="help">swipe left / right to change lane<br>swipe up to jump &nbsp;·&nbsp; swipe down to roll<br>one stumble brings the pack · two and they have you</p>
+  <div class="best" id="t-best"></div>
+  <div class="missions" id="t-missions"></div>
   <button class="btn" id="startb" type="button">Run</button>
   <div id="loadline">loading</div>
 </div>
@@ -91,11 +114,14 @@
     <div><b id="d-score">0</b>score</div>
     <div><b id="d-dist">0 m</b>distance</div>
     <div class="c"><b id="d-coins">0</b>coins</div>
+    <div><b id="d-best">0</b>best</div>
   </div>
+  <div id="d-newbest">new best</div>
+  <div class="missions" id="d-missions"></div>
   <button class="btn" id="restartb" type="button">Run again</button>
   <div id="loadline2"></div>
 </div>
 
-<script type="module" src="./src/main.js?v=202609211301"></script>
+<script type="module" src="./src/main.js?v=202609211323"></script>
 </body>
 </html>

@@ -6,8 +6,8 @@
  * exports: init(ctx), update(dt), stats()
  */
 import * as THREE from 'three';
-import { bakeStatic } from '../assetlib.js?v=202609211301';
-import { mulberry32, hash32 } from './chunks.js?v=202609211301';
+import { bakeStatic } from '../assetlib.js?v=202609211323';
+import { mulberry32, hash32 } from './chunks.js?v=202609211323';
 
 let ctx = null, group = null, info = { draws: 0, tris: 0, blocks: 0, windows: 0 };
 
@@ -74,5 +74,13 @@ export function update() {
   if (!group || !ctx) return;
   const st = ctx.state;
   group.position.z = Number.isFinite(st.z) ? st.z : (st.distance || 0);
+}
+/** Day: the skyline is concrete in haze, not a row of dark cut-outs (lighting.js calls this as the day moves). */
+let darkMats = null;
+const DAY_GAIN = [21, 16.5, 7.4];   // linear 0x212841 -> 0x9aa0a8, per channel (the colour may live in the vertices, so it is a gain)
+export function setDay(d) {
+  if (!group) return;
+  if (!darkMats) { darkMats = []; group.traverse((o) => { const m = o.isMesh && o.material; if (m && m.color && (!m.emissive || m.emissive.getHex() === 0)) { darkMats.push({ m, base: m.color.clone() }); } }); }
+  for (const { m, base } of darkMats) m.color.setRGB(base.r * (1 + (DAY_GAIN[0] - 1) * d), base.g * (1 + (DAY_GAIN[1] - 1) * d), base.b * (1 + (DAY_GAIN[2] - 1) * d));
 }
 export function stats() { return info; }

@@ -28,8 +28,9 @@
  * The speed ramp is a pure function of distance (9 → 20 m/s, +0.6 per 150 m), so ?gate=1 is
  * satisfied by construction; the stumble factor multiplies it.
  */
-import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609211301';
+import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609211323';
 
+const HERO_ALBEDO = 0.62;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -87,6 +88,14 @@ export async function init(ctx) {
   try { asset = await ctx.assets.get('runner', { keepHierarchy: true }); } catch (e) { console.warn('[player] runner load failed', e); }
   if (!asset) { asset = new THREE.Group(); asset.userData.placeholder = true; }
   root = asset;
+  // THE HERO'S ALBEDO LIVES IN THE STREET'S RANGE. Every surface in this night street was authored dark
+  // (asphalt ~0.04, timber ~0.08 linear) and the lamps are strong to match; a garment at a real-world
+  // 0.5 is then ten times the brightest thing around it and reads as self-lit - the owner's "unusual
+  // glow". His materials are scaled once here (cloned, so nothing shared is touched); hue is unchanged.
+  { const seen = new Map();
+    root.traverse((o) => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+      if (!seen.has(o.material)) { const m = o.material.clone(); m.color.multiplyScalar(HERO_ALBEDO); seen.set(o.material, m); }
+      o.material = seen.get(o.material); }); }
   if (root.userData && root.userData.joints) {
     drawInfo.before = countMeshes(root);
     drawInfo = { before: drawInfo.before, ...mergePerJoint(THREE, root) };
@@ -119,7 +128,11 @@ function enterDead(reason, doEmit = true) {
 
 function startJump() {
   const s = C.state;
-  P.jumpT = 0; P.mode = 'jump'; P.modeT = 0; P.modeLen = 2 * cfgv('JUMP_T', 0.55);
+  // SUPER SNEAKERS (powerups.js): while they last the apex goes 1.1 m -> 2.0 m and the hang time with it.
+  // Fixed at take-off so a power-up that runs out mid-air does not drop him out of the sky.
+  const boots = (s.sneakT || 0) > 0;
+  P.jumpH = boots ? 2.0 : cfgv('JUMP_H', 1.1); P.jumpHalf = boots ? 0.70 : cfgv('JUMP_T', 0.55);
+  P.jumpT = 0; P.mode = 'jump'; P.modeT = 0; P.modeLen = 2 * P.jumpHalf;
   s.airborne = true; s.jumps = (s.jumps | 0) + 1;
   emit('jump', { z: s.z });
 }
@@ -220,7 +233,7 @@ export function update(a, b) {
   P.prevX = s.x;
 
   // ---- vertical: jump over the ground
-  const JT = cfgv('JUMP_T', 0.55), JH = cfgv('JUMP_H', 1.1);
+  const JT = P.jumpHalf || cfgv('JUMP_T', 0.55), JH = P.jumpH || cfgv('JUMP_H', 1.1);
   let jumpY = 0;
   if (P.jumpT >= 0 && P.fastFall) {                      // fast-fall: drop at 9 m/s, then roll on landing
     if (live) P.fallY = Math.max(0, P.fallY - 9 * dt);
@@ -255,7 +268,7 @@ export function update(a, b) {
     }
   }
   // ---- AABB and collision
-  const h = s.rolling ? 0.85 : 1.7;
+  const h = s.rolling ? 0.8 : 1.55;   // the rebuilt runner stands 1.56 m
   aabb.min.set(s.x - 0.3, s.y, s.z - 0.25);
   aabb.max.set(s.x + 0.3, s.y + h, s.z + 0.25);
   if (live && P.invulnT <= 0 && obstaclesMod() && typeof obstaclesMod().hit === 'function') {
@@ -263,7 +276,14 @@ export function update(a, b) {
     if (r) {
       const info = classifyHit(r, aabb);
       P.invulnT = 0.7;
-      if (info.side) {
+      // THE CHARM (omamori = Subway Surfers' hoverboard): it takes ONE crash of any kind, and is spent.
+      // The thing he hit is shoved out of the lane so neither he nor the camera passes through it.
+      const pw = C.modules && C.modules.powerups;
+      if (pw && typeof pw.absorb === 'function' && pw.absorb()) {
+        const bx0 = r && r.box ? (r.box.min.x + r.box.max.x) / 2 : s.x;
+        if (r && obstaclesMod().knock) obstaclesMod().knock(r, bx0 === 0 ? (s.x <= 0 ? 1 : -1) : Math.sign(bx0), true);
+        P.invulnT = 1.2;
+      } else if (info.side) {
         // SIDE CLIP: bumping the flank of something mid lane-change bounces you back into the lane
         // you came from (Subway Surfers' train-side bump) instead of letting you slide on through it.
         if (P.laneT < 1 && Number.isFinite(P.prevLaneIdx) && P.prevLaneIdx !== s.lane) { const d = Math.sign(P.prevLaneIdx - s.lane); if (d) startLane(d); }
