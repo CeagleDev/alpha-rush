@@ -19,7 +19,7 @@
  * Reads: state.x/y/z/speed/running/over, ctx.camera, ctx.renderer, ctx.track.groundPitch (optional),
  * player.getAABB()/getObject(). Listens: 'hit', 'stumble', 'death', 'start'.
  */
-import { getAABB } from './player.js?v=202609201508';
+import { getAABB } from './player.js?v=202609211301';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));

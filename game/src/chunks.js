@@ -24,9 +24,9 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
-import { signFace, noren } from './textures.js?v=202609201508';
-import * as perf from './perf.js?v=202609201508';
-import { bakeStatic } from '../assetlib.js?v=202609201508';
+import { signFace, noren } from './textures.js?v=202609211301';
+import * as perf from './perf.js?v=202609211301';
+import { bakeStatic } from '../assetlib.js?v=202609211301';
 
 export const CHUNK_LEN = 30;
 // CLOSE THE STREET (critic round 3, the one property). At 4.5 the shophouse fronts stood 9 m apart
@@ -365,13 +365,18 @@ async function expressway(ctx, variant) {
   await B.put('expressway_deck', 0, -DECK_Y, 15);
   // sodium lamps every 15 m, alternating sides (parity flips per variant so the run alternates)
   const p = Number(variant.id.slice(1)) % 2 ? 1 : -1;
-  await B.put('sodium_lamp', 3.5 * p, 0, 7.5, 0);
-  await B.put('sodium_lamp', -3.5 * p, 0, 22.5, 0);
+  await B.put('sodium_lamp', 3.5 * p, 0, 7.5, faceRoad(p));
+  await B.put('sodium_lamp', -3.5 * p, 0, 22.5, faceRoad(-p));
   // guard rails, 4 m sections, both sides
-  for (const s of [1, -1]) for (let k = 0; k < 7; k++) await B.put('guard_rail', s * 3.15, 0, 2 + k * 4 + (k === 6 ? -1 : 0), 0);
+  // ORIENTATION. guard_rail is authored 4 m long ALONG X and concrete_divider 1.84 m ALONG X (it was a
+  // lane obstacle once); the sodium lamp's arm is authored along +Z. Placed with no rotation the rails
+  // lay ACROSS the road - each one spanning x 1.15..5.15, straight over an outer lane, with no
+  // collider, so the runner "ran through barricades" (the user's screenshot). Edge furniture runs
+  // ALONG the road (rotation pi/2), and lamps face the carriageway like the shophouses do.
+  for (const s of [1, -1]) for (let k = 0; k < 7; k++) await B.put('guard_rail', s * 3.15, 0, 2 + k * 4 + (k === 6 ? -1 : 0), Math.PI / 2);
   if (variant.gantry) await B.put('sign_gantry', 0, 0, 15, 0);
   // edge dividers (scenery, outside the lanes) and a little shoulder detail
-  for (let i = 0; i < 3; i++) await B.put('concrete_divider', pick(rng, [1, -1]) * 3.75, 0, range(rng, 2, 28), 0);
+  for (let i = 0; i < 3; i++) await B.put('concrete_divider', pick(rng, [1, -1]) * 3.75, 0, range(rng, 2, 28), Math.PI / 2);
   if (rng() < 0.6) await B.put('road_cones', pick(rng, [1, -1]) * 3.3, 0, range(rng, 3, 27), 0);
   return finish(ctx, B, 12);
 }
@@ -384,7 +389,7 @@ async function ramp(ctx, variant) {
   // meeting the alley and the deck exactly. Mirrored by a half turn for the down ramp.
   await B.put('ramp_chunk', 0, -ROAD_SURF, 15, variant.zone === 'rampDown' ? Math.PI : 0);
   for (const s of [1, -1]) for (let k = 0; k < 7; k++) {
-    const { inst } = await B.put('guard_rail', s * 3.15, 0, 2 + k * 4 + (k === 6 ? -1 : 0), 0);
+    const { inst } = await B.put('guard_rail', s * 3.15, 0, 2 + k * 4 + (k === 6 ? -1 : 0), Math.PI / 2);   // along the ramp edge, not across it
     inst.position.y = 0; // rails are placed on the ramp surface below
   }
   // place the rails on the slope: y from the rise, pitched to it
