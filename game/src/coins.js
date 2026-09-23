@@ -189,6 +189,7 @@ export function update(dt = 0.016) {
   // deleted every coin of the new run (QA 2026-09-21: a restarted run had no coins at all).
   const cz0 = ctx.camera ? ctx.camera.position.z : NaN;
   const camZ = Number.isFinite(cz0) && cz0 < pz && cz0 > pz - 30 ? cz0 : pz - 5.7;
-  if (live.length) { const cut = camZ + 0.9; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
+  // 2.2 m, not 0.9: a 0.6 m coin a metre from the lens filled a third of the frame in the front-end review
+  if (live.length) { const cut = camZ + 2.2; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
   prevZ = pz;
 }

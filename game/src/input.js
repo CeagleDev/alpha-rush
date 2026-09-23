@@ -41,7 +41,7 @@ function begin(x, y, id) { sx = x; sy = y; st = performance.now(); sid = id; tra
 function move(x, y) {
   if (!tracking || fired) return;
   const dx = x - sx, dy = y - sy;
-  if (Math.hypot(dx, dy) < config.SWIPE_PX) return;
+  if (Math.hypot(dx, dy) < config.SWIPE_PX) return;   // 40 px: the gate swipes 90; a real thumb flick crosses this in ~2 frames
   if (performance.now() - st > config.SWIPE_MS) { tracking = false; return; }   // too slow: a drag, not a swipe
   fired = true;
   push(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));

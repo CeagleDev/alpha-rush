@@ -31,6 +31,11 @@
 import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609211652';
 
 const HERO_ALBEDO = 0.62;
+// INPUT BUFFER (Subway Surfers, Temple Run): a swipe that lands while the runner cannot act on it yet -
+// up while airborne, down while rolling, any move in the stumble lock-out - is kept for this long and
+// fires the instant it becomes legal, instead of being dropped. Dropping it is what made the controls
+// feel slow: the player swiped, nothing happened, they swiped again, and the second one was late.
+const BUFFER_S = 0.28;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -46,7 +51,7 @@ let drawInfo = { before: 0, after: 0 };
 const P = {
   mode: 'idle', modeT: 0, modeLen: 0,
   laneFrom: 0, laneTo: 0, laneT: 1, laneVel: 0, prevX: 0,
-  jumpT: -1, rollT: -1, wall: null, fastFall: false, fallY: 0, rollOnLand: false, prevLaneIdx: 0,
+  jumpT: -1, rollT: -1, wall: null, buf: null, bufT: 0, fastFall: false, fallY: 0, rollOnLand: false, prevLaneIdx: 0,
   stumbleAnimT: 0, stumbleHard: false,
   invulnT: 0, lastHitAt: -1e9, clock: 0, deathT: 0,
 };
@@ -72,7 +77,7 @@ export function reset() {
   s.playerState = 'idle';
   P.mode = 'idle'; P.modeT = 0; P.modeLen = 0;
   P.laneFrom = 0; P.laneTo = 0; P.laneT = 1; P.laneVel = 0; P.prevX = 0;
-  P.jumpT = -1; P.rollT = -1; P.stumbleAnimT = 0; P.stumbleHard = false;
+  P.jumpT = -1; P.rollT = -1; P.stumbleAnimT = 0; P.stumbleHard = false; P.buf = null; P.bufT = 0;
   P.invulnT = 0; P.lastHitAt = -1e9; P.deathT = 0;
   if (obj) { obj.position.set(0, s.y, 0); obj.rotation.set(0, 0, 0); }
 }
@@ -84,34 +89,23 @@ export async function init(ctx) {
   aabb = new THREE.Box3();
 
   obj = new THREE.Group(); obj.name = 'runner';
-  let asset = null;
-  try { asset = await ctx.assets.get('runner', { keepHierarchy: true }); } catch (e) { console.warn('[player] runner load failed', e); }
-  if (!asset) { asset = new THREE.Group(); asset.userData.placeholder = true; }
-  root = asset;
-  // THE HERO'S ALBEDO LIVES IN THE STREET'S RANGE. Every surface in this night street was authored dark
-  // (asphalt ~0.04, timber ~0.08 linear) and the lamps are strong to match; a garment at a real-world
-  // 0.5 is then ten times the brightest thing around it and reads as self-lit - the owner's "unusual
-  // glow". His materials are scaled once here (cloned, so nothing shared is touched); hue is unchanged.
-  { const seen = new Map();
-    root.traverse((o) => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
-      if (!seen.has(o.material)) { const m = o.material.clone(); m.color.multiplyScalar(HERO_ALBEDO); seen.set(o.material, m); }
-      o.material = seen.get(o.material); }); }
-  if (root.userData && root.userData.joints) {
-    drawInfo.before = countMeshes(root);
-    drawInfo = { before: drawInfo.before, ...mergePerJoint(THREE, root) };
-    drawInfo.after = countMeshes(root);
-  } else {
-    drawInfo = { before: countMeshes(root), after: countMeshes(root) };
-    if (!root.userData?.placeholder) console.warn('[player] runner has no userData.joints — loaded merged? it will not animate');
-  }
+  // THE CHOSEN HERO (home.js writes state.characterAsset before 'start'). All three are prepared at boot so a
+  // switch on the home screen is instant; a hero whose asset is missing falls back to the plain runner.
+  await prepareHero(ctx, 'runner');
+  await prepareHero(ctx, s.characterAsset || 'runner');
+  root = heroes.get(s.characterAsset || 'runner') || heroes.get('runner');
+  if (!root) { root = new THREE.Group(); root.userData.placeholder = true; }
+  // (albedo scaling and the per-joint merge happen in prepareHero(), once per hero; see the note there)
+  drawInfo = root.userData.drawInfo || { before: countMeshes(root), after: countMeshes(root) };
   obj.add(root);
   ctx.scene.add(obj);
   anim = new RunnerAnim(THREE, root);
+  for (const name of ['hero_ronin', 'hero_kitsune', 'hero_oni']) prepareHero(ctx, name);   // not awaited
 
   reset();
   const ev = ctx.events;
   if (ev && typeof ev.on === 'function') {
-    ev.on('start', () => { reset(); });
+    ev.on('start', () => { swapHero(s.characterAsset || 'runner'); reset(); });
     ev.on('death', (p) => { if (P.mode !== 'dead') enterDead(p && p.reason ? p.reason : 'caught', false); });
   }
   s.playerDraws = drawInfo.after;   // NEW, informational: runner draw calls after the per-joint merge
@@ -197,16 +191,19 @@ export function update(a, b) {
   }
 
   // ---- input
-  const inp = C.input && typeof C.input.consume === 'function' ? C.input.consume() : null;
+  let inp = C.input && typeof C.input.consume === 'function' ? C.input.consume() : null;
+  if (!inp && P.buf) { P.bufT += dt; if (P.bufT > BUFFER_S) P.buf = null; else inp = P.buf; }
   if (inp && P.mode !== 'dead' && P.mode !== 'idle' && s.running && !s.over) {
-    if (s.stumbleT > 0) { /* 0.4 s of no input after a stumble */ }
+    let done = true;
+    if (s.stumbleT > 0) done = false;                      // stumble lock-out: hold it, fire when it ends
     else if (inp === 'left') startLane(-1);
     else if (inp === 'right') startLane(1);
     // MOVE CANCELS (Subway Surfers): swipe up during a roll cancels it into a jump; swipe down in
     // mid-air is a fast-fall that lands straight into a roll - the move that beats "hurdle, then an
     // overhang right behind it". Lane changes were already allowed in the air.
-    else if (inp === 'up') { if (s.rolling) { P.rollT = -1; s.rolling = false; } if (!s.airborne) startJump(); }
-    else if (inp === 'down') { if (s.airborne) { if (!P.fastFall) { P.fastFall = true; P.fallY = Math.max(0, s.y - groundY(s.z)); P.rollOnLand = true; } } else if (!s.rolling) startRoll(); }
+    else if (inp === 'up') { if (s.rolling) { P.rollT = -1; s.rolling = false; } if (!s.airborne) startJump(); else done = false; }
+    else if (inp === 'down') { if (s.airborne) { if (!P.fastFall) { P.fastFall = true; P.fallY = Math.max(0, s.y - groundY(s.z)); P.rollOnLand = true; } } else if (!s.rolling) startRoll(); else done = false; }
+    if (done) P.buf = null; else if (P.buf !== inp) { P.buf = inp; P.bufT = 0; }
   }
 
   const live = s.running && !s.over && P.mode !== 'dead' && P.mode !== 'idle';
@@ -237,13 +234,17 @@ export function update(a, b) {
   const JT = P.jumpHalf || cfgv('JUMP_T', 0.55), JH = P.jumpH || cfgv('JUMP_H', 1.1);
   let jumpY = 0;
   if (P.jumpT >= 0 && P.fastFall) {                      // fast-fall: drop at 9 m/s, then roll on landing
-    if (live) P.fallY = Math.max(0, P.fallY - 9 * dt);
+    if (live) P.fallY = Math.max(0, P.fallY - 14 * dt);
     jumpY = P.fallY;
     if (P.fallY <= 0) { P.jumpT = -1; P.fastFall = false; s.airborne = false; if (P.mode === 'jump') { P.mode = 'run'; P.modeT = 0; } if (P.rollOnLand) { P.rollOnLand = false; startRoll(); } }
   } else if (P.jumpT >= 0) {
     if (live) P.jumpT += dt;
     const u = (P.jumpT - JT) / JT;                    // −1 at take-off, 0 at apex, +1 at landing
-    jumpY = Math.max(0, JH * (1 - u * u));
+    // FAST RISE, HOVER, FAST DROP (Subway Surfers' arc, not a ballistic one). A parabola spends only the
+    // middle 43 % of its hang above a 0.9 m crate; 1 - u^6 spends 77 % of it there, so a jump taken a
+    // little early or late still clears, and the take-off reads as instant. Same peak height.
+    const u6 = u * u * u * u * u * u;
+    jumpY = Math.max(0, JH * (1 - u6));
     if (P.jumpT >= 2 * JT) { P.jumpT = -1; jumpY = 0; s.airborne = false; if (P.mode === 'jump') { P.mode = 'run'; P.modeT = 0; } }
   }
   if (P.rollT >= 0) {
@@ -331,6 +332,37 @@ export function update(a, b) {
       });
     }
   }
+}
+
+// ---- heroes: one prepared (merged per joint, albedo scaled) root per asset name
+const heroes = new Map();
+// THE HERO'S ALBEDO LIVES IN THE STREET'S RANGE. Every surface in this night street was authored dark
+// (asphalt ~0.04, timber ~0.08 linear) and the lamps are strong to match; a garment at a real-world 0.5 is
+// then ten times the brightest thing around it and reads as self-lit - the owner's "unusual glow". Each
+// hero's materials are scaled once here (cloned, so nothing shared is touched); hue is unchanged.
+async function prepareHero(ctx, name) {
+  if (heroes.has(name)) return heroes.get(name);
+  const THREE = ctx.THREE;
+  let asset = null;
+  try { asset = await ctx.assets.get(name, { keepHierarchy: true }); } catch (e) { asset = null; }
+  if (!asset || asset.userData?.placeholder || !(asset.userData && asset.userData.joints)) { if (name !== 'runner') console.warn('[player] hero not available:', name); return null; }
+  { const seen = new Map();
+    asset.traverse((o) => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+      if (!seen.has(o.material)) { const m = o.material.clone(); m.color.multiplyScalar(HERO_ALBEDO); seen.set(o.material, m); }
+      o.material = seen.get(o.material); }); }
+  const before = countMeshes(asset);
+  const info = mergePerJoint(THREE, asset);
+  asset.userData.drawInfo = { before, ...info, after: countMeshes(asset) };
+  heroes.set(name, asset);
+  return asset;
+}
+function swapHero(name) {
+  const next = heroes.get(name) || heroes.get('runner');
+  if (!next || next === root || !obj) return;
+  obj.remove(root); root = next; obj.add(root);
+  anim = new RunnerAnim(C.THREE, root);
+  drawInfo = root.userData.drawInfo || drawInfo;
+  C.state.playerDraws = drawInfo.after;
 }
 
 export function getAABB() { return aabb; }

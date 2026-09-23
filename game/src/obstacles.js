@@ -26,6 +26,7 @@ import * as THREE from 'three';
 import { mulberry32, hash32 } from './chunks.js?v=202609211652';
 import { groundY, groundPitch, frame } from './track.js?v=202609211652';
 import * as coins from './coins.js?v=202609211652';
+import { zoneModule, ZONE_IDS } from './chunks.js?v=202609211652';
 
 const KINDS = {
   alley: {
@@ -90,7 +91,7 @@ function rowClass(rng, d) {
 }
 
 function makeRow(rng, z, zone, d, chunkIndex) {
-  const set = KINDS[zone === 'alleyA' || zone === 'alleyB' || zone === 'day' ? 'alley' : 'expressway'];
+  const set = KINDS[zone] || KINDS[zone === 'alleyA' || zone === 'alleyB' || zone === 'day' ? 'alley' : 'expressway'];
   const cls = rowClass(rng, d);
   let n = rng() < 0.25 + 0.5 * d ? 2 : 1;
   const rollWide = cls === 'roll' && set.roll.every((t) => (pools.get(t)?.lanes || 1) >= 2);
@@ -275,6 +276,13 @@ export async function init(c) {
   if (st.coinLane === undefined) st.coinLane = null;
   root = new THREE.Group(); root.name = 'obstacles'; ctx.scene.add(root);
   rowsList = []; rowId = 0; nextRowZ = 0; lastChunkZ0 = -1; prevFree = [-1, 0, 1];
+  // the new zones bring their own obstacle lists (src/zones/<id>.js ZONE.obstacles); a zone without a
+  // module inherits the look-alike's list, matching the chunk fallback in chunks.js
+  for (const id of ZONE_IDS) {
+    const m = await zoneModule(id);
+    const o = m && m.ZONE && m.ZONE.obstacles;
+    if (o && o.jump && o.roll && o.block) KINDS[id] = { jump: o.jump.slice(), roll: o.roll.slice(), block: o.block.slice() };
+  }
   const jobs = [];
   for (const set of Object.values(KINDS)) for (const [kind, types] of Object.entries(set)) for (const t of types) jobs.push(loadType(t, kind));
   await Promise.all(jobs);

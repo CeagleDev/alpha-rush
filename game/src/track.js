@@ -34,9 +34,14 @@ import * as farband from './farband.js?v=202609211652';
 // THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
 // last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls
 // over its last chunks -> the night market street (B) -> and round again. 26 chunks = 780 m a cycle.
-const PATTERN = ['A', 'A', 'A', 'A', 'A', 'A', 'RU', 'X', 'X', 'X', 'X', 'X', 'X', 'RD', 'D', 'D', 'D', 'D', 'D', 'D', 'B', 'B', 'B', 'B', 'B', 'B'];
-const ZONE = { A: 'alleyA', RU: 'rampUp', X: 'expressway', RD: 'rampDown', D: 'day', B: 'alleyB' };
-const SEG_START = { A: 0, X: 7, D: 14, B: 20 };
+// TWO MORE SCENES (owner, 2026-09-23): after the night market a ramp climbs onto the neon ROOFTOPS (R x6, at
+// deck height like the expressway), a ramp comes down into the TORII shrine path (T x6, ground level, misty
+// dusk-blue with warm lanterns), and the path opens back into the yokocho (A). 40 chunks = 1200 m a cycle.
+const PATTERN = ['A', 'A', 'A', 'A', 'A', 'A', 'RU', 'X', 'X', 'X', 'X', 'X', 'X', 'RD', 'D', 'D', 'D', 'D', 'D', 'D', 'B', 'B', 'B', 'B', 'B', 'B',
+  'RU', 'R', 'R', 'R', 'R', 'R', 'R', 'RD', 'T', 'T', 'T', 'T', 'T', 'T'];
+const ZONE = { A: 'alleyA', RU: 'rampUp', X: 'expressway', RD: 'rampDown', D: 'day', B: 'alleyB', R: 'rooftops', T: 'torii' };
+const SEG_START = { A: 0, X: 7, D: 14, B: 20, R: 27, T: 34 };
+const HIGH = new Set(['X', 'R']);   // zones that run at deck height
 const CYCLE = PATTERN.length;
 // time of day along one cycle, in chunk units: 0 = night, 1 = full day
 const DAWN0 = 9.5, DAWN1 = 13.6, DUSK0 = 18.4, DUSK1 = 20.6;
@@ -86,7 +91,7 @@ export function zoneAt(z) { return z < 0 ? 'alleyA' : ZONE[PATTERN[slotOf(Math.f
 export function groundY(z) {
   if (z < 0) return 0;
   const i = Math.floor(z / CHUNK_LEN), k = PATTERN[slotOf(i)], t = (z - i * CHUNK_LEN) / CHUNK_LEN;
-  if (k === 'X') return DECK_Y;
+  if (HIGH.has(k)) return DECK_Y;
   if (k === 'RU') return DECK_Y * t;
   if (k === 'RD') return DECK_Y * (1 - t);
   return 0;
@@ -122,7 +127,7 @@ function spawn(i) {
   entry.inUse = true;
   const zone = ZONE[PATTERN[slotOf(i)]];
   const g = entry.group;
-  g.position.set(0, zone === 'expressway' ? DECK_Y : 0, i * CHUNK_LEN);
+  g.position.set(0, zone === 'expressway' || zone === 'rooftops' ? DECK_Y : 0, i * CHUNK_LEN);
   g.updateMatrixWorld(true);
   root.add(g);
   const rec = { index: i, id, zone, z0: i * CHUNK_LEN, z1: i * CHUNK_LEN + CHUNK_LEN, group: g, entry, cross: g.userData.cross };

@@ -48,6 +48,8 @@ VARIANTS.push({ id: 'RU', zone: 'rampUp', cross: 0 });
 for (let i = 0; i < 6; i++) VARIANTS.push({ id: `X${i}`, zone: 'expressway', cross: 0, gantry: i % 2 === 0 });
 VARIANTS.push({ id: 'RD', zone: 'rampDown', cross: 0 });
 for (let i = 0; i < 6; i++) VARIANTS.push({ id: `D${i}`, zone: 'day', cross: i % 2 ? (i % 4 === 1 ? 1 : -1) : 0 });
+for (let i = 0; i < 6; i++) VARIANTS.push({ id: `R${i}`, zone: 'rooftops', cross: 0 });
+for (let i = 0; i < 6; i++) VARIANTS.push({ id: `T${i}`, zone: 'torii', cross: 0 });
 for (let i = 0; i < 6; i++) VARIANTS.push({ id: `B${i}`, zone: 'alleyB', cross: i % 2 ? (i % 4 === 1 ? -1 : 1) : 0 });
 
 // ---------------------------------------------------------------- seeded helpers
@@ -515,8 +517,33 @@ async function finish(ctx, B, litterCount) {
   return chunk;
 }
 
+// ---------------------------------------------------------------- zone modules
+// The rooftops and the shrine path live in their own recipe files (src/zones/<id>.js): each exports
+// ZONE {id, label, obstacles, height, lightsMood} and build(ctx, variant, H). H hands them this file's
+// helpers. A zone whose file is missing or broken falls back to a look-alike (the expressway for the
+// rooftops, the night alley for the path) and says so once, so the track never has a hole in it.
+export const ZONE_HELPERS = { Builder, pick, range, shuffle, faceRoad, finish, ROAD_SURF, DECK_Y, mulberry32, hash32 };
+const zoneMods = new Map();
+const MODULE_V = (() => { try { return new URL(import.meta.url).search || ''; } catch (e) { return ''; } })();
+export async function zoneModule(id) {
+  if (zoneMods.has(id)) return zoneMods.get(id);
+  const job = (async () => {
+    try { const m = await import(`./zones/${id}.js${MODULE_V}`); if (m && typeof m.build === 'function') return m; console.warn('[chunks] zone', id, 'has no build()'); }
+    catch (e) { console.warn('[chunks] zone module missing or broken:', id, e && e.message); }
+    return null;
+  })();
+  zoneMods.set(id, job);
+  return job;
+}
+export const ZONE_IDS = ['rooftops', 'torii'];
+
 /** Build one variant's chunk Group (baked). Called by track.js at init only. */
 export async function buildVariant(ctx, variant) {
+  if (variant.zone === 'rooftops' || variant.zone === 'torii') {
+    const m = await zoneModule(variant.zone);
+    if (m) { const g = await m.build(ctx, variant, ZONE_HELPERS); if (g) return g; }
+    return variant.zone === 'rooftops' ? expressway(ctx, { ...variant, gantry: Number(variant.id.slice(1)) % 2 === 0 }) : alley(ctx, { ...variant, zone: 'alleyB' });
+  }
   if (variant.zone === 'expressway') return expressway(ctx, variant);
   if (variant.zone === 'rampUp' || variant.zone === 'rampDown') return ramp(ctx, variant);
   // 'day' is built by alley(): same street kit, daylight dressing

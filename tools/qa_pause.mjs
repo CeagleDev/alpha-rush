@@ -16,7 +16,7 @@ const a = await g(); console.log('tab hidden   ', JSON.stringify(a));
 await page.bringToFront(); await new Promise((r) => setTimeout(r, 1500));
 const b = await g(); console.log('back, waiting', JSON.stringify(b));
 await page.screenshot({ path: 'work/qa/paused.png' });
-await page.click('#paused'); await new Promise((r) => setTimeout(r, 1500));
+await page.mouse.click(30, 120); await new Promise((r) => setTimeout(r, 1500));
 const c = await g(); console.log('after tap    ', JSON.stringify(c));
 console.log(b.d === a.d && b.paused && b.overlay && !c.paused && c.d > b.d + 5 ? 'PAUSE PASS' : 'PAUSE FAIL');
 logs.forEach((l) => console.log(l)); await browser.close();

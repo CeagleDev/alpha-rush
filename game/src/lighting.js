@@ -753,6 +753,17 @@ function buildDayEnvironment() {
 }
 
 const _sunDir = { x: 0, y: 1, z: 0 };
+let mistPrev = -1;
+function mistAt(z) {
+  const track = (ctx.track && ctx.track.zoneAt) ? ctx.track : (ctx.modules && ctx.modules.track);
+  if (!track || !track.zoneAt || !track.chunkLength) return 0;
+  const L = track.chunkLength();
+  const here = track.zoneAt(z) === 'torii' ? 1 : 0, ahead = track.zoneAt(z + L) === 'torii' ? 1 : 0, behind = track.zoneAt(z - L) === 'torii' ? 1 : 0;
+  const u = (z % L) / L;
+  if (here) return behind ? 1 : Math.min(1, u * 1.6);      // first chunk: fade in
+  if (ahead) return Math.max(0, (u - 0.4) / 0.6) * 0.6;   // the chunk before: mist creeps out of the gates
+  return 0;
+}
 function applyTimeOfDay() {
   if (!night || Q.get('tod') === '0') return;
   const track = (ctx.track && ctx.track.dayAt) ? ctx.track : (ctx.modules && ctx.modules.track);
@@ -765,8 +776,9 @@ function applyTimeOfDay() {
     daySun.target.position.set(cam.x, cam.y, cam.z); daySun.target.updateMatrixWorld();
     daySun.position.set(cam.x + _sunDir.x * 120, cam.y + _sunDir.y * 120, cam.z + _sunDir.z * 120);
   }
-  if (Math.abs(d - dayNow) < 0.0015) return;
-  dayNow = d;
+  const mNow = Math.round(mistAt(z) * 40);
+  if (Math.abs(d - dayNow) < 0.0015 && mNow === mistPrev) return;
+  dayNow = d; mistPrev = mNow;
   const U = rig.atmos, B = rig.bounce || {};
   const el = lerp(DAY.elNight, DAY.elMax, d), a = atmAt(el);
   { const kk = ss(8, 30, el); for (const k of STOPS_) { const t = DAY.sky[k]; if (t) a[k] = a[k].map((v, c) => lerp(v, t[c], kk)); } }
@@ -816,7 +828,10 @@ function applyTimeOfDay() {
   const hzD = new THREE.Color().setRGB(tm(a.haze[0]), tm(a.haze[1]), tm(a.haze[2]), THREE.SRGBColorSpace);
   rig.fog.color.copy(night.fog).lerp(hzD, w);
   if (scene.background && scene.background.isColor) scene.background.copy(rig.fog.color);
-  const fs = lerp(night.aerStart, DAY.fogStart, w), fd = lerp(night.aerDensity, DAY.fogDensity, w);
+  // THE SHRINE PATH IS MISTY (approved board: fog between the cedars, the far gates lost in it). Fog eases
+  // in over the zone's first chunk and out over its last, driven by z so a photo at a fixed distance repeats.
+  const mist = 1 + 1.9 * mistAt(z);
+  const fs = lerp(night.aerStart, DAY.fogStart, w) / (1 + 0.45 * (mist - 1)), fd = lerp(night.aerDensity, DAY.fogDensity, w) * mist;
   U.uAerStart.value = fs; U.uAerDensity.value = fd; rig.fog.near = fs; rig.fog.far = fs + 3 / Math.max(1e-6, fd) * 0.35;
 
   // the street switches itself off as the day comes up

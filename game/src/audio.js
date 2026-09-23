@@ -33,6 +33,14 @@ let barkAlt = 0;
 
 const safe = (fn) => { try { return fn(); } catch (e) { /* audio never throws into the game */ return undefined; } };
 
+// ---------------------------------------------------------------- pause-menu setters (UI v2: tiny, main.js calls them)
+let muted = false, pausedByMenu = false;
+/** SOUND on/off in the pause menu: the master bus goes to 0 (remembered if the context does not exist yet). */
+export function setMuted(on) { muted = !!on; safe(() => { if (master && ac) master.gain.setTargetAtTime(muted ? 0 : 0.9, ac.currentTime, 0.02); }); }
+export const isMuted = () => muted;
+/** Paused: the context is suspended so music and ambience hold still with the world; resumed on unpause. */
+export function setPaused(on) { pausedByMenu = !!on; safe(() => { if (!ac) return; if (on) ac.suspend(); else ac.resume(); }); }
+
 // ---------------------------------------------------------------- unlock / graph
 export function unlock() {
   if (config.MUTE) return;
@@ -41,7 +49,7 @@ export function unlock() {
     const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AC) return;
     ac = new AC();
-    master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
+    master = ac.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(ac.destination);
     sfx = ac.createGain(); sfx.gain.value = 1; sfx.connect(master);
     music = ac.createGain(); music.gain.value = DB(-12); music.connect(master);
     amb = ac.createGain(); amb.gain.value = DB(-9); amb.connect(master);
@@ -51,7 +59,7 @@ export function unlock() {
     ok = true;
     if (ac.state === 'suspended') ac.resume();
     loadFiles();
-    document.addEventListener('visibilitychange', () => safe(() => { if (!document.hidden && ac.state === 'suspended') ac.resume(); }));
+    document.addEventListener('visibilitychange', () => safe(() => { if (!document.hidden && !pausedByMenu && ac.state === 'suspended') ac.resume(); }));
   });
 }
 
@@ -220,7 +228,7 @@ function restartLoops() { if (!ok) return; if (musicOn) { safe(() => { if (music
 function setZone(zone) {
   if (!ok) return;
   const z = typeof zone === 'object' && zone ? zone.zone : zone;
-  const onX = z === 'expressway' || z === 'rampUp';
+  const onX = z === 'expressway' || z === 'rampUp' || z === 'rooftops';   // open-air, wind and traffic: the deck and the roofs
   const t = ac.currentTime, T = 1.5;
   ambA.gain.cancelScheduledValues(t); ambA.gain.setTargetAtTime(onX ? 0.0001 : 1, t, T / 3);
   ambX.gain.cancelScheduledValues(t); ambX.gain.setTargetAtTime(onX ? 1 : 0.0001, t, T / 3);

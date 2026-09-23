@@ -158,8 +158,13 @@ export function update(dt = 0.016) {
     const hitIt = running && it.z >= zLo && it.z <= zHi && Math.abs(it.x - px) <= REACH && Math.abs(it.y - (py + 0.85)) <= 1.1;
     if (hitIt) {
       const T = TYPES[it.type];
-      st[T.key] = T.dur;
-      ctx.events.emit('powerup', { type: it.type, label: T.label, dur: T.dur });
+      // UI v2 hook: bank-bought upgrade levels (progress.js writes state.powerLevel = {magnet:n,...}, 1-5)
+      // lengthen the effect by +20 % per level above 1. state.powerDur[type] carries the effective length
+      // so the HUD's timer bar drains from full.
+      const lvl = Math.max(1, (st.powerLevel && st.powerLevel[it.type]) | 0 || 1);
+      const dur = T.dur * (1 + 0.2 * (lvl - 1));
+      st[T.key] = dur; if (st.powerDur) st.powerDur[it.type] = dur;
+      ctx.events.emit('powerup', { type: it.type, label: T.label, dur });
     }
     if (hitIt || it.z < camZ + 0.9) { root.remove(it.obj); items.splice(k, 1); }
   }

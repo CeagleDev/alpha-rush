@@ -18,9 +18,9 @@ export const SPEED_STEP = 0.6;
 export const SPEED_STEP_M = 150;
 export const SPEED_MAX = 20;
 export const JUMP_H = 1.1;
-export const JUMP_T = 0.55;
-export const ROLL_T = 0.8;   // was 0.5: the slide read as a blink (user). Subway Surfers' roll is a committed move you can CANCEL with a jump, so it can afford to be long.
-export const LANE_T = 0.18;
+export const JUMP_T = 0.45;   // half the hang: 0.9 s in the air (was 1.1). With the flat-topped arc in player.js the runner is at clearing height within 0.1 s of take-off and stays there for 0.7 s, so the jump is both swift and forgiving.
+export const ROLL_T = 0.6;   // 0.5 read as a blink, 0.8 as sluggish (owner, both times). Jump still cancels it.
+export const LANE_T = 0.14;
 export const PACK_DIST = 2.6;
 export const DRAW_BUDGET = 900;
 export const TRI_BUDGET = 1500000;
@@ -46,7 +46,7 @@ export const phone = (() => {
 /** Input (input.js): a swipe is ≥ SWIPE_PX within SWIPE_MS; the gate swipes 90 px in ~100 ms. */
 export const SWIPE_PX = 40;
 export const SWIPE_MS = 300;
-export const INPUT_DEBOUNCE_MS = 100;
+export const INPUT_DEBOUNCE_MS = 60;    // same-direction only (input.js); a different direction is never held back
 /** Physics dt clamp (main.js). fps is still computed from the real delta. */
 export const MAX_DT = 0.05;
 

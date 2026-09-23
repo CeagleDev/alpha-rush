@@ -3,7 +3,9 @@
  *
  * Boot: renderer → scene → camera → rig → ctx → every module's init(ctx), awaited in order
  *   textures, perf, lighting, track, obstacles, coins, player, pack, camera, input, hud, audio
- * then `window.__READY__ = true`, `#startb` (a real click / touch) → start().
+ * then `window.__READY__ = true`, HOME is shown (home.js), `#startb` (a real click / touch) → start().
+ * UI v2 flow: start(opts) also serves RESTART from the pause menu ({restart:true}); quit() ends a run without a
+ * death and shows HOME; setPaused() drives the pause menu (#pauseb, Esc, P, tab-hide / blur).
  *
  * Loop, every frame, in this order (each module's update(dt, ctx) is called EVERY frame, before start and
  * after death too — a module that moves the player must read state.running itself):
@@ -28,6 +30,7 @@ import * as input from './input.js?v=202609211652';
 import * as hud from './hud.js?v=202609211652';
 import * as audio from './audio.js?v=202609211652';
 import * as roadfx from './roadfx.js?v=202609211652';   // wet-road reflections + contact shadows (see ARCH.md addendum)
+import * as home from './home.js?v=202609211652';       // HOME screen: character select, tabs (UI v2)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -147,7 +150,7 @@ const [textures, perf, lighting, track, obstacles, coins, player, pack, cameraMo
 const ctx = {
   THREE, scene, camera, renderer, rig, config, state, events, canvas,
   assets: assetsMod, textures, input,
-  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod, powerups, progress },
+  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod, powerups, progress, home },
 };
 globalThis.__ctx = ctx;   // for the integrator's console; not part of any contract
 
@@ -156,7 +159,7 @@ const INIT_ORDER = [
   // assets.init must run before anything calls assets.get(): every chunk, character and obstacle
   // resolves through it, and without it get() throws and the world builds EMPTY while the gate passes.
   ['textures', textures], ['assets', assetsMod], ['perf', perf], ['lighting', lighting], ['track', track], ['obstacles', obstacles],
-  ['coins', coins], ['powerups', powerups], ['progress', progress], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['audio', audio],
+  ['coins', coins], ['powerups', powerups], ['progress', progress], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['home', home], ['audio', audio],
 ];
 const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, powerups, progress, cameraMod, roadfx, lighting, perf, hud, audio];
 
@@ -173,29 +176,52 @@ async function boot() {
 
   last = performance.now();
   requestAnimationFrame(loop);
+  { const pb = $('pauseb'); if (pb) pb.addEventListener('click', () => setPaused(true)); }   // built by hud.init
+  home.show();
   const b = $('startb'); if (b) b.disabled = false;
   say('');
   window.__READY__ = true;
 }
 
 // ---------------------------------------------------------------- start / restart / death
-function start() {
+// needsRestart: quit() reset the state without a death, so the next start() must still emit 'restart'
+let needsRestart = false;
+function start(opts) {
   if (!window.__READY__) return;
-  if (state.running) return;
+  const force = !!(opts && opts.restart);           // RESTART from the pause menu, mid-run
+  if (state.running && !force) return;
   audio.unlock();                          // inside the tap's gesture, synchronously
-  const restart = state.over || state.deaths > 0;
+  const restart = force || state.over || state.deaths > 0 || needsRestart;
   if (restart) {
     Object.assign(state, runDefaults());
     state.rng = mulberry32(config.SEED);   // the same seed gives the same run again
     events.emit('restart');
   }
+  needsRestart = false;
   state.over = false;
   state.paused = false; { const pe = $('paused'); if (pe) pe.classList.remove('on'); }
   state.running = true;
   state.speed = config.SPEED0;
+  // the chosen character (home.js, persisted by progress.js) is on state BEFORE 'start' so player.js can read it
+  try { const ch = home.selected(); if (ch) { state.character = ch.id; state.characterAsset = ch.asset; } } catch (e) { /* home missing */ }
   events.emit('start', { restart });
 }
-window.__START__ = start;
+window.__START__ = () => start();
+
+/** HOME from the pause menu or the death card: the run ends without a death (coins still bank), state resets
+ *  like a restart, and the home screen comes back. The world behind it stays put until the next start(). */
+function quit() {
+  if (state.running || state.over) {
+    events.emit('quit', { coins: state.coins | 0, distance: state.distance, score: state.score });
+    if (state.paused) setPaused(false);
+    state.running = false; state.over = false; state.speed = 0;
+    Object.assign(state, runDefaults());
+    state.rng = mulberry32(config.SEED);
+    needsRestart = true;
+  }
+  home.show();
+}
+window.__QUIT__ = quit;
 
 events.on('death', () => {
   if (state.over) return;
@@ -207,9 +233,10 @@ events.on('death', () => {
 
 for (const id of ['startb', 'restartb']) {
   const b = $(id); if (!b) continue;
-  b.addEventListener('click', start);
+  b.addEventListener('click', () => start());
   b.addEventListener('touchend', () => { start(); });   // no preventDefault: the click still follows and start() is idempotent
 }
+{ const b = $('d-home'); if (b) b.addEventListener('click', quit); }
 
 // ---------------------------------------------------------------- pause
 // QA 2026-09-21: leaving the tab mid-run left the runner to die unattended (a hidden tab's frames stop,
@@ -220,12 +247,28 @@ function setPaused(on) {
   if (on === !!state.paused) return;
   state.paused = on;
   const el = $('paused'); if (el) el.classList.toggle('on', on);
+  if (on) {
+    const ps = $('p-score'), pd = $('p-dist');
+    if (ps) ps.textContent = String(Math.floor(state.score || 0));
+    if (pd) pd.textContent = `${Math.floor(state.distance || 0)} m`;
+    syncSound();
+  }
   try { if (audio.setPaused) audio.setPaused(on); } catch (e) { /* optional */ }
   if (!on) { last = performance.now(); try { input.clear && input.clear(); } catch (e) { /* none queued */ } }
 }
+function syncSound() { const v = $('soundv'); if (!v) return; const off = !!(audio.isMuted && audio.isMuted()); v.textContent = off ? 'off' : 'on'; v.classList.toggle('off', off); }
 document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 addEventListener('blur', () => { if (!config.GATE) setPaused(true); });
-{ const el = $('paused'); if (el) for (const ev of ['click', 'touchend']) el.addEventListener(ev, (e) => { e.preventDefault(); setPaused(false); }); }
+// RESUME: the button, Esc / P / Space / Enter, or a tap on the backdrop outside the card
+{
+  const el = $('paused');
+  if (el) for (const ev of ['click', 'touchend']) el.addEventListener(ev, (e) => { if (e.target === el) { e.preventDefault(); setPaused(false); } });
+  const on = (id, fn) => { const b = $(id); if (b) b.addEventListener('click', fn); };
+  on('resumeb', () => setPaused(false));
+  on('p-restart', () => { if (!state.running) return; setPaused(false); start({ restart: true }); });
+  on('soundb', () => { try { audio.setMuted && audio.setMuted(!(audio.isMuted && audio.isMuted())); } catch (e) { /* optional */ } syncSound(); });
+  on('p-home', quit);
+}
 addEventListener('keydown', (e) => { if (state.paused && (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape' || e.key === 'p')) setPaused(false); else if (!state.paused && (e.key === 'Escape' || e.key === 'p')) setPaused(true); });
 window.__PAUSE__ = setPaused;
 
@@ -288,6 +331,7 @@ function telemetry() {
     packDist: state.packDist,
     mult: state.mult, best: state.best, power: { magnet: state.magnetT || 0, shield: state.shieldT || 0, x2: state.x2T || 0, sneakers: state.sneakT || 0 },
     running: state.running, paused: !!state.paused,
+    character: state.character || null, bank: state.bank | 0,
     seed: config.SEED,
     tier: rig.tier?.name,
     time: state.time,

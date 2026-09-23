@@ -214,7 +214,7 @@ export class RunnerAnim {
     this.root = root;
     this.j = root.userData?.joints || {};
     this.hints = readHints(root);
-    this.bank = new PoseBank(THREE, this.j, 22);
+    this.bank = new PoseBank(THREE, this.j, 34);   // was 22: the pose lagged the state by ~45 ms
     this.phase = 0;         // run cycle phase, radians (one full cycle = two steps)
     this.blend = 0;         // how much of the run cycle is showing (0 in flight/roll)
     this.rollAngle = 0;
@@ -277,7 +277,7 @@ export class RunnerAnim {
       const T = s.T || 1.1;
       const u = clamp(t / T, 0, 1);
       // in over 0.12 s, out over the last 0.15 s
-      const k = smooth(t / 0.12) * smooth((T - t) / 0.15);
+      const k = smooth(t / 0.05) * smooth((T - t) / 0.10);   // was 0.12 in: the tuck lagged the take-off
       w = 1 - k;
       const tuck = Math.sin(u * Math.PI);          // 0 at take-off/landing, 1 at apex
       const tk = k * (0.35 + 0.65 * tuck);
@@ -295,7 +295,7 @@ export class RunnerAnim {
       // hold the ball almost to the end: the critic found the runner upright by ~70 % of the window
       // with the hitbox still halved, so the head passed through a 1.3 m bar with no hit. The tuck
       // now releases only in the last 0.05 s.
-      const k = smooth(t / 0.07) * smooth((T - t) / 0.05);
+      const k = smooth(t / 0.04) * smooth((T - t) / 0.05);
       w = 1 - k;
       // tight ball
       b.rot('l_hip', f * -1.9 * k); b.rot('r_hip', f * -1.85 * k);
