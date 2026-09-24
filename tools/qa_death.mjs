@@ -2,7 +2,7 @@
 // usage: node tools/qa_death.mjs --seed=11 --out=work/qa/death11 [--lane=0] [--until=block|caught|any]
 import { createRequire } from 'module';
 import fs from 'fs';
-const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const require = createRequire(import.meta.url);
 const puppeteer = require('puppeteer');
 const arg = (k, d) => { const a = process.argv.find((s) => s.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const SEED = arg('seed', '11'), OUT = arg('out', 'work/qa/death'), LANE = Number(arg('lane', '0')); fs.mkdirSync(OUT, { recursive: true });

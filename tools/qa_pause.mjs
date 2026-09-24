@@ -1,6 +1,6 @@
 // qa_pause.mjs — leave the tab mid-run, come back: the run must hold still, show PAUSED, and resume on a tap.
 import { createRequire } from 'module';
-const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const require = createRequire(import.meta.url);
 const puppeteer = require('puppeteer');
 const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--use-angle=metal', '--enable-gpu'] });
 const page = await browser.newPage(); await page.setViewport({ width: 405, height: 720, deviceScaleFactor: 1 });

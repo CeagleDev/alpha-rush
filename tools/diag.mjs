@@ -1,7 +1,7 @@
 // Boot the game headless and report what is actually in the scene, since a gate can pass on an empty world.
 import { createRequire } from 'module';
 import http from 'http'; import fs from 'fs'; import path from 'path';
-const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const require = createRequire(import.meta.url);
 const puppeteer = require('puppeteer');
 const ROOT = path.resolve(process.argv[2] || 'game');
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javascript', '.json':'application/json', '.webp':'image/webp', '.png':'image/png', '.mp3':'audio/mpeg' };

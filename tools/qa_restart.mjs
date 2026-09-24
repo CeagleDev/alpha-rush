@@ -1,6 +1,6 @@
 // qa_restart.mjs — die, press "Run again", and check the second run starts like the first.
 import { createRequire } from 'module';
-const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const require = createRequire(import.meta.url);
 const puppeteer = require('puppeteer');
 const arg = (k, d) => { const a = process.argv.find((s) => s.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const [W, H] = arg('vp', '900x660').split('x').map(Number);

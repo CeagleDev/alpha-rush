@@ -28,7 +28,7 @@
  */
 import { createRequire } from 'module';
 import http from 'http'; import fs from 'fs'; import path from 'path';
-const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const require = createRequire(import.meta.url);
 const puppeteer = require('puppeteer');
 
 const argv = process.argv.slice(2);

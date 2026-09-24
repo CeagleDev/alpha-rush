@@ -57,7 +57,7 @@ const NFRAMES = Math.max(2, Number(opt('frames', '6')) || 6);
 const SHOTS = opt('at', '') ? opt('at', '').split(',').map(Number).filter((n) => n > 0)
   : NFRAMES === 6 ? [60, 150, 300, 450, 600, 800]
   : Array.from({ length: NFRAMES }, (_, i) => Math.round(60 + (i * 740) / (NFRAMES - 1)));
-const FFMPEG = '/Users/dev/.local/bin/ffmpeg';
+const FFMPEG = process.env.FFMPEG || 'ffmpeg';   // on PATH, or set FFMPEG
 
 // ------------------------------------------------------------------ constants (one place)
 // Action distances, as the GAME sees them: metres = a * speed + b before the row's near edge. Decided by

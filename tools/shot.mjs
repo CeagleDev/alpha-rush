@@ -3,7 +3,7 @@
 // Kept cheap on purpose (laptop on battery): small viewport, DPR 1, one browser, exits as soon as the last shot lands.
 import { createRequire } from 'module';
 import fs from 'fs'; import path from 'path';
-const require = createRequire('/Users/dev/Documents/Cursor.Code/midnight-dash/tools/');
+const require = createRequire(import.meta.url);
 const puppeteer = require('puppeteer');
 const arg = (k, d) => { const a = process.argv.find((s) => s.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const OUT = arg('out', 'work/v2/shot'); fs.mkdirSync(OUT, { recursive: true });
