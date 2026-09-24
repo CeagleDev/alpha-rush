@@ -32,10 +32,10 @@
  * Returned instances carry userData: assetName, lights (local space), placeholder (bool),
  * nativeSize (from assetlib). Nothing else on ctx/state is written by this module.
  */
-import { ASSET } from '../assetlib.js?v=202609241949';
-import { applySurfaces } from '../surfaces.js?v=202609241949';
-import { wrapTHREE, CHAMFER } from './chamfer.js?v=202609241949';
-import * as textures from './textures.js?v=202609241949';
+import { ASSET } from '../assetlib.js?v=202609242348';
+import { applySurfaces } from '../surfaces.js?v=202609242348';
+import { wrapTHREE, CHAMFER } from './chamfer.js?v=202609242348';
+import * as textures from './textures.js?v=202609242348';
 
 /**
  * Placeholder sizes [w, h, d] in metres, plus (optional) y0 = height of the base above the ground
@@ -115,9 +115,20 @@ const existence = new Map();   // name -> Promise<boolean>
 const said = new Set();
 let assetsBase = '../assets/';   // resolved against this module (game/src/), not the page
 
-export function init(c) {
+// THE MANIFEST AND THE PARALLEL PRELOAD. On GitHub Pages each HEAD check and each module fetch is a real
+// round trip, and the chunk builder asks for ~90 assets one after another: measured 32 s for the street
+// alone and 46 s to READY, against 16 s on localhost. assets/index.json (tools/manifest.mjs) answers
+// has() without a request, and every asset module is imported IN PARALLEL here, before anything asks for
+// it, so by the time the builder's blob wrapper imports a module it is already in the module map (same URL).
+let manifest = null;
+export async function init(c) {
   ctx = c; THREE = c.THREE;
   try { assetsBase = new URL('../assets/', import.meta.url).href; } catch (e) { /* relative */ }
+  try {
+    const r = await fetch(assetsBase + 'index.json');
+    if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.assets)) manifest = new Set(j.assets); }
+  } catch (e) { manifest = null; }
+  if (manifest) for (const name of manifest) import(/* @vite-ignore */ assetsBase + name + '.js').catch(() => {});
 }
 
 /** Called by the blob wrapper right after the asset function ran, before the loader merges. */
@@ -134,12 +145,13 @@ export function _meta(name, built, T) {
 }
 
 export function has(name) {
+  if (manifest) return Promise.resolve(manifest.has(name));
   if (existence.has(name)) return existence.get(name);
   const p = (async () => {
     const url = assetsBase + name + '.js';
     try {
-      let r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-      if (r.status === 405 || r.status === 501) r = await fetch(url, { method: 'GET', cache: 'no-store' });
+      let r = await fetch(url, { method: 'HEAD' });
+      if (r.status === 405 || r.status === 501) r = await fetch(url, { method: 'GET' });
       return r.ok;
     } catch (e) { return false; }
   })();
