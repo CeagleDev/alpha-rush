@@ -373,7 +373,7 @@ async function runOnce(runNo, outDir) {
         if (plan) {
           if (lane === plan.target) plan = null;
           else if (settled(g, lane)) {
-            const dir = plan.target > lane ? 'right' : 'left';
+            const dir = plan.target > lane ? 'left' : 'right';   // screen mirror: lane +1 is on the LEFT (GATE_CONTRACT)
             await swipe(dir);
             say(`${d.toFixed(1).padStart(6)} m  swipe ${dir}   second step toward lane ${plan.target} (speed ${sp.toFixed(1)})`);
           }
@@ -395,7 +395,7 @@ async function runOnce(runNo, outDir) {
             const coinLane = g.coin && Number.isInteger(g.coin.lane) ? g.coin.lane : null;
             const score = (L) => (lanes[L + 1] === null ? 0 : lanes[L + 1] === 'block' ? 100 : 10) + Math.abs(L - lane) * 2 + (L === coinLane ? -1 : 0) + Math.abs(L) * 0.5;
             const target = [-1, 0, 1].filter((L) => L !== lane).sort((a, b) => score(a) - score(b))[0];
-            const dir = target > lane ? 'right' : 'left';
+            const dir = target > lane ? 'left' : 'right';
             const ms = await swipe(dir);
             if (Math.abs(target - lane) > 1) plan = { key, target };
             say(`${d.toFixed(1).padStart(6)} m  swipe ${dir.padEnd(5)}  ${n.type || 'obstacle'} blocks lane ${lane} at ${n.dist.toFixed(1)} m; lanes [${lanes.map((k) => k || '-').join(' ')}] -> lane ${target} (speed ${sp.toFixed(1)}, lead ${lead('lane', sp).toFixed(1)}, gesture ${ms} ms)`);
@@ -403,14 +403,14 @@ async function runOnce(runNo, outDir) {
             && g.coin.dist <= lead('coin', sp) && (coinLock === null || d > coinLock) && settled(g, lane)
             && (lanes[g.coin.lane + 1] === null || n.dist > g.coin.dist + 0.8 * sp)) {
             coinLock = d + g.coin.dist + 1;
-            const dir = g.coin.lane > lane ? 'right' : 'left';
+            const dir = g.coin.lane > lane ? 'left' : 'right';
             await swipe(dir);
             say(`${d.toFixed(1).padStart(6)} m  swipe ${dir.padEnd(5)}  coin in lane ${g.coin.lane} at ${g.coin.dist.toFixed(1)} m (speed ${sp.toFixed(1)})`);
           }
         } else if (g.coin && Number.isInteger(g.coin.lane) && g.coin.lane !== lane && Math.abs(g.coin.lane - lane) === 1
           && g.coin.dist <= lead('coin', sp) && (coinLock === null || d > coinLock) && settled(g, lane)) {
           coinLock = d + g.coin.dist + 1;
-          const dir = g.coin.lane > lane ? 'right' : 'left';
+          const dir = g.coin.lane > lane ? 'left' : 'right';
           await swipe(dir);
           say(`${d.toFixed(1).padStart(6)} m  swipe ${dir.padEnd(5)}  coin in lane ${g.coin.lane} at ${g.coin.dist.toFixed(1)} m, road clear (speed ${sp.toFixed(1)})`);
         }

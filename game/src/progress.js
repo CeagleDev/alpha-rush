@@ -1,15 +1,18 @@
 /**
  * progress.js — score, the score MULTIPLIER, MISSIONS, the saved best, and (UI v2) everything else that
- * persists: the coin BANK, the chosen character, power-up LEVELS, three DAILY tasks and twelve ACHIEVEMENTS.
+ * persists: the ALPHA BANK (the pickups are called Alpha in the UI, 'coin' events in code), the chosen character,
+ * power-up LEVELS (five, incl. 'surge'), three DAILY tasks, twelve ACHIEVEMENTS and the REVEALED locations (UI pass 2).
  * One save object, key 'ar.save.v1' (the old 'md.save.v1' is not migrated).
  *
  *   init(ctx)     loads the save, builds the current mission set, listens to the run
  *   update(dt)    accrues score from distance, advances missions / daily tasks / achievements, writes
  *                 state.score / state.mult / state.missions / state.powerLevel / state.character
  *   summary()     { best, newBest, mult, set, missions:[{text, have, goal, done}], bank, character, powerLevel }
- *   bank()        coins in the bank (earned across runs; every run's coins are added on death or quit)
+ *   bank()        Alpha in the bank (earned across runs; every run's Alpha is added on death or quit)
+ *   revealed() / revealName(id) / reveal(id, label)   locations the game has revealed ('reveal' event {id, label}), persisted
+ *   nextMissions()  the three mission texts of the NEXT set (home.js preview strip); dailyPreview() = tomorrow's tasks
  *   character() / setCharacter(id)          persisted selection (home.js writes, main.js reads before 'start')
- *   powerLevels() / powerCost(t) / upgradePower(t)   levels 1-5; level n -> n+1 costs 200*n bank coins
+ *   powerLevels() / powerCost(t) / upgradePower(t)   levels 1-5; level n -> n+1 costs 200*n bank Alpha (keys: magnet omamori x2 sneakers surge)
  *   daily()       [{id, text, have, goal, done, pay}] three tasks seeded by the date, reset daily, pay into the bank
  *   achievements()[{id, name, desc, tag, unlocked}]
  *
@@ -22,8 +25,9 @@
  *   missions = three per set, generated from the set number so they scale for ever; cumulative ones
  *              (coins, jumps, rolls, pickups) carry across runs, "in one run" ones reset each run
  *
- * Emits: 'mission' {text}, 'missionset' {mult}, 'daily' {text, pay}, 'achievement' {id, name}, 'bank' {bank, delta}.
- * Listens: 'start' 'coin' 'jump' 'roll' 'powerup' 'stumble' 'hit' 'zone' 'death' 'quit'.
+ * Emits: 'mission' {text}, 'missionset' {mult}, 'daily' {text, pay}, 'achievement' {id, name, pay}, 'bank' {bank, delta}.
+ * Listens: 'start' 'coin' 'jump' 'roll' 'powerup' 'stumble' 'hit' 'zone' 'reveal' 'death' 'quit'.
+ * An achievement pays ACH_PAY Alpha into the bank when it unlocks (UI pass 2: the reward chips are real).
  * Storage failures (private mode, blocked) are swallowed: the game plays the same, it just forgets.
  */
 const KEY = 'ar.save.v1';
@@ -53,12 +57,12 @@ function buildSet(k) {
   const second = k % 2 === 0
     ? { id: 'dist', text: `Run ${300 + 150 * k} m in one run`, goal: 300 + 150 * k, cum: false }
     : { id: 'score', text: `Score ${1000 * (k + 1)} in one run`, goal: 1000 * (k + 1), cum: false };
-  return [{ id: 'coin', text: `Collect ${40 + 30 * k} coins`, goal: 40 + 30 * k, cum: true }, second, third];
+  return [{ id: 'coin', text: `Collect ${40 + 30 * k} Alpha`, goal: 40 + 30 * k, cum: true }, second, third];
 }
 
 // ---------------------------------------------------------------- daily tasks (three, seeded by the date)
 const DAILY_POOL = [
-  { id: 'coin', text: 'Collect {n} coins today', goals: [120, 150, 200], pay: 100 },
+  { id: 'coin', text: 'Collect {n} Alpha today', goals: [120, 150, 200], pay: 100 },
   { id: 'roll', text: 'Slide {n} times', goals: [15, 20, 25], pay: 75 },
   { id: 'powerup', text: 'Grab {n} power-ups', goals: [3, 4, 5], pay: 100 },
   { id: 'jump', text: 'Jump {n} times', goals: [20, 30, 40], pay: 75 },
@@ -70,6 +74,9 @@ function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.g
 let _dailyK = '', _daily = null;
 function dailyDefs(date) {
   if (date === _dailyK && _daily) return _daily;
+  _dailyK = date; return (_daily = genDaily(date));
+}
+function genDaily(date) {
   let h = hash32('daily/' + date);
   const next = () => { h = (Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0; return h; };
   const pool = DAILY_POOL.slice(), out = [];
@@ -78,7 +85,7 @@ function dailyDefs(date) {
     const goal = d.goals[next() % d.goals.length];
     out.push({ id: d.id, text: d.text.replace('{n}', goal.toLocaleString('en-US')), goal, pay: d.pay });
   }
-  _dailyK = date; return (_daily = out);
+  return out;
 }
 function ensureDaily() {
   const t = today();
@@ -102,8 +109,8 @@ export const ACHIEVEMENTS = [
   { id: 'm500', name: '500 m', desc: 'Run 500 m in one run', tag: '500' },
   { id: 'km1', name: 'One K', desc: 'Run 1 km in one run', tag: '1K' },
   { id: 'km2', name: 'Two K', desc: 'Run 2 km in one run', tag: '2K' },
-  { id: 'c100', name: 'Coin Rush', desc: '100 coins in one run', tag: '100' },
-  { id: 'c1000', name: 'Banker', desc: '1,000 coins in total', tag: '1K τ' },
+  { id: 'c100', name: 'Alpha Haul', desc: '100 Alpha in one run', tag: '100' },
+  { id: 'c1000', name: 'Banker', desc: '1,000 Alpha in total', tag: '1K τ' },
   { id: 'p10', name: 'Charged', desc: 'Grab 10 power-ups', tag: '10' },
   { id: 'stumble', name: 'Shake It Off', desc: 'Survive a stumble', tag: '!' },
   { id: 'x5', name: 'Multiplied', desc: 'Reach a x5 multiplier', tag: 'x5' },
@@ -111,15 +118,17 @@ export const ACHIEVEMENTS = [
   { id: 'runs5', name: 'Regular', desc: 'Finish 5 runs', tag: 'V' },
   { id: 'daybreak', name: 'Night-Day-Night', desc: 'Run through the morning market', tag: '☀' },
 ];
+export const ACH_PAY = 100;
 function unlock(id) {
   if (save.ach[id]) return;
   save.ach[id] = Date.now(); dirty = true;
   const a = ACHIEVEMENTS.find((x) => x.id === id);
-  ctx.events.emit('achievement', { id, name: a ? a.name : id });
+  addBank(ACH_PAY);
+  ctx.events.emit('achievement', { id, name: a ? a.name : id, pay: ACH_PAY });
 }
 
 // ---------------------------------------------------------------- power-up levels
-const POWER_KEYS = ['magnet', 'omamori', 'x2', 'sneakers'];
+const POWER_KEYS = ['magnet', 'omamori', 'x2', 'sneakers', 'surge'];   // 'surge' = Alpha Surge (UI pass 2)
 export const POWER_MAX = 5;
 export function powerCost(type) { const n = save.power[type] | 0; return n >= POWER_MAX ? 0 : 200 * n; }
 export function powerLevels() { return { ...save.power }; }
@@ -140,7 +149,7 @@ export function setCharacter(id) { if (!save || !id || save.character === id) re
 
 function freshSave() {
   return { v: 1, set: 0, have: [0, 0, 0], done: [false, false, false], best: 0, bank: 0, character: 'ronin',
-    power: { magnet: 1, omamori: 1, x2: 1, sneakers: 1 }, daily: null, ach: {}, runs: 0, coinsTotal: 0, powerTotal: 0, chars: {} };
+    power: { magnet: 1, omamori: 1, x2: 1, sneakers: 1, surge: 1 }, daily: null, ach: {}, runs: 0, coinsTotal: 0, powerTotal: 0, chars: {}, revealed: {} };
 }
 
 function missionsView() {
@@ -182,7 +191,20 @@ function lastRunReset(keepRun) {
   if (!keepRun) cleanFrom = 0;
 }
 
-/** A run ended (death or quit): its coins go to the bank, best / runs / daily counters update. */
+// ---------------------------------------------------------------- revealed locations (UI pass 2)
+/** ids of the locations the game has revealed, in the order they were revealed. */
+export function revealed() { return save ? Object.keys(save.revealed || {}) : []; }
+export function revealName(id) { return save && save.revealed ? save.revealed[id] || '' : ''; }
+export function reveal(id, label) {
+  if (!save || !id) return false;
+  if (!save.revealed) save.revealed = {};
+  if (save.revealed[id]) return false;
+  save.revealed[id] = String(label || id); dirty = true; store(); return true;
+}
+/** The next mission set's three texts, for the preview strip. */
+export function nextMissions() { return buildSet((save ? save.set | 0 : 0) + 1).map((d) => ({ id: d.id, text: d.text, goal: d.goal })); }
+
+/** A run ended (death or quit): its Alpha goes to the bank, best / runs / daily counters update. */
 function endRun(finished) {
   const sc = Math.floor(S.score || 0), coins = S.coins | 0;
   if (sc > (save.best | 0)) { save.best = sc; S.newBest = true; }
@@ -200,6 +222,7 @@ export async function init(c) {
   for (const k of POWER_KEYS) save.power[k] = Math.max(1, Math.min(POWER_MAX, save.power[k] | 0));
   if (!save.ach || typeof save.ach !== 'object') save.ach = {};
   if (!save.chars || typeof save.chars !== 'object') save.chars = {};
+  if (!save.revealed || typeof save.revealed !== 'object') save.revealed = {};
   ensureDaily();
   S.score = 0; S.mult = 1; S.newBest = false; S.character = save.character;
   publish();
@@ -217,6 +240,7 @@ export async function init(c) {
   ev.on('stumble', () => { cleanFrom = S.distance || 0; unlock('stumble'); });
   ev.on('hit', (p) => { cleanFrom = S.distance || 0; if (p && p.fatal === false) unlock('stumble'); });
   ev.on('zone', (p) => { if (p && p.prev === 'day') unlock('daybreak'); });
+  ev.on('reveal', (p) => { if (p && p.id) reveal(p.id, p.label); });
   ev.on('death', () => endRun(true));
   ev.on('quit', () => endRun(false));
 }
@@ -242,8 +266,10 @@ export function update(dt) {
 
 export function summary() {
   return { best: save.best | 0, newBest: !!S.newBest, mult: S.baseMult || 1, set: save.set | 0, missions: missionsView(),
-    bank: save.bank | 0, character: save.character, powerLevel: { ...save.power }, runs: save.runs | 0 };
+    bank: save.bank | 0, character: save.character, powerLevel: { ...save.power }, runs: save.runs | 0, revealed: revealed() };
 }
+/** Tomorrow's three tasks (preview only; nothing is stored). */
+export function dailyPreview() { const d = new Date(); d.setDate(d.getDate() + 1); return genDaily(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`).map((x) => ({ id: x.id, text: x.text, goal: x.goal, pay: x.pay })); }
 export function daily() {
   ensureDaily();
   return dailyDefs(save.daily.date).map((d, i) => ({ ...d, have: Math.min(d.goal, Math.floor(save.daily.have[i] || 0)), done: !!save.daily.done[i] }));

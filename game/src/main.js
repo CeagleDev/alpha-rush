@@ -24,13 +24,15 @@
  * window.__GAME__ is rebuilt every frame with every field in tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { createRig } from '../rig.js?v=202609240459';
-import config from './config.js?v=202609240459';
-import * as input from './input.js?v=202609240459';
-import * as hud from './hud.js?v=202609240459';
-import * as audio from './audio.js?v=202609240459';
-import * as roadfx from './roadfx.js?v=202609240459';   // wet-road reflections + contact shadows (see ARCH.md addendum)
-import * as home from './home.js?v=202609240459';       // HOME screen: character select, tabs (UI v2)
+import { createRig } from '../rig.js?v=202609240703';
+import config from './config.js?v=202609240703';
+import * as input from './input.js?v=202609240703';
+import * as hud from './hud.js?v=202609240703';
+import * as audio from './audio.js?v=202609240703';
+import * as roadfx from './roadfx.js?v=202609240703';   // wet-road reflections + contact shadows (see ARCH.md addendum)
+import * as home from './home.js?v=202609240703';
+import * as showcase from './showcase.js?v=202609240703';   // the live hero on the home screen
+import * as fx from './fx.js?v=202609240703';               // pickup bursts, power-up visuals, the surge aura       // HOME screen: character select, tabs (UI v2)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -150,7 +152,7 @@ const [textures, perf, lighting, track, obstacles, coins, player, pack, cameraMo
 const ctx = {
   THREE, scene, camera, renderer, rig, config, state, events, canvas,
   assets: assetsMod, textures, input,
-  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod, powerups, progress, home },
+  modules: { textures, perf, lighting, track, obstacles, coins, player, pack, camera: cameraMod, roadfx, input, hud, audio, assets: assetsMod, powerups, progress, home, showcase, fx },
 };
 globalThis.__ctx = ctx;   // for the integrator's console; not part of any contract
 
@@ -159,9 +161,9 @@ const INIT_ORDER = [
   // assets.init must run before anything calls assets.get(): every chunk, character and obstacle
   // resolves through it, and without it get() throws and the world builds EMPTY while the gate passes.
   ['textures', textures], ['assets', assetsMod], ['perf', perf], ['lighting', lighting], ['track', track], ['obstacles', obstacles],
-  ['coins', coins], ['powerups', powerups], ['progress', progress], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['home', home], ['audio', audio],
+  ['coins', coins], ['fx', fx], ['showcase', showcase], ['powerups', powerups], ['progress', progress], ['player', player], ['pack', pack], ['camera', cameraMod], ['roadfx', roadfx], ['input', input], ['hud', hud], ['home', home], ['audio', audio],
 ];
-const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, powerups, progress, cameraMod, roadfx, lighting, perf, hud, audio];
+const UPDATE_ORDER = [input, player, pack, track, obstacles, coins, powerups, fx, progress, cameraMod, roadfx, lighting, perf, hud, audio];
 
 async function boot() {
   const t0 = performance.now();
@@ -300,6 +302,7 @@ function loop(now) {
   if (!state.paused) for (const m of UPDATE_ORDER) {
     if (typeof m.update === 'function') m.update(dt, ctx);
   }
+  try { showcase.update(dt); } catch (e) { /* home screen only */ }
   rig.render(camera, dt);
   const info = renderer.info.render;
   state.draws = info.calls; state.tris = info.triangles;

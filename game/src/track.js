@@ -26,10 +26,10 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609240459';
-import * as obstacles from './obstacles.js?v=202609240459';
-import * as coins from './coins.js?v=202609240459';
-import * as farband from './farband.js?v=202609240459';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609240703';
+import * as obstacles from './obstacles.js?v=202609240703';
+import * as coins from './coins.js?v=202609240703';
+import * as farband from './farband.js?v=202609240703';
 
 // THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
 // last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls
@@ -38,24 +38,37 @@ import * as farband from './farband.js?v=202609240459';
 // deck height like the expressway), a ramp comes down into the TORII shrine path (T x6, ground level, misty
 // dusk-blue with warm lanterns), and the path opens back into the yokocho (A). 40 chunks = 1200 m a cycle.
 const PATTERN = ['A', 'A', 'A', 'A', 'A', 'A', 'RU', 'X', 'X', 'X', 'X', 'X', 'X', 'RD', 'D', 'D', 'D', 'D', 'D', 'D', 'B', 'B', 'B', 'B', 'B', 'B',
-  'RU', 'R', 'R', 'R', 'R', 'R', 'R', 'RD', 'T', 'T', 'T', 'T', 'T', 'T'];
+  'RU', 'R', 'R', 'R', 'R', 'R', 'R', 'RD'];
+// THE REVEALED LOCATION (owner, 2026-09-24: "one more location, only revealed as you play to a certain
+// distance", then: the two new environments are enough, build no third). So the SHRINE PATH is the one
+// held back: the first lap is the 34 chunks above (1,020 m) and never shows it; every later lap OPENS with
+// it (T x6), so a run that reaches 1,020 m comes down off the rooftops into a place it has never seen.
+// The 'reveal' event fires the first time a run enters it; the home screen keeps the name unlocked from
+// then on, but the path itself is earned by distance, every run.
+const PATTERN2 = ['T', 'T', 'T', 'T', 'T', 'T'].concat(PATTERN);
+const REVEAL_ZONE = 'torii', REVEAL_LABEL = 'Shrine Path', REVEAL_M = 1020;
 const ZONE = { A: 'alleyA', RU: 'rampUp', X: 'expressway', RD: 'rampDown', D: 'day', B: 'alleyB', R: 'rooftops', T: 'torii' };
-const SEG_START = { A: 0, X: 7, D: 14, B: 20, R: 27, T: 34 };
+const segStarts = (pat) => { const o = {}; pat.forEach((k, i) => { if (!(k in o)) o[k] = i; }); return o; };
+const SEG_START = segStarts(PATTERN), SEG_START2 = segStarts(PATTERN2);
 const HIGH = new Set(['X', 'R']);   // zones that run at deck height
-const CYCLE = PATTERN.length;
+const CYCLE = PATTERN.length, CYCLE2 = PATTERN2.length;
+/** Slot of chunk i in its pattern: the first lap uses PATTERN, every later lap PATTERN2. */
+function slotAndPattern(i) { if (i < CYCLE) return [i, PATTERN]; const j = (i - CYCLE) % CYCLE2; return [j, PATTERN2]; }
+/** Slot re-based so the day zone starts at slot 14 in either pattern (dayAt's DAWN/DUSK constants are in those units). */
+function dayU(z) { const i = Math.floor(z / CHUNK_LEN), [slot, pat] = slotAndPattern(i); const off = (pat === PATTERN2 ? SEG_START2.D : SEG_START.D) - 14; return slot + (z / CHUNK_LEN - i) - off; }
 // time of day along one cycle, in chunk units: 0 = night, 1 = full day
 const DAWN0 = 9.5, DAWN1 = 13.6, DUSK0 = 18.4, DUSK1 = 20.6;
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 /** 0 (night) .. 1 (day) at world z. Pure function of z, so the camera, the lights and a photo at a fixed distance agree. */
 export function dayAt(z) {
   if (!(z > 0)) return 0;
-  const u = (z / CHUNK_LEN) % CYCLE;
+  const u = dayU(z);
   return sstep(DAWN0, DAWN1, u) * (1 - sstep(DUSK0, DUSK1, u));
 }
 /** 0 at first light .. 1 at last light: lighting.js swings the sun from ahead-left to ahead-right across the day. */
-export function sunAzT(z) { const u = ((z > 0 ? z : 0) / CHUNK_LEN) % CYCLE; return Math.min(1, Math.max(0, (u - DAWN0) / (DUSK1 - DAWN0))); }
+export function sunAzT(z) { const u = dayU(z > 0 ? z : 0); return Math.min(1, Math.max(0, (u - DAWN0) / (DUSK1 - DAWN0))); }
 /** +1 while the sun is coming up, -1 while it goes down (lighting.js puts the sun ahead at dawn, behind at dusk). */
-export function dayPhase(z) { const u = ((z > 0 ? z : 0) / CHUNK_LEN) % CYCLE; return u < (DAWN1 + DUSK0) / 2 ? 1 : -1; }
+export function dayPhase(z) { const u = dayU(z > 0 ? z : 0); return u < (DAWN1 + DUSK0) / 2 ? 1 : -1; }
 const AHEAD = 5, BEHIND = 1;
 const RAMP_PITCH = Math.atan2(DECK_Y, CHUNK_LEN);
 
@@ -81,16 +94,19 @@ function segmentOrder(cycle, seg) {
   segOrders.set(key, out);
   return out;
 }
-function slotOf(i) { return ((i % CYCLE) + CYCLE) % CYCLE; }
+function slotOf(i) { return slotAndPattern(Math.max(0, i))[0]; }
+function kindOf(i) { const [slot, pat] = slotAndPattern(Math.max(0, i)); return pat[slot]; }
 export function variantIdAt(i) {
-  const s = slotOf(i), k = PATTERN[s];
+  const s = slotOf(i), k = kindOf(i);
   if (k === 'RU' || k === 'RD') return k;
-  return segmentOrder(Math.floor(i / CYCLE), k)[s - SEG_START[k]];
+  // the segment order re-shuffles per lap; the N segment only exists from lap 2, its slot is fixed
+  const lap = i < CYCLE ? 0 : 1 + Math.floor((i - CYCLE) / CYCLE2);
+  return segmentOrder(lap, k)[s - (lap ? SEG_START2 : SEG_START)[k]];
 }
-export function zoneAt(z) { return z < 0 ? 'alleyA' : ZONE[PATTERN[slotOf(Math.floor(z / CHUNK_LEN))]]; }
+export function zoneAt(z) { return z < 0 ? 'alleyA' : ZONE[kindOf(Math.floor(z / CHUNK_LEN))]; }
 export function groundY(z) {
   if (z < 0) return 0;
-  const i = Math.floor(z / CHUNK_LEN), k = PATTERN[slotOf(i)], t = (z - i * CHUNK_LEN) / CHUNK_LEN;
+  const i = Math.floor(z / CHUNK_LEN), k = kindOf(i), t = (z - i * CHUNK_LEN) / CHUNK_LEN;
   if (HIGH.has(k)) return DECK_Y;
   if (k === 'RU') return DECK_Y * t;
   if (k === 'RD') return DECK_Y * (1 - t);
@@ -98,7 +114,7 @@ export function groundY(z) {
 }
 export function groundPitch(z) {
   if (z < 0) return 0;
-  const k = PATTERN[slotOf(Math.floor(z / CHUNK_LEN))];
+  const k = kindOf(Math.floor(z / CHUNK_LEN));
   return k === 'RU' ? RAMP_PITCH : k === 'RD' ? -RAMP_PITCH : 0;
 }
 export function chunkAt(z) { return live.get(Math.floor(z / CHUNK_LEN)) || null; }
@@ -125,7 +141,7 @@ function spawn(i) {
   let entry = copies.find((c) => !c.inUse);
   if (!entry) { console.warn('[track] no free copy of', id, '— cloning'); entry = { group: copies[0].group.clone(true), inUse: false }; entry.group.userData = copies[0].group.userData; copies.push(entry); }
   entry.inUse = true;
-  const zone = ZONE[PATTERN[slotOf(i)]];
+  const zone = ZONE[kindOf(i)];
   const g = entry.group;
   g.position.set(0, zone === 'expressway' || zone === 'rooftops' ? DECK_Y : 0, i * CHUNK_LEN);
   g.updateMatrixWorld(true);
@@ -167,6 +183,7 @@ export async function init(c) {
   seed = Number(ctx.config?.SEED) || 1;
   const st = ctx.state;
   if (st.zone === undefined) st.zone = 'alleyA';
+  if (ctx.events && ctx.events.on) ctx.events.on('start', () => { st.revealedThisRun = false; });
   root = new THREE.Group(); root.name = 'track'; ctx.scene.add(root);
   await buildPool();
   await obstacles.init(ctx);
@@ -191,6 +208,7 @@ export function update(dt = 0.016) {
   if (zone !== lastZone) {
     const prev = lastZone; lastZone = zone; st.zone = zone;
     if (prev !== null && ctx.events?.emit) ctx.events.emit('zone', { zone, prev, z: pz });
+    if (zone === REVEAL_ZONE && !st.revealedThisRun && ctx.events?.emit) { st.revealedThisRun = true; ctx.events.emit('reveal', { id: REVEAL_ZONE, label: REVEAL_LABEL, z: pz, at: REVEAL_M }); }
   }
   lastPz = pz;
   frameNo++;

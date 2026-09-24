@@ -3,6 +3,21 @@
 Everything the owner has asked for, in their words where possible, with status. Update the status
 column as work lands; never delete a line.
 
+## 2026-09-24: second Alpha Rush batch
+
+| # | Request | Status |
+|---|---|---|
+| 16 | Player selection should SHOW the players: body moves, rotating 360 | done: src/showcase.js renders the selected hero into the card, idling and turning a full 360 (only while the home screen shows) |
+| 17 | UI shapes look flat; make it interesting and fill the page, especially missions and power-ups; runner HUD more exciting; bold, colourful, engaging | done: layered chamfered cards with gradients, glows and a drifting stripe field; missions/tasks/achievements/power-ups pages fill the screen with icon cards; racing HUD with score punch, speed gauge, zone banners, milestone flashes |
+| 18 | Power-ups picked up in the game should be visible and animated | done: pickups spin, bob, pulse two counter-rotating rings; a colour burst on collect; magnet field rings, x2 star, super-jump ground ring, surge aura + trail on the runner (src/fx.js) |
+| 19 | One more location, revealed only after playing to a certain distance | engine done: the Bullet Train segment opens the second lap (ramp at 1,200 m, train from 1,230 m) with a 'reveal' event; the zone's own art WAITS on an Atlas reference and the owner's approval (Atlas dropped this session) |
+| 20 | Power-up pages: unique icons, not just text | done: five unique inline SVG emblems (magnet, omamori, x2, winged sneaker, alpha-bolt surge) |
+| 21 | Left and right controls are the opposite way round | fixed: the camera puts +x on screen-left, so a left swipe now goes to the left lane; tools updated (GATE_CONTRACT 'Screen mirror') |
+| 22 | Music: calm on the selection page, exciting when the run starts | done: calm 72 bpm home track, driving 142 bpm run track that thickens with speed, muffled under pause, ducked on death; per-power-up fanfares; all synthesised |
+| 23 | Use the word "Alpha" instead of coins | done: 'Alpha' everywhere (counter, bank, missions, tasks, costs, death card) |
+| 24 | Increasing difficulty: start slow, get faster with distance, cap so it stays playable | done: smooth ramp 7.5 m/s -> 19 m/s (10 by 300 m, 13 by 800 m, 16 by 1.6 km), flattening so it stays playable |
+| 25 | A power-up that gives superhero-like abilities | done: ALPHA SURGE, rare after 400 m: 8 s of flight at 1.45x speed, nothing can hit you, everything in your lane is smashed aside, every Alpha flies to you; upgradable on the power-ups page |
+
 ## 2026-09-23/24: Alpha Rush batch
 
 | # | Request | Status |

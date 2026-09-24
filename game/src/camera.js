@@ -19,7 +19,7 @@
  * Reads: state.x/y/z/speed/running/over, ctx.camera, ctx.renderer, ctx.track.groundPitch (optional),
  * player.getAABB()/getObject(). Listens: 'hit', 'stumble', 'death', 'start'.
  */
-import { getAABB } from './player.js?v=202609240459';
+import { getAABB } from './player.js?v=202609240703';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
@@ -96,7 +96,9 @@ export function update(a, b) {
 
   // follow distance from the fov so the hero's height lands on targetFrac of the frame
   const half = Math.tan((S.fov * Math.PI / 180) / 2);
-  let dist = (HERO_H / (2 * targetFrac * half)) * S.distAdj;
+  // the surge pulls the camera back a touch so the flight reads (state.surging, player.js)
+  const surgeK = s.surging ? 1.22 : 1;
+  let dist = (HERO_H / (2 * targetFrac * half)) * S.distAdj * surgeK;
   // slow correction from what we actually measured last frame
   if (s.heroFrac > 0.05 && !S.dead) {
     const want = clamp(s.heroFrac / targetFrac, 0.7, 1.4);
@@ -105,7 +107,7 @@ export function update(a, b) {
 
   const hx = s.x || 0, hy = (s.y || 0), hz = s.z || 0;
   const tm = trackMod(); const groundHere = tm && typeof tm.groundY === 'function' ? (tm.groundY(hz) || 0) : 0;
-  const baseY = groundHere + (hy - groundHere) * 0.25;   // jumps lift the camera by a quarter
+  const baseY = groundHere + (hy - groundHere) * (s.surging ? 0.6 : 0.25);   // jumps lift the camera by a quarter; the surge flight is followed almost fully
   const centreY = baseY + HERO_H * 0.5;
 
   let elev = LOOK_DOWN, yaw = 0, aheadZ = AIM_DZ, aheadY = AIM_DY, lagX = 7, lagY = 6;

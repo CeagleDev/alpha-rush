@@ -13,10 +13,11 @@ export const LANE_W = 2;
 export const LANES = 3;
 export const LANE_X = [-2, 0, 2];
 export const CHUNK_LEN = 30;
-export const SPEED0 = 9;
+export const SPEED0 = 7.5;   // was 9: the run now starts slow and ramps (player.rampSpeed)
 export const SPEED_STEP = 0.6;
 export const SPEED_STEP_M = 150;
-export const SPEED_MAX = 20;
+export const SPEED_MAX = 19;
+export const SPEED_RAMP_M = 1400;   // e-folding distance of the ramp
 export const JUMP_H = 1.1;
 export const JUMP_T = 0.45;   // half the hang: 0.9 s in the air (was 1.1). With the flat-topped arc in player.js the runner is at clearing height within 0.1 s of take-off and stays there for 0.7 s, so the jump is both swift and forgiving.
 export const ROLL_T = 0.6;   // 0.5 read as a blink, 0.8 as sluggish (owner, both times). Jump still cancels it.
@@ -51,7 +52,7 @@ export const INPUT_DEBOUNCE_MS = 60;    // same-direction only (input.js); a dif
 export const MAX_DT = 0.05;
 
 export default {
-  LANE_W, LANES, LANE_X, CHUNK_LEN, SPEED0, SPEED_STEP, SPEED_STEP_M, SPEED_MAX, JUMP_H, JUMP_T, ROLL_T, LANE_T,
+  LANE_W, LANES, LANE_X, CHUNK_LEN, SPEED0, SPEED_STEP, SPEED_STEP_M, SPEED_MAX, SPEED_RAMP_M, JUMP_H, JUMP_T, ROLL_T, LANE_T,
   PACK_DIST, DRAW_BUDGET, TRI_BUDGET, PHONE_MAX_W, SEED, GATE, NOHUD, MUTE, phone,
   SWIPE_PX, SWIPE_MS, INPUT_DEBOUNCE_MS, MAX_DT,
 };

@@ -32,10 +32,10 @@
  * Returned instances carry userData: assetName, lights (local space), placeholder (bool),
  * nativeSize (from assetlib). Nothing else on ctx/state is written by this module.
  */
-import { ASSET } from '../assetlib.js?v=202609240459';
-import { applySurfaces } from '../surfaces.js?v=202609240459';
-import { wrapTHREE, CHAMFER } from './chamfer.js?v=202609240459';
-import * as textures from './textures.js?v=202609240459';
+import { ASSET } from '../assetlib.js?v=202609240703';
+import { applySurfaces } from '../surfaces.js?v=202609240703';
+import { wrapTHREE, CHAMFER } from './chamfer.js?v=202609240703';
+import * as textures from './textures.js?v=202609240703';
 
 /**
  * Placeholder sizes [w, h, d] in metres, plus (optional) y0 = height of the base above the ground

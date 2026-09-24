@@ -36,7 +36,7 @@ await page.evaluate((hero) => {
         else if (mine === 'block' && n.dist <= 0.55 * v + 2.5) {
           const order = [G.lane - 1, G.lane + 1].filter((l) => l >= -1 && l <= 1).sort((a, b) => Math.abs(a) - Math.abs(b));
           const free = order.find((l) => n.lanes[l + 1] === null) ?? order[0];
-          key(free < G.lane ? 'ArrowLeft' : 'ArrowRight'); want = n.lanes[free + 1]; if (!want) acted = n.id; else { n.lanes[G.lane + 1] = want; }
+          key(free < G.lane ? 'ArrowRight' : 'ArrowLeft'); /* screen mirror: lane +1 is on the LEFT */ want = n.lanes[free + 1]; if (!want) acted = n.id; else { n.lanes[G.lane + 1] = want; }
         } else if (mine === null) acted = n.id;
       }
     }

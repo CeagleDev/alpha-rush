@@ -8,6 +8,13 @@ The recipe's base contract (`pos, fps, speed, score, over, draws, tris`) is unch
 below it are what SPEC.md "Telemetry" promised, plus four additions the gate could not do its job
 without (marked NEW). Anything not listed here the gate ignores.
 
+## Screen mirror (2026-09-24)
+
+The chase camera looks down +z, so **+x is on the LEFT of the screen**: lane `+1` (x = +2) is the left lane and
+lane `-1` the right lane. Input speaks SCREEN directions (`ArrowLeft` / a left swipe = "go left" = lane + 1).
+A tool that steers by lane index therefore sends `left` to reach a HIGHER lane index. `pos`, `lane` and
+`next.lanes[lane + 1]` are unchanged.
+
 ## Globals
 
 | name | type | semantics | gate uses it for |

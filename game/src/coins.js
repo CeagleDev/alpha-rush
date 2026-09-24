@@ -17,8 +17,8 @@
  * state fields written (defaults in init): coins (0), score (0). Reads x, y, z, distance.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609240459';
-import { groundY, frame } from './track.js?v=202609240459';
+import { mulberry32, hash32 } from './chunks.js?v=202609240703';
+import { groundY, frame } from './track.js?v=202609240703';
 
 const CAP = 512, HOVER = 1.0, SPACING = 1.5, MAGNET = 0.9, MAGNET_AHEAD = 9, MAGNET_PULL = 9;
 let ctx = null, seed = 1, mesh = null, LANE_X = [-2, 0, 2];
@@ -159,7 +159,7 @@ export function update(dt = 0.016) {
   spin += dt * 3;
   _e.set(0, spin, 0); _q.setFromEuler(_e);
   let got = 0;
-  const magnetOn = (st.magnetT || 0) > 0 && st.running !== false;
+  const magnetOn = ((st.magnetT || 0) > 0 || (st.surgeT || 0) > 0) && st.running !== false;
   for (let i = 0; i < live.length; i++) {
     const r = live[i];
     if (st.running !== false && r.z >= zLo && r.z <= zHi && Math.abs(r.x - px) <= MAGNET && Math.abs(r.y - chest) <= 0.6) {   // was 1.15: arc-apex coins were collected from the ground, so jump arcs were decoration
@@ -178,7 +178,8 @@ export function update(dt = 0.016) {
   }
   mesh.count = live.length;
   mesh.instanceMatrix.needsUpdate = true;
-  if (got) st.coins = (st.coins || 0) + got;
+  if (got) { st.coins = (st.coins || 0) + got; st.streak = (st.streak || 0) + got; st.streakT = 0; }
+  else if (st.streak) { st.streakT = (st.streakT || 0) + dt; if (st.streakT > 2.2) st.streak = 0; }   // a 2 s gap without an Alpha ends the streak
   // score lives in progress.js now (metres x multiplier + coins x 10 x multiplier)
   // a missed coin flies past the runner and, 0.4 s later, through the camera lens (it filled the
   // frame in the critic's strips). Drop it once it is a metre in front of the lens (camera ~4.9 m back).
@@ -190,6 +191,6 @@ export function update(dt = 0.016) {
   const cz0 = ctx.camera ? ctx.camera.position.z : NaN;
   const camZ = Number.isFinite(cz0) && cz0 < pz && cz0 > pz - 30 ? cz0 : pz - 5.7;
   // 2.2 m, not 0.9: a 0.6 m coin a metre from the lens filled a third of the frame in the front-end review
-  if (live.length) { const cut = camZ + 2.2; let w = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; live.length = w; }
+  if (live.length) { const cut = camZ + 2.2; let w = 0, missed = 0; for (let i = 0; i < live.length; i++) if (live[i].z >= cut) live[w++] = live[i]; else missed++; live.length = w; if (missed && (st.magnetT || 0) <= 0) st.streak = 0; }
   prevZ = pz;
 }

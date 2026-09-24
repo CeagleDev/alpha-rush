@@ -20,17 +20,22 @@
  * Emits 'powerup' {type}, 'shieldbreak'. Listens 'start' (clear everything).
  */
 import * as THREE from 'three';
-import { mulberry32, hash32, CHUNK_LEN } from './chunks.js?v=202609240459';
-import { groundY, chunkAt } from './track.js?v=202609240459';
-import * as obstacles from './obstacles.js?v=202609240459';
+import { mulberry32, hash32, CHUNK_LEN } from './chunks.js?v=202609240703';
+import { groundY, chunkAt } from './track.js?v=202609240703';
+import * as obstacles from './obstacles.js?v=202609240703';
+import * as fx from './fx.js?v=202609240703';
 
 export const TYPES = {
   magnet:   { asset: 'pickup_magnet',   dur: 10, key: 'magnetT', ring: 0xff5a4a, label: 'magnet' },
   omamori:  { asset: 'pickup_omamori',  dur: 20, key: 'shieldT', ring: 0x7fd4ff, label: 'charm' },
   x2:       { asset: 'pickup_x2',       dur: 12, key: 'x2T',     ring: 0xffd24a, label: 'x2 score' },
   sneakers: { asset: 'pickup_sneakers', dur: 10, key: 'sneakT',  ring: 0x5af0d0, label: 'super jump' },
+  // ALPHA SURGE: the superhero one (player.js flies, smashes and pulls Alpha in while state.surgeT > 0).
+  // Rare: never before SURGE_FIRST_M, and only one pickup in RARE_EVERY is a surge.
+  surge:    { asset: 'pickup_surge',    dur: 8,  key: 'surgeT',  ring: 0x22e8ff, label: 'ALPHA SURGE', rare: true },
 };
 const ORDER = ['magnet', 'omamori', 'x2', 'sneakers'];
+const SURGE_FIRST_M = 400, RARE_EVERY = 4;
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };
 // ?pfirst= ?pgap= ?pprob= ?ptype= exist for testing only (tools/shot.mjs); the defaults are the game
@@ -66,6 +71,10 @@ async function loadProto(type) {
     new THREE.MeshBasicMaterial({ color: T.ring, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: true, side: THREE.DoubleSide }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = -HOVER + 0.03; ring.name = 'ring'; ring.renderOrder = 3;
   holder.add(ring);
+  // a second, larger ring turning the other way, and a slow halo on the surge token (fx.js does the bursts)
+  const ring2 = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.72, 40), ring.material.clone()); ring2.material.opacity = 0.25;
+  ring2.rotation.x = -Math.PI / 2; ring2.position.y = -HOVER + 0.03; ring2.name = 'ring2'; ring2.renderOrder = 3; holder.add(ring2);
+  if (type === 'surge') { const halo = new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 14), new THREE.MeshBasicMaterial({ color: 0x22e8ff, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); halo.name = 'halo'; spinner.add(halo); }
   protos.set(type, holder);
 }
 
@@ -88,7 +97,8 @@ function place(i) {
   if (!best) return;
   const free = best.nextRow ? [-1, 0, 1].filter((l) => best.nextRow.lanes[l + 1] === null) : [-1, 0, 1];
   const lane = free.length ? free[Math.floor(rng() * free.length)] : 0;
-  const type = TYPES[FORCE_TYPE] ? FORCE_TYPE : ORDER[Math.floor(rng() * ORDER.length)];
+  let type = TYPES[FORCE_TYPE] ? FORCE_TYPE : ORDER[Math.floor(rng() * ORDER.length)];
+  if (!FORCE_TYPE && i * CHUNK_LEN >= SURGE_FIRST_M && rng() < 1 / RARE_EVERY) type = 'surge';
   const proto = protos.get(type); if (!proto) return;
   const obj = proto.clone(true);
   const z = best.z, y = groundY(z) + HOVER + 0.3;
@@ -111,7 +121,7 @@ export async function init(c) {
   for (const T of Object.values(TYPES)) st[T.key] = 0;
   st.powerDur = Object.fromEntries(Object.entries(TYPES).map(([k, T]) => [k, T.dur]));
   root = new THREE.Group(); root.name = 'powerups'; c.scene.add(root);
-  await Promise.all(ORDER.map(loadProto));
+  await Promise.all([...ORDER, 'surge'].map(loadProto));
   // the charm's protection, shown: a thin pale shell round the runner while it lasts
   // QA 2026-09-21: a flat additive sphere read as a milky egg that HID the runner (worst by day and with
   // bloom). A shield is its rim: opacity follows the grazing angle, so the middle is clear glass and
@@ -154,7 +164,9 @@ export function update(dt = 0.016) {
   for (let k = items.length - 1; k >= 0; k--) {
     const it = items[k];
     const sp = it.obj.getObjectByName('spin'); if (sp) { sp.rotation.y = spin; sp.position.y = Math.sin(spin * 1.3 + it.z) * 0.06; }
-    const ring = it.obj.getObjectByName('ring'); if (ring) ring.material.opacity = 0.4 + 0.2 * Math.sin(spin * 2.2);
+    const ring = it.obj.getObjectByName('ring'); if (ring) { ring.material.opacity = 0.4 + 0.2 * Math.sin(spin * 2.2); ring.rotation.z = spin * 0.7; ring.scale.setScalar(1 + 0.12 * Math.sin(spin * 2.2)); }
+    const ring2 = it.obj.getObjectByName('ring2'); if (ring2) { ring2.rotation.z = -spin * 1.1; ring2.scale.setScalar(1.35 + 0.1 * Math.sin(spin * 1.7 + 1)); ring2.material.opacity = 0.18 + 0.1 * Math.sin(spin * 1.7); }
+    if (sp && it.type === 'surge') { sp.position.y += 0.08 * Math.sin(spin * 2); sp.rotation.y = spin * 1.6; }
     const hitIt = running && it.z >= zLo && it.z <= zHi && Math.abs(it.x - px) <= REACH && Math.abs(it.y - (py + 0.85)) <= 1.1;
     if (hitIt) {
       const T = TYPES[it.type];
@@ -164,6 +176,8 @@ export function update(dt = 0.016) {
       const lvl = Math.max(1, (st.powerLevel && st.powerLevel[it.type]) | 0 || 1);
       const dur = T.dur * (1 + 0.2 * (lvl - 1));
       st[T.key] = dur; if (st.powerDur) st.powerDur[it.type] = dur;
+      if (it.type === 'surge') st.magnetT = Math.max(st.magnetT || 0, dur);   // the surge pulls Alpha in too
+      fx.burst(it.x, it.y, it.z, T.ring, it.type === 'surge' ? 90 : 36, it.type === 'surge' ? 5 : 3.2);
       ctx.events.emit('powerup', { type: it.type, label: T.label, dur });
     }
     if (hitIt || it.z < camZ + 0.9) { root.remove(it.obj); items.splice(k, 1); }

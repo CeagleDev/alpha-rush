@@ -210,3 +210,25 @@ Still wrong / not done
   the triangle budget. Stat bars on the select screen are decorative. Card art is a monogram, not a render.
 - Jump tuck under the flat-topped arc: the animation still eases over the old hang; worth a look on a phone.
 - Atlas dropped off the hotspot again at the end (DNS); nothing was pending on it.
+
+
+## 2026-09-24, second Alpha Rush batch (REQUESTS.md #16-25)
+
+- Lane mirror: the camera looks down +z so +x is screen-LEFT; input now maps a left swipe to lane +1
+  (player.js); tools send the opposite key (GATE_CONTRACT.md "Screen mirror").
+- Speed: rampSpeed(d) = 7.5 + 11.5 (1 - e^(-d/1400)); SPEED0 7.5, SPEED_MAX 19.
+- Alpha Surge: powerups TYPES.surge (8 s, rare after 400 m, 1 in 4); player.js SURGE_H 1.4 / SURGE_SPEED 1.45,
+  smashes items with obstacles.knock(force); camera follows 60 % of the lift and pulls back 1.22x.
+- fx.js: particle pool with a soft sprite, magnet rings, x2 star, super-jump ring, surge aura/trail.
+- showcase.js: second renderer into #h-turntable, RunnerAnim idle, 0.55 rad/s turn; runs only on the home screen.
+- Reveal: track PATTERN (34 chunks, lap 1) / PATTERN2 (T x6 + PATTERN); 'reveal' event once per run; the
+  Atlas bullet-train reference (refs/alpha/env_train.png) was generated and then NOT built, per the owner.
+- Audio rewritten (work/v2/AUDIO_NOTES.md). Front end pass 2 (work/v2/UI2_NOTES.md).
+- Measured: gate PASS, jam PASS (ready 13.3 s on 4G, 5.0 MB, moved 44.8 m), clashcheck seed 23 over 1300 m clean
+  once the auditor learned to ignore knocked items and the surge.
+
+Still wrong / not done
+- Rooftops still dark between billboards; torii gates airier than the board.
+- The kitsune's rigid skirt in a jump tuck; hero faces simple; stat bars and loadout chips decorative.
+- Nothing has been LISTENED to: the music is verified by level and spectrum only.
+- Real-phone checks (notch, 5:9, touch feel of the new arc) still pending.

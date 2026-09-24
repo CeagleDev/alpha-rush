@@ -28,7 +28,7 @@
  * The speed ramp is a pure function of distance (9 → 20 m/s, +0.6 per 150 m), so ?gate=1 is
  * satisfied by construction; the stumble factor multiplies it.
  */
-import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609240459';
+import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609240703';
 
 const HERO_ALBEDO = 0.62;
 // INPUT BUFFER (Subway Surfers, Temple Run): a swipe that lands while the runner cannot act on it yet -
@@ -36,6 +36,10 @@ const HERO_ALBEDO = 0.62;
 // fires the instant it becomes legal, instead of being dropped. Dropping it is what made the controls
 // feel slow: the player swiped, nothing happened, they swiped again, and the second one was late.
 const BUFFER_S = 0.28;
+// ALPHA SURGE (owner: "a power-up that gives the player superhero-like abilities"): for its duration the
+// runner flies at SURGE_H above the road at SURGE_SPEED x the ramp, nothing can hit him, whatever is in
+// his lane is smashed aside, and every Alpha within reach flies to him. Lanes still answer to swipes.
+const SURGE_H = 1.4, SURGE_SPEED = 1.45, SURGE_LAND = 7;   // m, x, m/s descent. 1.4 not 2.4: nothing can hit him anyway, and higher put the CAMERA inside the strings across the street
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -58,9 +62,12 @@ const P = {
 
 function cfgv(k, d) { return cfg && typeof cfg[k] === 'number' ? cfg[k] : d; }
 function laneToX(l) { const lx = cfg && Array.isArray(cfg.LANE_X) ? cfg.LANE_X : [-2, 0, 2]; return lx[l + 1] ?? l * 2; }
+// DIFFICULTY (owner, 2026-09-24): "start moving at a slow pace, get faster with distance, then cap". A
+// smooth ramp, not steps: 7.5 m/s at the start, 10 by 300 m, 13 by 800 m, 16 by 1.6 km, and it flattens
+// toward SPEED_MAX (19) so a long run stays playable. Pure function of distance (the gate's fixed photos).
 function rampSpeed(d) {
-  const s0 = cfgv('SPEED0', 9), st = cfgv('SPEED_STEP', 0.6), sm = cfgv('SPEED_STEP_M', 150), mx = cfgv('SPEED_MAX', 20);
-  return Math.min(mx, s0 + st * Math.floor(Math.max(0, d) / sm));
+  const s0 = cfgv('SPEED0', 7.5), mx = cfgv('SPEED_MAX', 19), k = cfgv('SPEED_RAMP_M', 1400);
+  return s0 + (mx - s0) * (1 - Math.exp(-Math.max(0, d) / k));
 }
 function trackMod() { return C && (C.track || (C.modules && C.modules.track)); }
 function obstaclesMod() { return C && (C.obstacles || (C.modules && C.modules.obstacles)); }
@@ -78,7 +85,7 @@ export function reset() {
   P.mode = 'idle'; P.modeT = 0; P.modeLen = 0;
   P.laneFrom = 0; P.laneTo = 0; P.laneT = 1; P.laneVel = 0; P.prevX = 0;
   P.jumpT = -1; P.rollT = -1; P.stumbleAnimT = 0; P.stumbleHard = false; P.buf = null; P.bufT = 0;
-  P.invulnT = 0; P.lastHitAt = -1e9; P.deathT = 0;
+  P.invulnT = 0; P.lastHitAt = -1e9; P.deathT = 0; P.flyY = 0; s.surging = false;
   if (obj) { obj.position.set(0, s.y, 0); obj.rotation.set(0, 0, 0); }
 }
 
@@ -196,8 +203,12 @@ export function update(a, b) {
   if (inp && P.mode !== 'dead' && P.mode !== 'idle' && s.running && !s.over) {
     let done = true;
     if (s.stumbleT > 0) done = false;                      // stumble lock-out: hold it, fire when it ends
-    else if (inp === 'left') startLane(-1);
-    else if (inp === 'right') startLane(1);
+    // SCREEN LEFT IS +X. The chase camera looks down +z, so +x lands on the LEFT of the screen; lane +1 is
+    // therefore the left lane. Input speaks SCREEN directions, so a left swipe goes to lane +1 (the owner:
+    // "the left and right control is in the opposite function"). Every tool that steers by lane index
+    // sends the opposite key for the same reason (tools/GATE_CONTRACT.md, "Screen mirror").
+    else if (inp === 'left') startLane(+1);
+    else if (inp === 'right') startLane(-1);
     // MOVE CANCELS (Subway Surfers): swipe up during a roll cancels it into a jump; swipe down in
     // mid-air is a fast-fall that lands straight into a roll - the move that beats "hurdle, then an
     // overhang right behind it". Lane changes were already allowed in the air.
@@ -211,7 +222,7 @@ export function update(a, b) {
   // ---- speed and distance
   if (live) {
     if (s.speedMul < 1) s.speedMul = Math.min(1, s.speedMul + 0.5 * dt);
-    s.speed = rampSpeed(s.distance) * s.speedMul;
+    s.speed = rampSpeed(s.distance) * s.speedMul * ((s.surgeT || 0) > 0 ? SURGE_SPEED : 1);
     s.distance += s.speed * dt;
     s.z = s.distance;
     if (s.stumbleT > 0) s.stumbleT = Math.max(0, s.stumbleT - dt);
@@ -251,7 +262,11 @@ export function update(a, b) {
     if (live) P.rollT += dt;
     if (P.rollT >= cfgv('ROLL_T', 0.5)) { P.rollT = -1; s.rolling = false; if (P.mode === 'roll') { P.mode = 'run'; P.modeT = 0; } }
   }
-  s.y = groundY(s.z) + jumpY;
+  // surge flight: rise over ~0.3 s, hold, and glide down when it ends; while up there the jump is moot
+  if ((s.surgeT || 0) > 0) { P.flyY = Math.min(SURGE_H, (P.flyY || 0) + 9 * dt); P.jumpT = -1; s.airborne = true; P.rollT = -1; s.rolling = false; if (P.mode === 'jump' || P.mode === 'roll') { P.mode = 'run'; P.modeT = 0; } }
+  else if ((P.flyY || 0) > 0) { P.flyY = Math.max(0, P.flyY - SURGE_LAND * dt); if (P.flyY === 0) { s.airborne = false; P.invulnT = Math.max(P.invulnT, 0.6); } }
+  s.y = groundY(s.z) + jumpY + (P.flyY || 0);
+  s.surging = (s.surgeT || 0) > 0 || (P.flyY || 0) > 0.05;
 
   // ---- mode bookkeeping
   P.modeT += dt;
@@ -273,7 +288,14 @@ export function update(a, b) {
   const h = s.rolling ? 0.8 : 1.55;   // the rebuilt runner stands 1.56 m
   aabb.min.set(s.x - 0.3, s.y, s.z - 0.25);
   aabb.max.set(s.x + 0.3, s.y + h, s.z + 0.25);
-  if (live && P.invulnT <= 0 && obstaclesMod() && typeof obstaclesMod().hit === 'function') {
+  // surge: smash whatever stands in the lane ahead instead of colliding with it
+  if (live && s.surging && obstaclesMod() && typeof obstaclesMod().rows === 'function') {
+    for (const row of obstaclesMod().rows()) {
+      if (row.z > s.z + 4.5 || row.z + row.len < s.z - 1) continue;
+      for (const it of row.items) if (!it.knocked && it.box && Math.abs((it.box.min.x + it.box.max.x) / 2 - s.x) < 1.3 && obstaclesMod().knock) { obstaclesMod().knock(it, s.x <= (it.box.min.x + it.box.max.x) / 2 ? -1 : 1, true); emit('smash', { x: it.box.min.x, z: row.z, type: it.type }); }
+    }
+  }
+  if (live && !s.surging && P.invulnT <= 0 && obstaclesMod() && typeof obstaclesMod().hit === 'function') {
     const r = obstaclesMod().hit(aabb);
     if (r) {
       const info = classifyHit(r, aabb);

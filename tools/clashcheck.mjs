@@ -64,7 +64,7 @@ const probe = () => {
   const box = (b) => ({ x0: b.min.x, y0: b.min.y, z0: b.min.z, x1: b.max.x, y1: b.max.y, z1: b.max.z });
   const near = (z) => Math.abs(z - st.z) < 30;
   const items = [];
-  for (const r of rows) for (const it of r.items) { const b = it.box; if (b && near((b.min.z + b.max.z) / 2)) items.push({ kind: it.kind, type: it.type, lane: it.lane, row: r.id, ...box(b) }); }
+  for (const r of rows) for (const it of r.items) { if (it.knocked) continue; /* knocked aside: no longer solid */ const b = it.box; if (b && near((b.min.z + b.max.z) / 2)) items.push({ kind: it.kind, type: it.type, lane: it.lane, row: r.id, ...box(b) }); }
   const coins = (M.coins.liveCoins ? M.coins.liveCoins() : []).filter((k) => near(k.z)).map((k) => ({ x: k.x, y: k.y, z: k.z, lane: k.lane }));
   // only dogs the player can SEE: pack.js hides them once they drop 6 m behind, and a hidden dog's path is not a glitch
   const dogs = (M.pack.getDogs ? M.pack.getDogs() : []).filter((d) => d.obj.visible !== false).map((d) => ({ name: d.name, x: d.obj.position.x, y: d.obj.position.y, z: d.obj.position.z }));
@@ -73,7 +73,7 @@ const probe = () => {
   const freeLanes = rows.filter((r) => near(r.z)).map((r) => ({ id: r.id, z: r.z, free: (r.lanes || []).filter((l) => !l).length }));
   return {
     t: performance.now(), dist: st.distance, x: st.x, y: st.y, z: st.z, lane: st.lane, laneX: st.laneX, airborne: !!st.airborne, rolling: !!st.rolling,
-    speed: st.speed, over: !!st.over, running: !!st.running, hits: st.hits || 0, hitT: st.hitT || 0, stumbleT: st.stumbleT || 0, playerState: st.playerState || '', deaths: st.deaths || 0,
+    speed: st.speed, over: !!st.over, running: !!st.running, hits: st.hits || 0, hitT: st.hitT || 0, stumbleT: st.stumbleT || 0, surging: !!st.surging, playerState: st.playerState || '', deaths: st.deaths || 0,
     coinsN: st.coins, packDist: st.packDist, next: st.next ? { dist: st.next.dist, kind: st.next.kind, lanes: st.next.lanes, len: st.next.len, id: st.next.id } : null,
     aabb: a ? box(a) : null, gyPlayer: gy(st.z), dogs: dogs.map((d) => ({ ...d, gy: gy(d.z) })), items, coins, freeLanes,
   };
@@ -112,7 +112,7 @@ while (true) {
     const mine = n.lanes ? n.lanes[s.lane + 1] : null;
     const lead = { block: 9, jump: 0.36 * s.speed + 1.2, roll: 0.30 * s.speed + 1.0 }[mine] ?? 0;
     if (mine && n.dist <= lead) {
-      if (mine === 'block') { const free = [-1, 0, 1].filter((l) => !n.lanes[l + 1]); const tgt = free.sort((a, b) => Math.abs(a - s.lane) - Math.abs(b - s.lane))[0]; if (tgt !== undefined) await key(tgt < s.lane ? 'ArrowLeft' : 'ArrowRight'); }
+      if (mine === 'block') { const free = [-1, 0, 1].filter((l) => !n.lanes[l + 1]); const tgt = free.sort((a, b) => Math.abs(a - s.lane) - Math.abs(b - s.lane))[0]; if (tgt !== undefined) await key(tgt < s.lane ? 'ArrowRight' : 'ArrowLeft'); /* screen mirror: lane +1 is on the LEFT */ }
       else if (mine === 'jump') await key('ArrowUp');
       else if (mine === 'roll') await key('ArrowDown');
       lastAct = s.dist;
@@ -124,7 +124,7 @@ while (true) {
   await takeDue(s);
 
   // ---- checks
-  const invuln = s.hitT > 0 || s.stumbleT > 0 || s.hits !== prevHits; prevHits = s.hits;
+  const invuln = s.hitT > 0 || s.stumbleT > 0 || s.hits !== prevHits || s.surging; prevHits = s.hits;   /* the surge flies through and smashes whatever it meets */
   if (s.aabb && s.running && !s.over) {
     for (const it of s.items) {
       if (!overlap(s.aabb, it, 0.04)) continue;

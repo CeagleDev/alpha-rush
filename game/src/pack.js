@@ -16,7 +16,7 @@
  * Reads: state.x/z/lane/speed/running/over/distance (player, main), config.PACK_DIST, ctx.track.groundY /
  * groundPitch (optional), state.rng (optional, for bark timers). Listens: 'start', 'hit', 'stumble', 'death'.
  */
-import { mergePerJoint, DogAnim, countMeshes } from './anim.js?v=202609240459';
+import { mergePerJoint, DogAnim, countMeshes } from './anim.js?v=202609240703';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
