@@ -26,10 +26,10 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609242348';
-import * as obstacles from './obstacles.js?v=202609242348';
-import * as coins from './coins.js?v=202609242348';
-import * as farband from './farband.js?v=202609242348';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609242356';
+import * as obstacles from './obstacles.js?v=202609242356';
+import * as coins from './coins.js?v=202609242356';
+import * as farband from './farband.js?v=202609242356';
 
 // THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
 // last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls
@@ -121,23 +121,40 @@ export function chunkAt(z) { return live.get(Math.floor(z / CHUNK_LEN)) || null;
 export function chunkLength() { return CHUNK_LEN; }
 
 // ---------------------------------------------------------------- pool
+// LAZY POOL (the jam's 20 s READY budget on a real host). Building every zone's 44 variants before READY
+// cost ~20 s on GitHub Pages. Only the opening zone is built before READY (the first 180 m is alleyA);
+// every other variant is built in the background, one at a time with a yield between, in the order the
+// run meets them. spawn() skips a chunk whose variant is not built yet and the per-frame window retries,
+// so the worst case is a far chunk appearing a moment late, 150 m ahead, beyond the fog.
+const BUILD_FIRST = (v) => v.zone === 'alleyA';
+const BG_ORDER = ['rampUp', 'expressway', 'rampDown', 'day', 'alleyB', 'rooftops', 'torii'];
+let bgRunning = false;
+function addToPool(v, g) {
+  const copies = [{ group: g, inUse: false }];
+  const c = g.clone(true); c.userData = JSON.parse(JSON.stringify(g.userData)); copies.push({ group: c, inUse: false });
+  pool.set(v.id, copies);
+}
 async function buildPool() {
   const t0 = performance.now();
-  const built = await Promise.all(VARIANTS.map((v) => buildVariant(ctx, v)));
-  let tris = 0, meshes = 0;
-  built.forEach((g, i) => {
-    const copies = [{ group: g, inUse: false }];
-    const c = g.clone(true); c.userData = JSON.parse(JSON.stringify(g.userData)); copies.push({ group: c, inUse: false });
-    pool.set(VARIANTS[i].id, copies);
-    tris += g.userData.tris || 0;
-    g.traverse((o) => { if (o.isMesh) meshes++; });
-  });
-  buildInfo = { ms: Math.round(performance.now() - t0), variants: built.length, trisPerVariant: built.map((g) => ({ id: g.userData.variant, tris: g.userData.tris, meshes: (() => { let n = 0; g.traverse((o) => { if (o.isMesh) n++; }); return n; })(), litter: g.userData.litter, props: g.userData.props, lights: g.userData.lights.length })), materials: materialCount() };
+  const first = VARIANTS.filter(BUILD_FIRST);
+  const built = await Promise.all(first.map((v) => buildVariant(ctx, v)));
+  built.forEach((g, i) => addToPool(first[i], g));
+  buildInfo = { ms: Math.round(performance.now() - t0), variants: built.length, deferred: VARIANTS.length - built.length, materials: materialCount() };
+}
+async function buildRest() {
+  if (bgRunning) return; bgRunning = true;
+  const rest = VARIANTS.filter((v) => !pool.has(v.id)).sort((a, b) => BG_ORDER.indexOf(a.zone) - BG_ORDER.indexOf(b.zone));
+  for (const v of rest) {
+    await new Promise((r) => setTimeout(r, 30));            // let a frame through between builds
+    try { addToPool(v, await buildVariant(ctx, v)); } catch (e) { console.warn('[track] background build failed', v.id, e && e.message); }
+  }
+  if (buildInfo) buildInfo.deferredBuiltMs = Math.round(performance.now());
 }
 
 function spawn(i) {
   const id = variantIdAt(i);
   const copies = pool.get(id);
+  if (!copies) return null;                                    // not built yet (lazy pool): retried next frame
   let entry = copies.find((c) => !c.inUse);
   if (!entry) { console.warn('[track] no free copy of', id, '— cloning'); entry = { group: copies[0].group.clone(true), inUse: false }; entry.group.userData = copies[0].group.userData; copies.push(entry); }
   entry.inUse = true;
@@ -193,6 +210,7 @@ export async function init(c) {
   if (ctx.events && ctx.events.on) ctx.events.on('start', () => { st.revealedThisRun = false; });
   root = new THREE.Group(); root.name = 'track'; ctx.scene.add(root);
   await buildPool();
+  buildRest();                                                  // not awaited: the rest of the city builds after READY
   await obstacles.init(ctx);
   await coins.init(ctx);
   await farband.init(ctx);

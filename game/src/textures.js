@@ -59,7 +59,7 @@
  * it did with the shared procedural maps. A material that arrives without maps (surfaces off)
  * gets the procedural set from surfaces.js so the look holds either way.
  */
-import { surface, RECIPES } from '../surfaces.js?v=202609242348';
+import { surface, RECIPES } from '../surfaces.js?v=202609242356';
 
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };
@@ -171,7 +171,7 @@ export async function init(c) {
   await Promise.race([all, new Promise((r) => setTimeout(r, INIT_WAIT_MS))]);
   ctx.state.textures = status();
 }
-const INIT_WAIT_MS = 6000;
+const INIT_WAIT_MS = 1200;   // was 6000: every set re-applies itself when it lands, so boot need not wait on a slow network
 
 /** Shared emissive lightbox-face material for sprite i (1-based, wraps around SIGN_COUNT). */
 export function signFace(i = 1) {

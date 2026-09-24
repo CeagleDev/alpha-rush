@@ -24,9 +24,9 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
-import { signFace, noren } from './textures.js?v=202609242348';
-import * as perf from './perf.js?v=202609242348';
-import { bakeStatic } from '../assetlib.js?v=202609242348';
+import { signFace, noren } from './textures.js?v=202609242356';
+import * as perf from './perf.js?v=202609242356';
+import { bakeStatic } from '../assetlib.js?v=202609242356';
 
 export const CHUNK_LEN = 30;
 // CLOSE THE STREET (critic round 3, the one property). At 4.5 the shophouse fronts stood 9 m apart

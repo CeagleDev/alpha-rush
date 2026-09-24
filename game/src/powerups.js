@@ -20,10 +20,10 @@
  * Emits 'powerup' {type}, 'shieldbreak'. Listens 'start' (clear everything).
  */
 import * as THREE from 'three';
-import { mulberry32, hash32, CHUNK_LEN } from './chunks.js?v=202609242348';
-import { groundY, chunkAt } from './track.js?v=202609242348';
-import * as obstacles from './obstacles.js?v=202609242348';
-import * as fx from './fx.js?v=202609242348';
+import { mulberry32, hash32, CHUNK_LEN } from './chunks.js?v=202609242356';
+import { groundY, chunkAt } from './track.js?v=202609242356';
+import * as obstacles from './obstacles.js?v=202609242356';
+import * as fx from './fx.js?v=202609242356';
 
 export const TYPES = {
   magnet:   { asset: 'pickup_magnet',   dur: 10, key: 'magnetT', ring: 0xff5a4a, label: 'magnet' },

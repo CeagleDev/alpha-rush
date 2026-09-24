@@ -1,7 +1,7 @@
 /**
  * chamfer.js — E4. A THREE namespace whose BoxGeometry comes out rounded.
  *
- *   import { wrapTHREE } from './chamfer.js?v=202609242348';
+ *   import { wrapTHREE } from './chamfer.js?v=202609242356';
  *   const built = assetModule.default(wrapTHREE(THREE));
  *
  * Hard box edges were a named "not AAA" cause (rust17 item 24). Every asset in this repo is a

@@ -19,8 +19,8 @@
  * show the card after the fall), 'quit', 'restart', 'coin', 'zone', 'reveal', 'powerup', 'shieldbreak',
  * 'mission', 'missionset', 'achievement', 'daily', 'hit'. Buttons (#restartb, #d-home, #pauseb) are wired by main.js.
  */
-import config from './config.js?v=202609242348';
-import { ICON, POWER_UI } from './home.js?v=202609242348';
+import config from './config.js?v=202609242356';
+import { ICON, POWER_UI } from './home.js?v=202609242356';
 
 let ctx = null, state = null;
 let root = null, el = {};
