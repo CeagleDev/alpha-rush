@@ -78,8 +78,8 @@
  * State written (defaults set here): state.lights = { pool, active, warm, cool }.
  * Flags: ?fill=<x> ?lights=<N> ?pools=0 ?sky=0 (no panorama) ?fog=<x>.
  */
-import * as textures from './textures.js?v=202609241255';
-import { ATMOS_KEYS } from '../rig.js?v=202609241255';
+import * as textures from './textures.js?v=202609241949';
+import { ATMOS_KEYS } from '../rig.js?v=202609241949';
 
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };

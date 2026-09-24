@@ -13,7 +13,7 @@
  * Cost: one hero (<= 26k tris), three lights, no post, only while the home screen shows.
  */
 import * as THREE from 'three';
-import { mergePerJoint } from './anim.js?v=202609241255';
+import { mergePerJoint } from './anim.js?v=202609241949';
 
 let ctx = null, canvas = null, renderer = null, scene = null, cam = null, pivot = null, hero = null, heroKey = '', J = null, rest = null;
 let t = 0, wavePhase = -1, nextWave = 2.2, loading = null;
@@ -81,7 +81,10 @@ function pose(dt) {
     // forward axis, so a z fold lifts the forearm in the body's plane, not over the head). The wag rides
     // on the same axis, which swings the hand left-right as seen from the front. The first version folded
     // the elbow about x, which put the hand over the crown: "the wave thing is broken" (owner).
-    set('r_shoulder', -0.12 * up, 0.05 * up, -1.5 * up); set('r_elbow', 0, 0, (-1.7 + wag) * up);
+    // Numbers found by SEARCH on the real rig (work/v2/armsearch.mjs), not by reasoning about axes: with these,
+    // the upper arm points out-forward-up (-0.81, 0.15, 0.57), the forearm points up (0.94) and the palm faces
+    // the viewer (0.96). The earlier reasoning put the hand behind the head twice ("waving to the back").
+    set('r_shoulder', -0.6 * up, (0.6 + 0.12 * wag) * up, -1.2 * up); set('r_elbow', -0.8 * up, 0, (-0.8 + 0.7 * wag) * up);
     set('head', -0.04 + 0.05 * up, 0.18 * up, -0.16 * up);
     set('chest', 0.02, 0.10 * up, 0.06 * up);
     if (hero) hero.position.y = 0.05 * Math.sin(Math.min(1, u / 0.3) * Math.PI) * up;

@@ -38,7 +38,7 @@
  * first time either is, never per frame.
  */
 
-import { bakeStatic } from '../assetlib.js?v=202609241255';
+import { bakeStatic } from '../assetlib.js?v=202609241949';
 
 let ctx = null, THREE = null;
 let tier = 'high';

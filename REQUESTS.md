@@ -7,7 +7,8 @@ column as work lands; never delete a line.
 
 | # | Request | Status |
 |---|---|---|
-| 29 | The wave is broken | fixed: the forearm folded over the head; it now folds up beside it on the arm's own axis |
+| 29 | The wave is broken (twice: hand waving to the back) | fixed for good: the pose was found by SEARCH on the real rig (forearm up, palm to the viewer), not by reasoning about joint axes |
+| 34 | While running, legs show under the clothing; the run looks like hopping | fixed: the stride now drives the knee forward and folds the trailing leg up (0.85 / 0.35 rad swing instead of 0.62 / 0.62), and the vertical bob is halved |
 | 30 | The sound is not very exciting | done: two real tracks generated with Atlas (game/audio/music_home.mp3 23 s calm loop, music_run.mp3 64 s at 150 bpm) play as seamless loops with the same crossfade rules; the synth stays as a fallback |
 | 31 | Remove the "now entering location" pop-up | done: both location banners removed; the small zone chip stays |
 | 32 | The surge should look like actual flying, Superman-like, with the shield around him | done: horizontal flight pose (arm ahead, legs trailing, head up) inside a shield bubble with a glowing rim and an orbiting ring |

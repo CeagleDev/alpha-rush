@@ -241,11 +241,17 @@ export class RunnerAnim {
     // ---- the run cycle (always computed; weighted by `w` below)
     const run = {};
     const legL = Math.sin(p), legR = Math.sin(p + Math.PI);
-    const kneeL = 0.18 + 1.25 * Math.pow(Math.max(0, Math.cos(p - 0.7)), 1.3);
-    const kneeR = 0.18 + 1.25 * Math.pow(Math.max(0, Math.cos(p + Math.PI - 0.7)), 1.3);
-    const hipAmp = 0.62 + 0.18 * spd, armAmp = 0.55 + 0.2 * spd;
-    run.l_hip = [f * (-hipAmp * legL + 0.05), 0, 0];
-    run.r_hip = [f * (-hipAmp * legR + 0.05), 0, 0];
+    // A RUN, NOT A HOP (owner, 2026-09-24). The old cycle swung the thigh equally forward and back with a
+    // deep bob, so the legs stayed under the body and the body bounced: a hop. A sprinter drives the
+    // knee high and FORWARD and folds the trailing leg up behind, so the thigh barely swings back (which is
+    // also what keeps it inside a hakama or a skirt: "legs revealed under the clothing"). So: the forward
+    // swing is 0.85 rad, the back swing only 0.35, the trailing knee folds to ~2 rad, and the bob is half.
+    const swing = (x) => (x > 0 ? 0.85 : 0.35) * x;
+    const kneeL = 0.22 + 1.75 * Math.pow(Math.max(0, Math.cos(p - 0.9)), 1.2);
+    const kneeR = 0.22 + 1.75 * Math.pow(Math.max(0, Math.cos(p + Math.PI - 0.9)), 1.2);
+    const hipAmp = 1 + 0.15 * spd, armAmp = 0.55 + 0.2 * spd;
+    run.l_hip = [f * (-swing(legL) * hipAmp + 0.12), 0, 0];
+    run.r_hip = [f * (-swing(legR) * hipAmp + 0.12), 0, 0];
     run.l_knee = [f * kneeL, 0, 0];
     run.r_knee = [f * kneeR, 0, 0];
     run.l_ankle = [f * (0.15 * Math.sin(p + 0.9)), 0, 0];
@@ -255,7 +261,7 @@ export class RunnerAnim {
     run.r_shoulder = [f * (armAmp * legR), 0, -0.10];
     run.l_elbow = [f * (-(0.95 + 0.35 * Math.max(0, legL))), 0, 0];
     run.r_elbow = [f * (-(0.95 + 0.35 * Math.max(0, legR))), 0, 0];
-    const bob = -0.035 * Math.cos(2 * p) - 0.01;
+    const bob = -0.018 * Math.cos(2 * p) - 0.01;
     run.hips = [lean * 0.35, 0.12 * Math.sin(p), 0.05 * Math.sin(p), 0, bob, 0];
     run.spine = [lean * 0.4, -0.05 * Math.sin(p), -0.03 * Math.sin(p), 0, 0, 0];
     run.chest = [lean * 0.25, -0.16 * Math.sin(p), 0, 0, 0, 0];

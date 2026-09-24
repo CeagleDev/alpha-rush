@@ -16,7 +16,7 @@
  *
  * Emits 'input' with the direction when an action is queued (for HUD hints / debugging; nobody needs to listen).
  */
-import config from './config.js?v=202609241255';
+import config from './config.js?v=202609241949';
 
 let ctx = null, state = null, canvas = null;
 let queued = null;
