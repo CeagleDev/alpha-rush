@@ -23,10 +23,10 @@
  * coin (null | {dist, lane}), coinLane (null | -1|0|1) — exactly tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211652';
-import { groundY, groundPitch, frame } from './track.js?v=202609211652';
-import * as coins from './coins.js?v=202609211652';
-import { zoneModule, ZONE_IDS } from './chunks.js?v=202609211652';
+import { mulberry32, hash32 } from './chunks.js?v=202609240459';
+import { groundY, groundPitch, frame } from './track.js?v=202609240459';
+import * as coins from './coins.js?v=202609240459';
+import { zoneModule, ZONE_IDS } from './chunks.js?v=202609240459';
 
 const KINDS = {
   alley: {
@@ -76,8 +76,15 @@ function releaseInst(type, inst) { root.remove(inst); pools.get(type).free.push(
 function laneSets(n) {
   return n === 1 ? [[-1], [0], [1]] : [[-1, 0], [0, 1], [-1, 1]];
 }
-function validSets(n, adjacentOnly) {
+// THE WARM-UP (Subway Surfers opens on a clear runway and its first obstacle is a hop): for the first
+// WARMUP_M metres nothing stands in the centre lane, so a player who has not touched the screen yet is
+// never killed by the first row, and a run always begins with a few seconds of speed before the first
+// choice. The 404 jam gate holds one key for six seconds from the start and expects the runner to
+// still be moving; a random seed that put a cart at 18 m failed it at 17.45 m.
+const WARMUP_M = 90;
+function validSets(n, adjacentOnly, z = 1e9) {
   return laneSets(n).filter((occ) => {
+    if (z < WARMUP_M && occ.includes(0)) return false;
     if (adjacentOnly && occ.length === 2 && Math.abs(occ[0] - occ[1]) !== 1) return false;
     const free = [-1, 0, 1].filter((l) => !occ.includes(l));
     return free.some((f) => prevFree.some((p) => Math.abs(f - p) <= 1));
@@ -96,9 +103,10 @@ function makeRow(rng, z, zone, d, chunkIndex) {
   let n = rng() < 0.25 + 0.5 * d ? 2 : 1;
   const rollWide = cls === 'roll' && set.roll.every((t) => (pools.get(t)?.lanes || 1) >= 2);
   if (rollWide) n = 2;
-  let sets = validSets(n, rollWide);
-  if (!sets.length) { n = 1; sets = validSets(1, false); }
-  if (!sets.length) sets = [[0]];
+  if (z < WARMUP_M) n = 1;
+  let sets = validSets(n, rollWide, z);
+  if (!sets.length) { n = 1; sets = validSets(1, false, z); }
+  if (!sets.length) sets = [z < WARMUP_M ? [1] : [0]];
   const occ = sets[Math.floor(rng() * sets.length)];
   const items = [];
   const typeOf = (kind) => {

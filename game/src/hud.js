@@ -14,7 +14,7 @@
  * the fall), 'quit' (hide everything), 'restart', 'powerup', 'shieldbreak', 'mission', 'missionset', 'achievement',
  * 'daily', 'hit'. The buttons (#restartb, #d-home, #pauseb) are wired by main.js; this file only shows and hides.
  */
-import config from './config.js?v=202609211652';
+import config from './config.js?v=202609240459';
 
 let ctx = null, state = null;
 let root = null, el = {};

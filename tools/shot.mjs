@@ -12,6 +12,7 @@ const [W, H] = arg('vp', '405x720').split('x').map(Number);
 const Q = arg('q', 'seed=7');
 const CLOSE = process.argv.includes('--close');
 const EVAL = arg('eval', '');
+const HERO = arg('hero', '');   // --hero=ronin|kitsune|oni : select through the home screen's own setter before starting
 const URL_ = `http://localhost:8080/__game__/game/?${Q}&mute=1&r=${Date.now()}`;
 const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--use-angle=metal', '--enable-gpu'] });
 const page = await browser.newPage();
@@ -20,7 +21,8 @@ const logs = []; page.on('console', (m) => { const t = m.text(); if (/error|thre
 page.on('pageerror', (e) => logs.push(`PAGEERROR: ${String(e).slice(0, 300)}`));
 await page.goto(URL_, { waitUntil: 'load' });
 await page.waitForFunction('window.__READY__ === true', { timeout: 90000 });
-await page.evaluate(() => {
+await page.evaluate((hero) => {
+  if (hero) { const H = window.__ctx.modules.home; if (H && H.choose) H.choose(hero); }
   window.__START__();
   const key = (k) => dispatchEvent(new KeyboardEvent('keydown', { key: k, code: k, bubbles: true }));
   let acted = -1, want = null;
@@ -41,7 +43,7 @@ await page.evaluate(() => {
     requestAnimationFrame(tick);
   };
   tick();
-});
+}, HERO);
 for (const d of AT) {
   try { await page.waitForFunction(`window.__GAME__ && (window.__GAME__.distance >= ${d} || window.__GAME__.over)`, { timeout: 120000, polling: 50 }); } catch (e) { logs.push('timeout waiting for ' + d); }
   if (EVAL) await page.evaluate(EVAL).catch((e) => logs.push('eval: ' + e.message));

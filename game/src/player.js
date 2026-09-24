@@ -28,7 +28,7 @@
  * The speed ramp is a pure function of distance (9 → 20 m/s, +0.6 per 150 m), so ?gate=1 is
  * satisfied by construction; the stumble factor multiplies it.
  */
-import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609211652';
+import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609240459';
 
 const HERO_ALBEDO = 0.62;
 // INPUT BUFFER (Subway Surfers, Temple Run): a swipe that lands while the runner cannot act on it yet -

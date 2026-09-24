@@ -44,6 +44,8 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const bar = (have, goal) => `<div class="bar"><b style="width:${Math.round(100 * Math.min(1, goal ? have / goal : 0))}%"></b></div>`;
 
 export function selected() { return ROSTER[idx]; }
+/** Select by roster id (tools and tests; the tab bar uses the carousel). */
+export function choose(id) { const i = ROSTER.findIndex((r) => r.id === id); if (i >= 0) select(i); return i >= 0; }
 
 function cardHtml(r, i) {
   const segs = (n) => Array.from({ length: 5 }, (_, k) => `<b${k < n ? ' class="on"' : ''}></b>`).join('');

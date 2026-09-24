@@ -186,3 +186,27 @@ Seen, not fixed
 - Owner's Chrome runs ~30 fps (min 22) at 1414x1035 on the high tier on battery; peak 1.47M triangles there.
 - In landscape, missed coins in a side lane pass large and close to the lens before they are culled.
 - The fall is a forward collapse onto hands and knees; there is no separate "thrown back" animation for a vehicle crash.
+
+
+## 2026-09-24, Alpha Rush (owner's batch of 2026-09-23; see REQUESTS.md #9-15)
+
+- Controls: config JUMP_T 0.45 (0.9 s hang), ROLL_T 0.6, LANE_T 0.14; player.js jump arc 1 - u^6 (fast rise,
+  hover, fast drop: above a 0.9 m crate for 77 % of the hang, a parabola managed 43 %); input BUFFER_S 0.28;
+  anim pose bank rate 34, jump/roll blend-in 0.05/0.04 s. Verified: gate PASS, clashcheck seeds 7 and 23 clean.
+- Zones: src/zones/rooftops.js and src/zones/torii.js (recipe modules called from chunks.buildVariant; each
+  brings its own obstacle kinds via ZONE.obstacles, registered in obstacles.init). Track PATTERN is A6 RU X6 RD
+  D6 B6 RU R6 RD T6 (40 chunks). lighting.mistAt() thickens the haze on the shrine path.
+- Heroes: assets/hero_ronin.js, hero_kitsune.js, hero_oni.js (one candidate each, 15.7-16.0k tris, built from the
+  approved refs/alpha/char_*.png); player.prepareHero() merges and albedo-scales each once; the choice comes
+  from home.js via state.characterAsset at 'start'.
+- Front end: index.html + src/home.js + hud.js + progress.js (save key ar.save.v1). Warm-up: obstacles.WARMUP_M.
+- Measured: gate PASS (802 m, 88 coins, peak 512 draws / 1.37M tris, 0 errors); jam PASS (ready 12.9 s on 4G,
+  4.9 MB, moved 48 m); clashcheck 0 clashes over 1250 m (seed 23).
+
+Still wrong / not done
+- Rooftops read dark between billboards; the neon carries the mood but the roof itself needs a second pass.
+- Shrine path: gates airier than the board; cedars have no canopy; the far skyline shows through the gate tunnel.
+- Heroes: faces and hands simple; the kitsune's skirt is rigid (thigh covers show in a jump tuck); the oni is at
+  the triangle budget. Stat bars on the select screen are decorative. Card art is a monogram, not a render.
+- Jump tuck under the flat-topped arc: the animation still eases over the old hang; worth a look on a phone.
+- Atlas dropped off the hotspot again at the end (DNS); nothing was pending on it.

@@ -3,6 +3,18 @@
 Everything the owner has asked for, in their words where possible, with status. Update the status
 column as work lands; never delete a line.
 
+## 2026-09-23/24: Alpha Rush batch
+
+| # | Request | Status |
+|---|---|---|
+| 9 | Player response too slow; jumps and rolls must be swift (Subway Surfers) | done: 0.9 s hang with a fast-rise/hover arc, slide 0.6 s, lane change 0.14 s, poses snap faster, and a swipe made while a move is impossible is buffered 0.28 s and fires the instant it is legal |
+| 10 | Two more environments | done: neon ROOFTOPS (at deck height, laundry lines, tanks, billboards) and the TORII shrine path (gates, lanterns, cedars, mist); cycle is now 40 chunks / 1200 m |
+| 11 | UI like a proper racing game, unique, mobile-first; rename to ALPHA RUSH | done: cyan/magenta/amber racing front end, racing HUD with km/h, chamfered panels |
+| 12 | Pause button, Esc to pause, typical pause controls | done: pause button, Esc/P, tap outside; RESUME / RESTART / SOUND / HOME |
+| 13 | Load onto a character-select screen with three unique story characters (not modern runners) | done: KAITO the Last Ronin, YUZU the Shrine Courier, RAIDEN the Neon Oni; Atlas references approved by the owner, modelled in code |
+| 14 | Tabs at the bottom: achievements, players, missions, tasks, power-ups | done: five tabs; daily tasks pay coins to a bank, power-ups upgrade with coins, twelve achievements |
+| 15 | (found by the jam gate) first row could be a cart in the centre lane at 18 m | fixed: the first 90 m keep the centre lane clear |
+
 ## 2026-09-21, later
 
 | # | Request | Status |

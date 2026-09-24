@@ -17,8 +17,8 @@
  * state fields written (defaults in init): coins (0), score (0). Reads x, y, z, distance.
  */
 import * as THREE from 'three';
-import { mulberry32, hash32 } from './chunks.js?v=202609211652';
-import { groundY, frame } from './track.js?v=202609211652';
+import { mulberry32, hash32 } from './chunks.js?v=202609240459';
+import { groundY, frame } from './track.js?v=202609240459';
 
 const CAP = 512, HOVER = 1.0, SPACING = 1.5, MAGNET = 0.9, MAGNET_AHEAD = 9, MAGNET_PULL = 9;
 let ctx = null, seed = 1, mesh = null, LANE_X = [-2, 0, 2];

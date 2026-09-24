@@ -24,13 +24,13 @@
  * window.__GAME__ is rebuilt every frame with every field in tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { createRig } from '../rig.js?v=202609211652';
-import config from './config.js?v=202609211652';
-import * as input from './input.js?v=202609211652';
-import * as hud from './hud.js?v=202609211652';
-import * as audio from './audio.js?v=202609211652';
-import * as roadfx from './roadfx.js?v=202609211652';   // wet-road reflections + contact shadows (see ARCH.md addendum)
-import * as home from './home.js?v=202609211652';       // HOME screen: character select, tabs (UI v2)
+import { createRig } from '../rig.js?v=202609240459';
+import config from './config.js?v=202609240459';
+import * as input from './input.js?v=202609240459';
+import * as hud from './hud.js?v=202609240459';
+import * as audio from './audio.js?v=202609240459';
+import * as roadfx from './roadfx.js?v=202609240459';   // wet-road reflections + contact shadows (see ARCH.md addendum)
+import * as home from './home.js?v=202609240459';       // HOME screen: character select, tabs (UI v2)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
