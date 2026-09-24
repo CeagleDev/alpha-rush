@@ -1,1 +1,0 @@
-/Users/dev/Documents/Cursor.Code/midnight-dash/work/a6/cand/fire_ext_box/fire_ext_box_c.js

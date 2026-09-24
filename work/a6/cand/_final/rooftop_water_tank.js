@@ -1,1 +1,0 @@
-/Users/dev/Documents/Cursor.Code/midnight-dash/game/assets/rooftop_water_tank.js

@@ -1,1 +1,0 @@
-/Users/dev/Documents/Cursor.Code/midnight-dash/game/assets/shophouse_c.js

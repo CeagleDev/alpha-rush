@@ -1,1 +1,0 @@
-../cand/plant_pots/plant_pots_a.js
