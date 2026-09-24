@@ -38,7 +38,7 @@
  * first time either is, never per frame.
  */
 
-import { bakeStatic } from '../assetlib.js?v=202609241141';
+import { bakeStatic } from '../assetlib.js?v=202609241255';
 
 let ctx = null, THREE = null;
 let tier = 'high';
@@ -82,6 +82,7 @@ export function detectTier(config) {
 }
 
 export function init(c) {
+  if (c.events && c.events.on) c.events.on('start', () => { chunkFrame = -1; });
   ctx = c; THREE = c.THREE;
   const cfg = c.config || {};
   tier = (c.rig && c.rig.tier && c.rig.tier.name) || (cfg.phone ? 'phone' : detectTier(cfg));
@@ -142,7 +143,7 @@ export function update(dt) {
  */
 function chunkLOD() {
   if (FAR.cull === Infinity && FAR.coarse === Infinity) return;
-  if (++frames - chunkFrame > 30) {             // rediscover twice a second, not per frame
+  if (++frames - chunkFrame > 30 || chunkFrame < 0) {   // rediscover twice a second, not per frame; at once after a (re)start
     chunkFrame = frames;
     chunkRoots = [];
     ctx.scene.traverse((o) => { if (o.name && o.name.startsWith('chunk_')) chunkRoots.push(o); });

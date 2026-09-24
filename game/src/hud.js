@@ -19,8 +19,8 @@
  * show the card after the fall), 'quit', 'restart', 'coin', 'zone', 'reveal', 'powerup', 'shieldbreak',
  * 'mission', 'missionset', 'achievement', 'daily', 'hit'. Buttons (#restartb, #d-home, #pauseb) are wired by main.js.
  */
-import config from './config.js?v=202609241141';
-import { ICON, POWER_UI } from './home.js?v=202609241141';
+import config from './config.js?v=202609241255';
+import { ICON, POWER_UI } from './home.js?v=202609241255';
 
 let ctx = null, state = null;
 let root = null, el = {};
@@ -156,12 +156,8 @@ export async function init(c) {
     streak = (timeT - lastCoinT) <= 1.5 ? streak + 1 : 1; lastCoinT = timeT;
     if (streak >= 5) { el.streak.textContent = `x${streak} ALPHA STREAK`; retrigger(el.streak, 'on'); }
   });
-  c.events.on('zone', (p) => {
-    const z = p && p.zone; const label = ZONE_LABEL[z] || z;
-    if (!z || z === 'rampUp' || z === 'rampDown') return;
-    banner(`now entering · <b>${label}</b>`);
-  });
-  c.events.on('reveal', (p) => banner(`new location revealed · <b>${(p && p.label) || (p && p.id) || '???'}</b>`, true));
+  // Location banners REMOVED (owner, 2026-09-24: "that pop up that shows you just entered location, remove
+  // it"). The small zone chip in the header still names where you are; the reveal only updates the home tile.
   c.events.on('powerup', (p) => toast(`${(p && p.label) || (POWER_UI[p && p.type] || {}).name || 'power-up'}!`, 1400));
   c.events.on('shieldbreak', () => toast('the charm saved you', 1600));
   c.events.on('mission', (p) => toast(`mission done · ${p.text}`, 2600));

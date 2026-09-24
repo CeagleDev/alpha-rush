@@ -263,7 +263,7 @@ export class RunnerAnim {
     run.head = [-lean * 0.55 + 0.015 * Math.cos(2 * p), 0.06 * Math.sin(p), 0, 0, 0, 0];
 
     let w = 1;                                   // weight of the run cycle
-    let rootRX = 0, rootRZ = 0, rootRY = 0, rootPY = 0, rollSpin = 0;
+    let rootRX = 0, rootRZ = 0, rootRY = 0, rootPY = 0, rootPZ = 0, rollSpin = 0;
     const mode = s.mode || 'run', t = s.t || 0;
 
     if (mode === 'idle') {
@@ -306,6 +306,23 @@ export class RunnerAnim {
       b.pos('hips', 0, -0.45 * k, 0);
       // forward somersault about X, pivot at the ball's centre (~0.45 m up), one full turn over T
       rollSpin = smooth(u) * TAU;
+    } else if (mode === 'fly') {
+      // ALPHA SURGE: Superman. The whole figure pitches forward to near-horizontal about the hips, the
+      // right arm punches straight ahead, the left arm sweeps back along the body, the legs trail
+      // together with a little scissor, head up to look down the street. Blends in over 0.25 s.
+      const k = smooth(t / 0.25);
+      w = 1 - k;
+      const sc = Math.sin(t * 7) * 0.12;
+      b.rot('l_shoulder', f * -3.0 * k, 0, 0.18 * k);         // arm forward past the head
+      b.rot('l_elbow', f * -0.15 * k);
+      b.rot('r_shoulder', f * 0.9 * k, 0, -0.25 * k);          // arm back along the flank
+      b.rot('r_elbow', f * -0.35 * k);
+      b.rot('l_hip', f * (0.25 + sc) * k); b.rot('r_hip', f * (0.25 - sc) * k);
+      b.rot('l_knee', f * 0.12 * k); b.rot('r_knee', f * 0.12 * k);
+      b.rot('l_ankle', f * -0.4 * k); b.rot('r_ankle', f * -0.4 * k);   // toes pointed
+      b.rot('spine', -0.15 * k); b.rot('chest', -0.15 * k); b.rot('neck', -0.55 * k); b.rot('head', -0.6 * k);
+      rootRX = 1.3 * k;                                         // + tips forward (the death pose uses +1.35): body near-horizontal, head ahead
+      rootPY = -0.2 * k; rootPZ = -0.8 * k;                     // the root pivot is at the feet: pull it back and down so the body's centre stays over the runner's position
     } else if (mode === 'stumble') {
       const T = s.T || 0.7;
       const u = clamp(t / T, 0, 1);
@@ -354,6 +371,7 @@ export class RunnerAnim {
     // root: smoothed pitch/yaw/roll, plus the roll spin about a pivot
     const v = this.vis, k = 1 - Math.exp(-14 * dt);
     v.rx += (rootRX - v.rx) * k; v.ry += (rootRY - v.ry) * k; v.rz += (rootRZ - v.rz) * k;
+    v.py = (v.py || 0) + (rootPY - (v.py || 0)) * k; v.pz = (v.pz || 0) + (rootPZ - (v.pz || 0)) * k;
     const R = this.restRoot;
     if (mode === 'roll' || this.rollAngle > 0.01) {
       this.rollAngle = mode === 'roll' ? rollSpin : (this.rollAngle > TAU - 0.05 ? 0 : lerp(this.rollAngle, TAU, k));
@@ -361,7 +379,7 @@ export class RunnerAnim {
     }
     const a = this.rollAngle, py = 0.5;
     this.root.rotation.set(R.r.x + v.rx + a, R.r.y + v.ry, R.r.z + v.rz);
-    this.root.position.set(R.p.x, R.p.y + (a ? py - py * Math.cos(a) : 0), R.p.z - (a ? py * Math.sin(a) : 0));
+    this.root.position.set(R.p.x, R.p.y + v.py + (a ? py - py * Math.cos(a) : 0), R.p.z + v.pz - (a ? py * Math.sin(a) : 0));
   }
 }
 

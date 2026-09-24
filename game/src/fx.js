@@ -13,7 +13,7 @@ import * as THREE from 'three';
 
 const PARTICLES = 320;
 let ctx = null, pts = null, pos = null, col = null, vel = null, life = null, alive = 0;
-let magnetRing = null, magnetRing2 = null, x2Stars = null, sneakRing = null, aura = null, auraRing = null, trail = null, trailPos = null, trailHead = 0;
+let magnetRing = null, magnetRing2 = null, x2Stars = null, sneakRing = null, aura = null, auraRim = null, auraRing = null, trail = null, trailPos = null, trailHead = 0;
 const _c = new THREE.Color();
 /** A soft round sprite: without a map a Point draws as a hard square. */
 function softDot() {
@@ -42,8 +42,14 @@ export async function init(c) {
   x2Stars = add(new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.05, 6, 5), glow(0xffd24a, 0.9)), 'fx.x2');
   sneakRing = add(new THREE.Mesh(new THREE.RingGeometry(0.25, 0.6, 32), glow(0x5af0d0, 0.7)), 'fx.sneak');
   sneakRing.rotation.x = -Math.PI / 2;
-  aura = add(new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18), glow(0x22e8ff, 0.07)), 'fx.aura');
-  aura.scale.set(0.8, 1.15, 0.9);
+  // THE SHIELD BUBBLE (owner: "like Superman but with the shield thing around him"): a sphere round the
+  // flying body - a faint cyan fill, a brighter magenta-cyan rim drawn on the sphere's back faces so the
+  // edge glows where the surface turns away, and the orbiting ring.
+  aura = add(new THREE.Mesh(new THREE.SphereGeometry(1, 36, 24), glow(0x22e8ff, 0.10)), 'fx.aura');
+  aura.scale.set(1.15, 1.0, 1.35);
+  const rimM = glow(0x8ff6ff, 0.35); rimM.side = THREE.BackSide;
+  auraRim = add(new THREE.Mesh(new THREE.SphereGeometry(1, 36, 24), rimM), 'fx.auraRim');
+  auraRim.scale.set(1.18, 1.03, 1.38);
   auraRing = add(new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.025, 8, 48), glow(0xff2d95, 0.55)), 'fx.auraRing');
   // the surge trail: a ribbon of 18 fading discs that follow where the runner has been
   const tg = new THREE.BufferGeometry(); trailPos = new Float32Array(18 * 3);
@@ -92,10 +98,12 @@ export function update(dt = 0.016) {
   sneakRing.visible = sn;
   if (sn) { const gy = y - (st.airborne ? 0 : 0); sneakRing.position.set(x, (ctx.modules && ctx.modules.track && ctx.modules.track.groundY ? ctx.modules.track.groundY(z) : 0) + 0.03, z); const p = 1 + 0.25 * Math.max(0, Math.sin(t * 6)); sneakRing.scale.setScalar(p); sneakRing.material.opacity = st.airborne ? 0.25 : 0.7; void gy; }
   const sg = on && st.surging;
-  aura.visible = auraRing.visible = trail.visible = sg;
+  aura.visible = auraRim.visible = auraRing.visible = trail.visible = sg;
   if (sg) {
-    aura.position.set(x, y + 0.8, z); aura.material.opacity = 0.06 + 0.025 * Math.sin(t * 11);
-    auraRing.position.set(x, y + 0.8, z); auraRing.rotation.set(t * 2.6, t * 1.7, t * 0.8);
+    // centred on the flying body (the pose pulls the figure 0.8 m back from the pivot, so the middle sits ~0.1 m behind)
+    aura.position.set(x, y + 0.55, z - 0.1); aura.material.opacity = 0.08 + 0.03 * Math.sin(t * 11);
+    auraRim.position.copy(aura.position); auraRim.material.opacity = 0.3 + 0.1 * Math.sin(t * 9 + 1);
+    auraRing.position.copy(aura.position); auraRing.rotation.set(t * 2.6, t * 1.7, t * 0.8); auraRing.scale.set(1.25, 1.1, 1.45);
     trailT += dt;
     if (trailT > 0.04) { trailT = 0; trailPos[trailHead * 3] = x + (Math.random() - 0.5) * 0.5; trailPos[trailHead * 3 + 1] = y + 0.6 + Math.random() * 0.6; trailPos[trailHead * 3 + 2] = z - 0.4; trailHead = (trailHead + 1) % 18; trail.geometry.attributes.position.needsUpdate = true; }
     if (Math.random() < 0.35) burst(x + (Math.random() - 0.5) * 0.6, y + 0.3 + Math.random() * 1.2, z - 0.3, Math.random() < 0.5 ? 0x22e8ff : 0xff2d95, 1, 0.9);

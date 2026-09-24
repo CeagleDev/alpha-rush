@@ -1,24 +1,31 @@
 /**
- * audio.js — WebAudio, all procedural (no files: jam rule + weight). Pass 2: two tracks + a full SFX set.
+ * audio.js — WebAudio. Pass 3: the two MUSIC tracks are real files (game/audio/music_home.mp3 / music_run.mp3, Atlas,
+ * 96 kbps 44.1 kHz), the pass-2 synthesised tracks stay in as the fallback; every SFX is still procedural.
  *
- *   init(ctx)     registers listeners only; never touches the AudioContext (never blocks READY). Also arms a
- *                 one-shot first-gesture listener (pointerdown / touchend / keydown) so the HOME track can start
- *                 from a tap anywhere on the home screen (main.js emits nothing for that).
+ *   init(ctx)     registers listeners only; never touches the AudioContext (never blocks READY). Starts the two
+ *                 music fetches (never awaited). Also arms a one-shot first-gesture listener (pointerdown /
+ *                 touchend / keydown) so the HOME track can start from a tap anywhere on the home screen.
  *   unlock()      called by main.js INSIDE the #startb tap (and by the gesture listener): creates + resumes the
  *                 AudioContext. If `state.running` is false it starts the HOME track.
- *   update(dt)    follows state.speed for the RUN track's intensity and drops rain drips in the alleys. The music
- *                 sequencer itself runs on a 60 ms interval so it keeps going while main.js skips updates (pause).
+ *   update(dt)    follows state.speed for the RUN track's intensity and drops rain drips in the alleys. The synth
+ *                 sequencer runs on a 60 ms interval so it keeps going while main.js skips updates (pause).
  *   setMuted(on) / isMuted()   master bus to 0 (the limiter stays in place).
- *   setPaused(on)  RUN track + ambience lowpass to a muffled bed (hidden tab: the context is suspended instead).
+ *   setPaused(on)  music + ambience lowpass to a muffled bed (hidden tab: the context is suspended instead).
  *
- * Tracks (both loop seamlessly on a 16-bar pattern, both in D, in-sen scale D Eb G A C):
+ * Music files: fetched at init, decoded as soon as the bytes land (OfflineAudioContext, no gesture needed), looped
+ *   by an AudioBufferSourceNode (loop = true) between the first and last non-silent window of the buffer with a 6 ms
+ *   fade written into the buffer at both ends (clean seam; the encodes carry 0.3-0.9 s of silence). A track whose
+ *   file is missing / undecodable plays its synthesised version; a file that lands while its synth is playing takes
+ *   over with a 0.8 s crossfade. RUN intensity on the file: a gentle high-shelf (+3 dB above 3 kHz at top speed) and
+ *   +1.5 dB at top speed only; the pass-2 tone lowpass is left open for the file (it still closes on 'death').
+ * Synth fallback (both in D, in-sen scale D Eb G A C):
  *   HOME  72 bpm: warm detuned-saw pad through a slow-LFO lowpass, soft plucked in-sen arpeggio, a sub on the chord
- *         root, occasional wind-chime clusters into a long convolver reverb (generated noise IR). Bus at -14 dB.
+ *         root, occasional wind-chime clusters into a long convolver reverb (generated noise IR).
  *   RUN   142 bpm: four-on-the-floor kick, offbeat hats, sidechained saw bass (D minor pentatonic), offbeat chord
  *         stabs, a lead motif in bars 7-8 / 15-16, a riser in bars 15-16 + crash on the loop. INTENSITY follows
- *         state.speed (9 -> 20 m/s): 16th hats, open hat, rim, shaker and a brighter tone filter. Bus at -6 dB.
- *   'start' crossfades HOME -> RUN over 0.8 s, 'quit' RUN -> HOME, 'death' ducks RUN to a lowpassed slow pulse
- *   and hands back to HOME after 2 s.
+ *         state.speed: 16th hats, open hat, rim, shaker and a brighter tone filter.
+ * Buses: home -14 dB, run -6 dB (file voices carry their own trim, see MUSIC). 'start' crossfades HOME -> RUN over
+ *   0.8 s, 'quit' RUN -> HOME, 'death' ducks RUN to a lowpassed slow pulse and hands back to HOME after 2 s.
  *
  * Listens: 'coin' 'jump' 'roll' 'hit' 'stumble' 'bark' 'zone' 'death' 'start' 'quit' 'input' 'powerup'
  *          'shieldbreak' 'mission' 'achievement' 'reveal'.
@@ -29,7 +36,7 @@
  * Buses: sfx 0 dB, home -14 dB, run -6 dB, ambience -9 dB → world (pause lowpass) → master → limiter. `?mute=1`
  * (config.MUTE) disables everything.
  */
-import config from './config.js?v=202609241141';
+import config from './config.js?v=202609241255';
 
 const DB = (db) => Math.pow(10, db / 20);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -38,8 +45,8 @@ const LOOKAHEAD = 0.25;
 let ctx = null, state = null;
 let ac = null, master = null, limiter = null, sfx = null, world = null, pauseLP = null;
 let amb = null, ambA = null, ambX = null, ambSrcs = [];
-let homeMix = null, homeG = null, revSend = null, revRet = null;
-let runMix = null, runTone = null, scGain = null, pulseG = null, pulseDepth = null, runG = null, leadIn = null;
+let homeMix = null, homeG = null, revSend = null, revRet = null, homeSyn = null, homeFile = null;
+let runMix = null, runTone = null, scGain = null, pulseG = null, pulseDepth = null, runG = null, leadIn = null, runSyn = null, runFile = null, runShelf = null;
 let noiseBuf = null;
 let ok = false;
 let barkAlt = 0;
@@ -77,7 +84,7 @@ export function setPaused(on) {
 export function unlock() {
   if (config.MUTE) return;
   safe(() => {
-    if (ac) { if (ac.state === 'suspended' && !(pausedByMenu && document.hidden)) ac.resume(); if (!state.running && !dead && !HOME.on) startHome(); return; }
+    if (ac) { if (ac.state === 'suspended' && !(pausedByMenu && document.hidden)) ac.resume(); if (!state.running && !dead && !homeOn()) startHome(); return; }
     const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AC) return;
     ac = new AC();
@@ -94,27 +101,37 @@ export function unlock() {
     ambA = ac.createGain(); ambA.gain.value = 1; ambA.connect(amb);
     ambX = ac.createGain(); ambX.gain.value = 0; ambX.connect(amb);
     noiseBuf = makeNoise(2.0);
-    // HOME: homeMix → homeG (crossfade) → world, with a convolver reverb send/return inside the homeG path
+    // HOME: file → homeFile ─┐
+    //       synth: homeMix (+ convolver reverb send/return) → homeSyn ─┴→ homeG (crossfade) → world
     homeG = ac.createGain(); homeG.gain.value = 0; homeG.connect(world);
-    homeMix = ac.createGain(); homeMix.gain.value = 1; homeMix.connect(homeG);
+    homeSyn = ac.createGain(); homeSyn.gain.value = 1; homeSyn.connect(homeG);
+    homeFile = ac.createGain(); homeFile.gain.value = MUSIC.home.trim; homeFile.connect(homeG);
+    homeMix = ac.createGain(); homeMix.gain.value = 1; homeMix.connect(homeSyn);
     revSend = ac.createGain(); revSend.gain.value = 1;
     const conv = ac.createConvolver(); conv.buffer = makeIR(2.8, 2.2); revSend.connect(conv);
-    revRet = ac.createGain(); revRet.gain.value = 0.55; conv.connect(revRet); revRet.connect(homeG);
-    // RUN: runMix → runTone (intensity brightness / death duck) → pulseG (death pulse) → runG (crossfade) → world
+    revRet = ac.createGain(); revRet.gain.value = 0.55; conv.connect(revRet); revRet.connect(homeSyn);
+    // RUN: file → runShelf (speed brightness) → runFile (trim, +1.5 dB at top speed) ─┐
+    //      synth: runMix → runSyn ────────────────────────────────────────────────────┴→ runTone (synth brightness / death duck) → pulseG (death pulse) → runG (crossfade) → world
     runG = ac.createGain(); runG.gain.value = 0; runG.connect(world);
     pulseG = ac.createGain(); pulseG.gain.value = 1; pulseG.connect(runG);
     const pulseLfo = ac.createOscillator(); pulseLfo.frequency.value = 1.7;
     pulseDepth = ac.createGain(); pulseDepth.gain.value = 0; pulseLfo.connect(pulseDepth); pulseDepth.connect(pulseG.gain); pulseLfo.start();
     runTone = ac.createBiquadFilter(); runTone.type = 'lowpass'; runTone.frequency.value = 2400; runTone.Q.value = 0.6; runTone.connect(pulseG);
-    runMix = ac.createGain(); runMix.gain.value = 1; runMix.connect(runTone);
+    runSyn = ac.createGain(); runSyn.gain.value = 1; runSyn.connect(runTone);
+    runFile = ac.createGain(); runFile.gain.value = MUSIC.run.trim; runFile.connect(runTone);
+    runShelf = ac.createBiquadFilter(); runShelf.type = 'highshelf'; runShelf.frequency.value = 3000; runShelf.gain.value = 0; runShelf.connect(runFile);
+    runMix = ac.createGain(); runMix.gain.value = 1; runMix.connect(runSyn);
     scGain = ac.createGain(); scGain.gain.value = 1; scGain.connect(runMix);           // sidechained: bass + stabs
     // lead delay: dotted 8th at 142 bpm, feedback 0.35, dark
     leadIn = ac.createGain(); leadIn.gain.value = 1; leadIn.connect(runMix);
     const dl = ac.createDelay(1.0); dl.delayTime.value = 60 / 142 * 0.75; const fb = ac.createGain(); fb.gain.value = 0.35;
     const dlp = ac.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2600;
     leadIn.connect(dl); dl.connect(dlp); dlp.connect(fb); fb.connect(dl); const dg = ac.createGain(); dg.gain.value = 0.45; dlp.connect(dg); dg.connect(runMix);
+    MUSIC.home.g = homeFile; MUSIC.home.syn = homeSyn; MUSIC.home.seq = HOME;
+    MUSIC.run.g = runFile; MUSIC.run.syn = runSyn; MUSIC.run.seq = RUN;
     ok = true;
     if (ac.state === 'suspended') ac.resume();
+    decodeMusic(MUSIC.home); decodeMusic(MUSIC.run);      // bytes that could not be decoded offline (no OfflineAudioContext) decode here
     setInterval(() => safe(tick), 60);
     document.addEventListener('visibilitychange', () => safe(() => { if (!document.hidden && !pausedByMenu && ac.state === 'suspended') ac.resume(); }));
     if (!state.running) startHome();
@@ -464,29 +481,113 @@ const RUN = mkSeq(142, 4, 256, (i, t, count) => {
   if (i === 0 && count > 0) crash(t);
 });
 
+// ---------------------------------------------------------------- music files: the two Atlas tracks (synth above is the fallback)
+// Fetched from init() (the promise is never awaited, READY does not wait). Decoded the moment the bytes land: on the
+// real context if it exists, else on a throwaway OfflineAudioContext (needs no gesture), else deferred to unlock().
+// trim: the file's own level into the pass-2 bus (home -14 dB, run -6 dB). Whole-file RMS (ffmpeg astats): home -21.1
+// dBFS / peak -0.7, run -16.9 / peak +0.1; the home intro is ~4 dB under its average, the run opening ~3 dB over. Probe
+// (work/v2/audio_probe.mjs, first 6 s of each): home +10 → -29.3 dB RMS out, run +3 → -16.8 dB RMS / peak -2.2 out,
+// so the trims are now +13 (home ≈ -26 dB, the synth pad was -23.5) and +2 (run ≈ -18 dB, room for the +1.5 dB lift).
+const MUSIC_V = '?v=202609241141';
+const MUSIC = {
+  home: { url: '../audio/music_home.mp3', trim: DB(13) },
+  run: { url: '../audio/music_run.mp3', trim: DB(2) },
+};
+for (const m of Object.values(MUSIC)) Object.assign(m, { buf: null, bytes: null, decoding: false, failed: false, loopStart: 0, loopEnd: 0, src: null, srcG: null, fadeUntil: 0, g: null, syn: null, seq: null });
+function fetchMusic(m) {
+  if (typeof fetch !== 'function') { m.failed = true; return; }
+  let url = m.url + MUSIC_V;
+  try { url = new URL(url, import.meta.url).href; } catch (e) { /* relative to the page then */ }
+  fetch(url).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then((ab) => { m.bytes = ab; decodeMusic(m); })
+    .catch((e) => { m.failed = true; console.warn('audio: music file unavailable, synth fallback: ' + m.url + ' (' + (e && e.message) + ')'); });
+}
+function decodeMusic(m) {
+  if (!m.bytes || m.decoding || m.buf) return;
+  let dc = ac;
+  if (!dc) {
+    const OAC = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
+    if (!OAC) return;                                              // retried from unlock() once the real context exists
+    try { dc = new OAC(2, 1, 44100); } catch (e) { return; }
+  }
+  const bytes = m.bytes; m.bytes = null; m.decoding = true;
+  new Promise((res, rej) => { const p = dc.decodeAudioData(bytes, res, rej); if (p && p.then) p.then(res, rej); })
+    .then((buf) => { m.buf = buf; m.decoding = false; trimLoop(m); safe(() => fileArrived(m)); })
+    .catch((e) => { m.failed = true; m.decoding = false; console.warn('audio: music decode failed, synth fallback: ' + m.url + ' (' + (e && e.message) + ')'); });
+}
+/** loopStart = the first of two consecutive 1024-sample windows with RMS above -48 dBFS (a lone window is the encoder's
+ *  6 ms start blip); loopEnd = the last window above -48 dBFS (keeps the fade tail, drops the silence pad). A 6 ms fade
+ *  is written into the buffer at both ends so the seam lands on zero (the encodes carry 0.3-0.9 s of silence).
+ *  On the current encodes (checked offline on ffmpeg-decoded PCM): home 0.325 … 21.037 s, run 0.023 … 63.181 s. */
+function trimLoop(m) {
+  const b = m.buf, sr = b.sampleRate, n = b.length, W = 1024, thr = DB(-48) * DB(-48);
+  const chs = []; for (let c = 0; c < b.numberOfChannels; c++) chs.push(b.getChannelData(c));
+  const win = (w) => { const i0 = w * W, i1 = Math.min(n, i0 + W); let sq = 0; for (const d of chs) for (let i = i0; i < i1; i++) sq += d[i] * d[i]; return sq / Math.max(1, (i1 - i0) * chs.length); };
+  const nw = Math.ceil(n / W); let a = 0, z = nw - 1;
+  while (a < z - 1 && !(win(a) >= thr && win(a + 1) >= thr)) a++;
+  while (z > a && win(z) < thr) z--;
+  const i0 = a * W, i1 = Math.min(n, (z + 1) * W), f = Math.min(Math.floor(sr * 0.006), (i1 - i0) >> 2);
+  for (const d of chs) for (let i = 0; i < f; i++) { const k = i / f; d[i0 + i] *= k; d[i1 - 1 - i] *= k; }
+  m.loopStart = i0 / sr; m.loopEnd = i1 / sr;
+}
+/** A new looping source for track m, through its own gain (so a voice that is fading out never doubles a restart). */
+function fileStart(m, when) {
+  const s = ac.createBufferSource(); s.buffer = m.buf; s.loop = true; s.loopStart = m.loopStart; s.loopEnd = m.loopEnd;
+  const sg = ac.createGain(); sg.gain.value = 1; s.connect(sg); sg.connect(m.g);
+  s.start(when, m.loopStart); m.src = s; m.srcG = sg;
+}
+function fileStop(m, T) {
+  const s = m.src, sg = m.srcG; if (!s) return;
+  m.src = null; m.srcG = null;
+  const t = ac.currentTime;
+  sg.gain.setValueAtTime(1, t); sg.gain.linearRampToValueAtTime(0.0001, t + T);
+  safe(() => s.stop(t + T + 0.2));
+}
+const setNow = (param, v) => { const t = ac.currentTime; param.cancelScheduledValues(t); param.setValueAtTime(v, t); };
+/** Turn a track's voice on: the file if it is decoded, otherwise the synth sequencer (the bus fade is the caller's). */
+function trackOn(m, when) {
+  if (m.buf) { if (!m.src) { fileStart(m, when); setNow(m.g.gain, m.trim); m.fadeUntil = 0; } }
+  else { seqOn(m.seq, when); setNow(m.syn.gain, 1); }
+}
+/** Voices stop after the caller's bus fade of T seconds (synth via stopAt, file via its own fade + stop). */
+function trackOff(m, T) { const t = ac.currentTime; m.seq.stopAt = t + T + 0.2; fileStop(m, T); }
+/** A file decoded while its synth is playing: crossfade synth → file over 0.8 s. Otherwise the next trackOn picks it. */
+function fileArrived(m) {
+  if (!ok || !m.seq.on || m.seq.stopAt || m.src) return;
+  const t = ac.currentTime;
+  fileStart(m, t + 0.05);
+  m.g.gain.cancelScheduledValues(t); m.g.gain.setValueAtTime(0.0001, t); m.g.gain.linearRampToValueAtTime(m.trim, t + 0.85); m.fadeUntil = t + 0.9;
+  ramp(m.syn.gain, 0.0001, 0.8); m.seq.stopAt = t + 1.0;
+  if (m === MUSIC.run && !dead) runTone.frequency.setTargetAtTime(runToneHz(), t, 0.1);
+}
+const homeOn = () => HOME.on || !!MUSIC.home.src;
+const runOn = () => RUN.on || !!MUSIC.run.src;
+/** The pass-2 tone lowpass expresses intensity for the synth only; the file keeps it open (the shelf does brightness). */
+const runToneHz = () => (MUSIC.run.src ? 20000 : 1800 + 14000 * inten);
+
 // ---------------------------------------------------------------- track control: crossfades, death, home
 function ramp(param, to, T) { const t = ac.currentTime; param.cancelScheduledValues(t); param.setValueAtTime(Math.max(0.0001, param.value), t); param.linearRampToValueAtTime(to, t + T); }
 function startHome() {
   const t = ac.currentTime;
-  seqOn(HOME, t + 0.05);
+  trackOn(MUSIC.home, t + 0.05);
   ramp(homeG.gain, DB(-14), 0.8);
 }
 function toRun() {
   clearTimeout(deathTimer); deathTimer = 0; dead = false;
   const t = ac.currentTime;
-  runTone.frequency.cancelScheduledValues(t); runTone.frequency.setTargetAtTime(1800 + 14000 * inten, t, 0.1);
+  trackOn(MUSIC.run, t + 0.05);
+  runTone.frequency.cancelScheduledValues(t); runTone.frequency.setTargetAtTime(runToneHz(), t, 0.1);
   pulseG.gain.cancelScheduledValues(t); pulseG.gain.setTargetAtTime(1, t, 0.1);
   pulseDepth.gain.cancelScheduledValues(t); pulseDepth.gain.setTargetAtTime(0, t, 0.1);
-  seqOn(RUN, t + 0.05);
   ramp(runG.gain, DB(-6), 0.8);
-  ramp(homeG.gain, 0.0001, 0.8); HOME.stopAt = t + 1.0;
+  ramp(homeG.gain, 0.0001, 0.8); trackOff(MUSIC.home, 0.8);
 }
 function toHome(T = 0.8) {
   clearTimeout(deathTimer); deathTimer = 0; dead = false;
   const t = ac.currentTime;
-  seqOn(HOME, t + 0.05);
+  trackOn(MUSIC.home, t + 0.05);
   ramp(homeG.gain, DB(-14), T);
-  ramp(runG.gain, 0.0001, T); RUN.stopAt = t + T + 0.2;
+  ramp(runG.gain, 0.0001, T); trackOff(MUSIC.run, T);
 }
 function onDeath() {
   dead = true;
@@ -550,7 +651,7 @@ export async function init(c) {
   on('hit', (p) => { streak = 0; if (!(p && p.fatal)) SFX.hit(false); });     // a fatal hit is followed by 'death' (the crash)
   on('stumble', () => { streak = 0; SFX.stumble(); });
   on('bark', (p) => { const v = p && (p.variant === 1 || p.variant === 2) ? p.variant : (barkAlt = 1 - barkAlt) + 1; SFX.bark(v, panOf(p)); });
-  on('zone', (z) => { setZone(z); if (state.running && RUN.on && !dead) SFX.zoneStinger(); });
+  on('zone', (z) => { setZone(z); if (state.running && runOn() && !dead) SFX.zoneStinger(); });
   on('death', () => { streak = 0; SFX.crash(); onDeath(); ambA.gain.setTargetAtTime(0.35, ac.currentTime, 0.4); ambX.gain.setTargetAtTime(0.35, ac.currentTime, 0.4); });
   on('start', () => { streak = 0; inten = 0; toRun(); startAmbience(); });
   on('quit', () => { toHome(0.8); stopAmbience(0.8); });
@@ -560,6 +661,8 @@ export async function init(c) {
   on('mission', () => SFX.mission());
   on('achievement', () => SFX.achievement());
   on('reveal', () => SFX.reveal());
+  // the music files start downloading now; nothing waits for them (a track whose file is not decoded yet plays its synth)
+  if (!config.MUTE) safe(() => { fetchMusic(MUSIC.home); fetchMusic(MUSIC.run); });
   // the HOME track needs a gesture: the first tap / key anywhere (a tab, the carousel) unlocks and starts it
   if (!config.MUTE && typeof document !== 'undefined') {
     const first = () => { unlock(); for (const e of ['pointerdown', 'touchend', 'keydown']) document.removeEventListener(e, first, true); };
@@ -570,12 +673,19 @@ export async function init(c) {
 export function update(dt) {
   if (!ok) return;
   tick();
-  // RUN intensity follows speed: 9 -> 20 m/s maps to 0 -> 1, smoothed over ~0.5 s; the tone filter opens with it
-  if (RUN.on && !dead) {
+  // RUN intensity follows speed: SPEED0 -> SPEED_MAX maps to 0 -> 1, smoothed over ~0.5 s. Synth: the tone filter opens
+  // with it (and its layers read it at schedule time). File: a gentle high-shelf (+3 dB above 3 kHz) and +1.5 dB, both
+  // scaled by intensity, so top speed is only slightly brighter and 1.5 dB louder.
+  if (runOn() && !dead) {
     const target = state.running ? clamp((state.speed - config.SPEED0) / (config.SPEED_MAX - config.SPEED0), 0, 1) : inten;
     inten += (target - inten) * Math.min(1, dt * 2);
     toneT -= dt;
-    if (toneT <= 0) { toneT = 0.1; runTone.frequency.setTargetAtTime(1800 + 14000 * inten, ac.currentTime, 0.1); }
+    if (toneT <= 0) {
+      toneT = 0.1;
+      const t = ac.currentTime, m = MUSIC.run;
+      runTone.frequency.setTargetAtTime(runToneHz(), t, 0.1);
+      if (m.src) { runShelf.gain.setTargetAtTime(3 * inten, t, 0.1); if (t >= m.fadeUntil) m.g.gain.setTargetAtTime(m.trim * DB(1.5 * inten), t, 0.1); }
+    }
   }
   if (ambSrcs.length && state.running && (state.zone === 'alleyA' || state.zone === 'alleyB' || state.zone === 'day')) {
     dripTimer -= dt;

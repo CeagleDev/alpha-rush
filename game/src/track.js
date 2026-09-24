@@ -26,10 +26,10 @@
  * another module's draw order).
  */
 import * as THREE from 'three';
-import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609241141';
-import * as obstacles from './obstacles.js?v=202609241141';
-import * as coins from './coins.js?v=202609241141';
-import * as farband from './farband.js?v=202609241141';
+import { VARIANTS, buildVariant, CHUNK_LEN, DECK_Y, mulberry32, hash32, materialCount } from './chunks.js?v=202609241255';
+import * as obstacles from './obstacles.js?v=202609241255';
+import * as coins from './coins.js?v=202609241255';
+import * as farband from './farband.js?v=202609241255';
 
 // THE THIRD SCENE (owner, 2026-09-21): night street -> ramp -> expressway, where DAWN breaks over the
 // last stretch of the deck -> ramp down into a DAYLIGHT morning-market street (D x6) -> dusk falls
@@ -144,6 +144,13 @@ function spawn(i) {
   const zone = ZONE[kindOf(i)];
   const g = entry.group;
   g.position.set(0, zone === 'expressway' || zone === 'rooftops' ? DECK_Y : 0, i * CHUNK_LEN);
+  // A pooled chunk comes back with whatever visibility perf.js last gave it - usually HIDDEN, because a
+  // chunk is released once it is far behind, and far chunks are culled. perf.js only rediscovers the
+  // live set every 30 frames, so after a restart the whole street was invisible for ~14 frames: the
+  // "blank blue screen" (owner). A spawned chunk starts fully visible, fine bake on, coarse off.
+  // by NAME, not by identity: a pooled clone's userData is a JSON copy, so its `coarse` is not its child
+  g.visible = true;
+  for (const ch of g.children) ch.visible = ch.name !== 'coarse';
   g.updateMatrixWorld(true);
   root.add(g);
   const rec = { index: i, id, zone, z0: i * CHUNK_LEN, z1: i * CHUNK_LEN + CHUNK_LEN, group: g, entry, cross: g.userData.cross };

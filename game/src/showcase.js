@@ -13,7 +13,7 @@
  * Cost: one hero (<= 26k tris), three lights, no post, only while the home screen shows.
  */
 import * as THREE from 'three';
-import { mergePerJoint } from './anim.js?v=202609241141';
+import { mergePerJoint } from './anim.js?v=202609241255';
 
 let ctx = null, canvas = null, renderer = null, scene = null, cam = null, pivot = null, hero = null, heroKey = '', J = null, rest = null;
 let t = 0, wavePhase = -1, nextWave = 2.2, loading = null;
@@ -75,8 +75,13 @@ function pose(dt) {
     const up = smooth(u / 0.22) * (1 - smooth((u - 0.8) / 0.2));          // arm goes up over 0.57 s, down over the last 0.5 s
     const wag = Math.sin(wavePhase * 9) * 0.45 * smooth((u - 0.18) / 0.15) * (1 - smooth((u - 0.75) / 0.15));
     // shoulder: swing out to the side (+z rot for the right arm raises it away from the body), forearm folded up
-    // upper arm out to the side at ~50 degrees and a touch forward, forearm vertical, the hand wagging
-    set('r_shoulder', -0.45 * up, 0.35 * up, -1.75 * up); set('r_elbow', -1.55 * up, 0.25 * up, wag);
+    // THE WAVE, done with the arm's own axes: the upper arm swings OUT to the side (shoulder z; the right
+    // arm raises with -z per the jointHints), and the forearm folds UP beside the head by rotating the elbow
+    // about z as well (with the upper arm pointing sideways, the elbow's local z is still the world's
+    // forward axis, so a z fold lifts the forearm in the body's plane, not over the head). The wag rides
+    // on the same axis, which swings the hand left-right as seen from the front. The first version folded
+    // the elbow about x, which put the hand over the crown: "the wave thing is broken" (owner).
+    set('r_shoulder', -0.12 * up, 0.05 * up, -1.5 * up); set('r_elbow', 0, 0, (-1.7 + wag) * up);
     set('head', -0.04 + 0.05 * up, 0.18 * up, -0.16 * up);
     set('chest', 0.02, 0.10 * up, 0.06 * up);
     if (hero) hero.position.y = 0.05 * Math.sin(Math.min(1, u / 0.3) * Math.PI) * up;

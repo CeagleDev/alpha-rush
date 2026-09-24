@@ -59,7 +59,7 @@
  * it did with the shared procedural maps. A material that arrives without maps (surfaces off)
  * gets the procedural set from surfaces.js so the look holds either way.
  */
-import { surface, RECIPES } from '../surfaces.js?v=202609241141';
+import { surface, RECIPES } from '../surfaces.js?v=202609241255';
 
 const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(); } })();
 const qn = (k, d) => { const v = Number(Q.get(k)); return Q.has(k) && Number.isFinite(v) ? v : d; };

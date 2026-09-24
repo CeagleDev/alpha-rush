@@ -3,6 +3,16 @@
 Everything the owner has asked for, in their words where possible, with status. Update the status
 column as work lands; never delete a line.
 
+## 2026-09-24, evening
+
+| # | Request | Status |
+|---|---|---|
+| 29 | The wave is broken | fixed: the forearm folded over the head; it now folds up beside it on the arm's own axis |
+| 30 | The sound is not very exciting | done: two real tracks generated with Atlas (game/audio/music_home.mp3 23 s calm loop, music_run.mp3 64 s at 150 bpm) play as seamless loops with the same crossfade rules; the synth stays as a fallback |
+| 31 | Remove the "now entering location" pop-up | done: both location banners removed; the small zone chip stays |
+| 32 | The surge should look like actual flying, Superman-like, with the shield around him | done: horizontal flight pose (arm ahead, legs trailing, head up) inside a shield bubble with a glowing rim and an orbiting ring |
+| 33 | Blank blue screen after a fail and restart | fixed: pooled chunks came back hidden by the distance culler; a spawned chunk now starts visible and the culler rescans on start |
+
 ## 2026-09-24: runners page and wardrobe
 
 | # | Request | Status |

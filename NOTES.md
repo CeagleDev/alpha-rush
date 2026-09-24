@@ -250,3 +250,14 @@ Still wrong / not done
   on the runners page at full size.
 - The wave is one gesture; a second greeting (bow / fist pump per character) would give each hero a voice.
 - The hero card framing was checked headless only; a real phone with a notch still pending.
+
+
+## 2026-09-24, evening fixes (REQUESTS.md #29-33)
+
+- showcase.js wave: shoulder z out to the side, elbow z fold up (the elbow x fold put the hand over the crown).
+- Location banners removed from hud.js. Surge: anim.js 'fly' mode (+1.3 rad forward pitch, root pulled back
+  0.8 m) + fx.js shield bubble (fill + back-face rim + ring). Restart blank: track.spawn() resets a pooled
+  chunk's visibility (by child NAME - clones carry a JSON copy of userData.coarse), perf rescans on 'start'.
+- Music: Atlas simple_create_music tracks (refs/music/*.mp3 originals; game/audio/*.mp3 at 96 kbps). The home
+  track came back 23 s long, not 70; worth regenerating longer.
+- The fps-30 scare was the laptop at 8 % battery; on charge the gate reads 60 again.

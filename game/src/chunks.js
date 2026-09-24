@@ -24,9 +24,9 @@
  * live there; a front at ±3 would put the clutter inside the buildings. SHOP_X below flips it.
  */
 import * as THREE from 'three';
-import { signFace, noren } from './textures.js?v=202609241141';
-import * as perf from './perf.js?v=202609241141';
-import { bakeStatic } from '../assetlib.js?v=202609241141';
+import { signFace, noren } from './textures.js?v=202609241255';
+import * as perf from './perf.js?v=202609241255';
+import { bakeStatic } from '../assetlib.js?v=202609241255';
 
 export const CHUNK_LEN = 30;
 // CLOSE THE STREET (critic round 3, the one property). At 4.5 the shophouse fronts stood 9 m apart
@@ -487,7 +487,7 @@ async function finish(ctx, B, litterCount) {
   const chunk = new THREE.Group();
   chunk.name = 'chunk_' + B.variant.id;
   chunk.add(baked);
-  if (coarse && coarse.group) { coarse.group.visible = false; chunk.add(coarse.group); chunk.userData.coarse = coarse.group; }
+  if (coarse && coarse.group) { coarse.group.visible = false; coarse.group.name = 'coarse'; chunk.add(coarse.group); chunk.userData.coarse = coarse.group; }
   // litter: InstancedMesh per litter_set piece (≤ 4 per chunk), on the road and verges
   let litter = 0;
   if (litterCount > 0) {

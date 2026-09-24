@@ -28,7 +28,7 @@
  * The speed ramp is a pure function of distance (9 → 20 m/s, +0.6 per 150 m), so ?gate=1 is
  * satisfied by construction; the stumble factor multiplies it.
  */
-import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609241141';
+import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609241255';
 
 const HERO_ALBEDO = 0.62;
 // INPUT BUFFER (Subway Surfers, Temple Run): a swipe that lands while the runner cannot act on it yet -
@@ -346,7 +346,7 @@ export function update(a, b) {
   if (obj) {
     obj.position.set(s.x, s.y, s.z);
     if (anim) {
-      const mode = P.mode === 'laneChange' ? 'run' : P.mode;
+      const mode = s.surging && P.mode !== 'dead' ? 'fly' : (P.mode === 'laneChange' ? 'run' : P.mode);
       anim.update(dt, {
         mode, t: P.modeT, T: P.modeLen || undefined,
         speed: s.speed, distance: s.distance, laneVel: P.laneVel,
