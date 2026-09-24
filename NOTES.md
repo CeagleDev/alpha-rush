@@ -232,3 +232,21 @@ Still wrong / not done
 - The kitsune's rigid skirt in a jump tuck; hero faces simple; stat bars and loadout chips decorative.
 - Nothing has been LISTENED to: the music is verified by level and spectrum only.
 - Real-phone checks (notch, 5:9, touch feel of the new arc) still pending.
+
+
+## 2026-09-24, runners page + wardrobe (REQUESTS.md #26-28)
+
+- work/v2/HERO_API.md: hero modules export OUTFITS (3 x 4 palettes) + build(THREE, {outfit, palette}); the loader
+  (assets.get name, {variant}) builds a wrapper per variant; player.prepareHero keys heroes by name#outfit/palette
+  and swaps on 'start' or the moment a wardrobe change lands; progress.save.wardrobe[charId] persists it.
+- showcase.js: full-screen greeting (weight shift, breathing, look-around, a shoulder/elbow wave every 3-6 s,
+  +-25 degree sway). home.js/index.html: runners page = hero, name, story, outfit chips, colour swatches, RUN.
+- Heroes v2 in work/v2/heroes2/<id>/ (NOTES.md each): faces, fingered hands, hems/seams/folds, footwear.
+- Measured: gate PASS, jam PASS (see the commit message).
+
+Still wrong / not done
+- Yuzu's hair and headband read as a white helmet from a distance; the eyes on all three sit on the surface
+  (no socket depth); fingers have no nails; folds are shallow ripples. The next quality step is a critic round
+  on the runners page at full size.
+- The wave is one gesture; a second greeting (bow / fist pump per character) would give each hero a voice.
+- The hero card framing was checked headless only; a real phone with a notch still pending.

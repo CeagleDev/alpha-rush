@@ -13,7 +13,7 @@ const Q = arg('q', 'seed=7');
 const CLOSE = process.argv.includes('--close');
 const EVAL = arg('eval', '');
 const HERO = arg('hero', '');   // --hero=ronin|kitsune|oni : select through the home screen's own setter before starting
-const URL_ = `http://localhost:8080/__game__/game/?${Q}&mute=1&r=${Date.now()}`;
+const URL_ = `http://localhost:8080/__game__/game/?${Q}${process.argv.includes('--sound') ? '' : '&mute=1'}&r=${Date.now()}`;
 const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--use-angle=metal', '--enable-gpu'] });
 const page = await browser.newPage();
 await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });

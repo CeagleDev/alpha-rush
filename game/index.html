@@ -18,7 +18,7 @@
 } }
 </script>
 <style>
-  /* ALPHA RUSH front end, pass 2 (work/v2/UI2_BRIEF.md). Depth everywhere: every panel is a layered chamfered
+  /* ALPHA RUSH front end, pass 2 (work/v2/UI2_BRIEF.md) + pass 3 showcase (work/v2/UI3_BRIEF.md). Depth everywhere: every panel is a layered chamfered
      card (.pc = glow wrapper > .pe = 1 px gradient edge > .pi = gradient fill with an inner highlight), buttons
      are bevelled with a press state, a diagonal speed-stripe field drifts behind every screen (transform only,
      GPU-cheap), a soft vignette sits over it. Cyan / magenta / amber on deep navy, heavy italic condensed system
@@ -188,15 +188,15 @@
   /* ---------------- HOME */
   #home { background: linear-gradient(180deg, rgba(11,16,32,.86) 0%, rgba(11,16,32,.94) 40%, #0b1020 100%); z-index: 20; }
   #home .hh { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 10px;
-    padding: calc(12px + var(--sat)) calc(14px + var(--sar)) 8px calc(14px + var(--sal)); }
-  .wordmark { display: flex; flex-direction: column; line-height: .82; transform: skewX(-8deg); }
-  .wordmark span { font-size: 34px; font-weight: 900; font-style: italic; letter-spacing: .04em; color: #fff; text-shadow: 0 0 18px rgba(34,232,255,.55), 0 2px 0 rgba(0,0,0,.6); }
-  .wordmark span + span { color: var(--cy); font-size: 28px; letter-spacing: .28em; text-shadow: 0 0 18px rgba(34,232,255,.8); }
+    padding: calc(8px + var(--sat)) calc(14px + var(--sar)) 6px calc(14px + var(--sal)); }
+  .wordmark { display: flex; align-items: baseline; gap: 6px; line-height: .9; transform: skewX(-8deg); }
+  .wordmark span { font-size: 28px; font-weight: 900; font-style: italic; letter-spacing: .04em; color: #fff; text-shadow: 0 0 18px rgba(34,232,255,.55), 0 2px 0 rgba(0,0,0,.6); }
+  .wordmark span + span { color: var(--cy); font-size: 24px; letter-spacing: .22em; text-shadow: 0 0 18px rgba(34,232,255,.8); }
   .chips { display: flex; gap: 8px; }
-  .chip { display: flex; flex-direction: column; align-items: flex-end; padding: 6px 12px 6px 10px; clip-path: var(--cut-s); min-width: 78px;
+  .chip { display: flex; flex-direction: column; align-items: flex-end; padding: 4px 12px 4px 10px; clip-path: var(--cut-s); min-width: 78px;
     background: linear-gradient(168deg, #1b2656, #0f1630); box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 0 0 1px var(--line); }
   .chip i { font-style: normal; font-size: 9px; letter-spacing: .3em; color: var(--dim); display: flex; align-items: center; gap: 4px; }
-  .chip b { font-size: 20px; line-height: 1; font-style: italic; font-weight: 900; color: #fff; }
+  .chip b { font-size: 18px; line-height: 1; font-style: italic; font-weight: 900; color: #fff; }
   .chip.bank { box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,210,74,.4); }
   .chip.bank b { color: var(--gold); text-shadow: 0 0 10px rgba(255,179,0,.6); }
   .chip.bank i { color: var(--gold); }
@@ -208,49 +208,54 @@
   .pane.scroll { overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; padding: 0 2px 8px; }
   .pane.scroll::after { content: "ALPHA RUSH"; display: block; margin-top: auto; padding-top: 24px; text-align: center; font-size: 48px; font-weight: 900; font-style: italic; letter-spacing: .08em; color: rgba(34,232,255,.08); transform: skewX(-8deg); pointer-events: none; }
 
-  /* character carousel */
-  .car { position: relative; flex: 1; min-height: 0; display: flex; align-items: stretch; overflow: hidden; touch-action: pan-y; }
-  .track { display: flex; width: 100%; transition: transform .2s ease-out; will-change: transform; }
-  .card { flex: 0 0 86%; margin: 0 1%; transition: transform .2s, opacity .2s; transform: scale(.9); opacity: .45; cursor: pointer; --glow: var(--cg); }
-  .card.on { transform: none; opacity: 1; cursor: default; }
-  .card .pi { display: flex; flex-direction: column; --ac: var(--c2); }
-  .card .art { position: relative; height: 46%; flex: 0 0 46%; overflow: hidden; display: grid; place-items: center; background: linear-gradient(160deg, var(--c1) 0%, color-mix(in srgb, var(--c1) 55%, #06081a) 100%); }
-  .card .art::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(-60deg, rgba(0,0,0,.16) 0 14px, transparent 14px 36px); }
-  .card .art::after { content: ""; position: absolute; right: -30%; top: -40%; width: 90%; height: 180%; background: var(--c2); opacity: .22; transform: skewX(-22deg); }
-  .card .mono { position: relative; z-index: 1; font-size: clamp(110px, 20vh, 170px); line-height: 1; font-weight: 900; font-style: italic; color: var(--c2);
-    text-shadow: 0 0 30px var(--c2), 6px 6px 0 rgba(0,0,0,.35); transform: skewX(-8deg); }
-  .card .ring { position: absolute; z-index: 0; width: 60%; aspect-ratio: 1; border-radius: 50%; border: 10px solid var(--c2); opacity: .28; }
-  .card .floor { position: absolute; z-index: 0; left: 10%; right: 10%; bottom: 8%; height: 14%; border-radius: 50%; background: radial-gradient(ellipse at center, var(--c2) 0%, transparent 70%); opacity: .35; }
-  .card .idx { position: absolute; z-index: 2; left: 14px; top: 10px; font-size: 12px; letter-spacing: .3em; color: #fff; opacity: .85; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
-  .card .idx b { font-size: 26px; font-style: italic; display: block; line-height: 1; }
-  .card .tag { position: absolute; z-index: 2; right: 12px; bottom: 10px; font-size: 10px; letter-spacing: .28em; color: #fff; background: rgba(0,0,0,.5); padding: 4px 8px; clip-path: var(--cut-s); }
-  .card .info { padding: 10px 16px 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 2px solid var(--c2); box-shadow: inset 0 2px 12px -6px var(--c2); }
-  .card .name { font-size: clamp(30px, 8vw, 40px); line-height: .95; font-weight: 900; font-style: italic; color: #fff; letter-spacing: .02em; text-shadow: 0 0 14px var(--c2); }
-  .card .title { font-size: 11px; letter-spacing: .34em; color: var(--c2); margin-top: 4px; text-transform: uppercase; }
-  .card .story { font-family: var(--body); font-weight: 400; font-size: 13px; line-height: 1.4; color: var(--dim); margin: 8px 0 0;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .stats { display: flex; gap: 10px; margin-top: 12px; }
-  .loadout { display: flex; gap: 6px; margin-top: auto; padding-top: 10px; }
-  .loadout div { flex: 1; display: flex; align-items: center; gap: 8px; padding: 7px 9px; clip-path: var(--cut-x); background: rgba(6,9,20,.55); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 1px color-mix(in srgb, var(--c2) 35%, transparent); }
-  .loadout svg { width: 22px; height: 22px; flex: 0 0 auto; }
-  .loadout div > svg:not([class]) { fill: none; stroke: var(--c2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px var(--c2)); }
-  .loadout i { display: block; font-style: normal; font-size: 7.5px; letter-spacing: .26em; color: var(--dim); text-transform: uppercase; }
-  .loadout b { display: block; font-size: 11px; font-style: italic; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: .04em; line-height: 1.1; }
-  .st { flex: 1; }
-  .st i { display: flex; align-items: center; gap: 4px; font-style: normal; font-size: 9px; letter-spacing: .28em; color: var(--dim); margin-bottom: 4px; }
-  .st i svg { width: 11px; height: 11px; fill: none; stroke: var(--c2); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-  .segs { display: flex; gap: 3px; transform: skewX(-16deg); }
-  .segs b { flex: 1; height: 8px; background: rgba(238,243,255,.14); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
-  .segs b.on { background: var(--c2, var(--cy)); box-shadow: 0 0 6px var(--c2, var(--cy)); }
-  #h-turntable { position: absolute; z-index: 3; left: 7%; top: 1px; width: 86%; height: calc(46% - 2px); pointer-events: none; background: transparent; }
-  .arrow { position: absolute; top: 23%; transform: translateY(-50%); z-index: 4; width: 48px; height: 64px; display: grid; place-items: center;
-    background: linear-gradient(180deg, rgba(40,52,100,.9), rgba(11,16,32,.9)); clip-path: var(--cut-s); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 2px var(--line); color: var(--cy); font-size: 26px; font-weight: 900; }
+  /* ---------------- the SHOWCASE (UI pass 3, work/v2/UI3_BRIEF.md): the live hero fills the pane edge to edge
+     (src/showcase.js renders into #h-turntable, which just follows this box), the character's colour theme glows
+     behind him over the drifting stripe field, arrows at the canvas's vertical middle, name / title / story under,
+     then the WARDROBE row (three outfit chips + four round colour swatches) above RUN. */
+  .show { position: relative; flex: 1; min-height: 0; margin: 0 calc(-12px - var(--sar)) 0 calc(-12px - var(--sal)); overflow: hidden; touch-action: pan-y;
+    --c1: #2a2e8c; --c2: #ff2d3a; --cg: rgba(255,45,58,.35); }
+  .show .glow { position: absolute; inset: -6% -14%; pointer-events: none; transition: opacity .2s;
+    background: radial-gradient(ellipse 46% 52% at 50% 60%, color-mix(in srgb, var(--c2) 44%, transparent) 0%, color-mix(in srgb, var(--c1) 34%, transparent) 40%, transparent 74%); }
+  .show .beam { position: absolute; left: 50%; top: -20%; width: 34%; height: 150%; transform: translateX(-50%) skewX(-16deg); pointer-events: none; opacity: .5;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c2) 16%, transparent) 30%, color-mix(in srgb, var(--c2) 24%, transparent) 50%, color-mix(in srgb, var(--c2) 16%, transparent) 70%, transparent); }
+  .show .floor { position: absolute; left: 18%; right: 18%; bottom: 3%; height: 9%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--c2) 70%, transparent) 0%, color-mix(in srgb, var(--c2) 25%, transparent) 40%, transparent 70%); }
+  #h-turntable { position: absolute; z-index: 3; inset: 0; width: 100%; height: 100%; pointer-events: none; background: transparent; }
+  .show .pager { position: absolute; z-index: 4; left: calc(12px + var(--sal)); top: 8px; display: flex; align-items: center; gap: 8px; font-size: 9px; letter-spacing: .32em; text-transform: uppercase; color: var(--dim); pointer-events: none; }
+  .show .pager b { font-size: 15px; letter-spacing: .06em; color: #fff; font-style: italic; font-weight: 900; text-shadow: 0 0 10px var(--c2); }
+  .show .pager::after { content: ""; width: 34px; height: 3px; background: var(--c2); transform: skewX(-30deg); box-shadow: 0 0 8px var(--c2); }
+  .arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4; width: 48px; height: 68px; display: grid; place-items: center;
+    background: linear-gradient(180deg, rgba(40,52,100,.85), rgba(11,16,32,.85)); clip-path: var(--cut-s); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 2px var(--line); color: var(--cy); font-size: 28px; font-weight: 900; }
   .arrow:active { background: rgba(34,232,255,.3); }
   .arrow.l { left: 0; } .arrow.r { right: 0; }
-  .dots { display: flex; justify-content: center; gap: 8px; margin: 6px 0; }
-  .dots i { width: 22px; height: 6px; background: rgba(238,243,255,.2); transform: skewX(-20deg); transition: background .15s; }
-  .dots i.on { background: var(--cy); box-shadow: 0 0 8px var(--cy); }
-  /* locations strip */
+  .dots { position: absolute; z-index: 4; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 8px; pointer-events: none; }
+  .dots i { width: 22px; height: 5px; background: rgba(238,243,255,.2); transform: skewX(-20deg); transition: background .15s; }
+  .dots i.on { background: var(--c2); box-shadow: 0 0 8px var(--c2); }
+  /* name / title / story under the hero: nothing else */
+  .hinfo { text-align: center; padding: 6px 4px 0; --c2: #ff2d3a; }
+  .hinfo .name { font-size: clamp(40px, 12vw, 58px); line-height: .92; font-weight: 900; font-style: italic; color: #fff; letter-spacing: .02em; transform: skewX(-6deg); text-shadow: 0 0 18px var(--c2), 0 3px 0 rgba(0,0,0,.55); }
+  .hinfo .title { font-size: 11px; letter-spacing: .38em; text-indent: .38em; color: var(--c2); margin-top: 5px; text-transform: uppercase; text-shadow: 0 0 10px color-mix(in srgb, var(--c2) 60%, transparent); }
+  .hinfo .story { font-family: var(--body); font-weight: 400; font-size: 13px; line-height: 1.35; color: var(--dim); margin: 6px auto 0; max-width: 340px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  /* the WARDROBE row: three outfit chips, four round colour swatches painted with the palette's three colours */
+  .ward { display: flex; flex-direction: column; gap: 5px; margin: 8px 0 0; }
+  .ward[hidden] { display: none; }
+  .ward .outfits { display: flex; gap: 6px; }
+  .ofit { flex: 1; min-width: 0; min-height: 40px; padding: 4px 6px; clip-path: var(--cut-x); background: rgba(6,9,20,.55); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 1px rgba(238,243,255,.16);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--dim); transition: background .15s, color .15s; }
+  .ofit b { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-style: italic; font-weight: 900; line-height: 1.1; text-align: center; }
+  .ofit small { font-size: 7px; letter-spacing: .22em; text-transform: uppercase; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .ofit.on { color: #061018; background: linear-gradient(180deg, #9ff6ff, var(--cy) 45%, #0fb9cf); box-shadow: 0 0 14px rgba(34,232,255,.45), inset 0 1px 0 rgba(255,255,255,.7); }
+  .ofit.on small { opacity: .8; }
+  .ward .swatches { display: flex; justify-content: center; gap: 10px; }
+  .sw { position: relative; width: 48px; height: 48px; display: grid; place-items: center; }
+  .sw::before { content: ""; width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--s1) 0 33%, var(--s2) 33% 66%, var(--s3) 66%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 -6px 10px -6px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.6); transition: transform .12s, box-shadow .12s; }
+  .sw:active::before { transform: scale(.92); }
+  .sw.on::before { transform: scale(1.06); box-shadow: 0 0 0 2px var(--navy), 0 0 0 4px var(--cy), 0 0 16px rgba(34,232,255,.75), inset 0 0 0 1px rgba(255,255,255,.3); }
+  .sw::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: #fff; opacity: 0; transition: opacity .12s; box-shadow: 0 0 4px #000; }
+  .sw.on::after { opacity: .9; }
+  /* locations strip (ACHIEVEMENTS tab, top) */
   .locs { display: flex; gap: 5px; margin: 0 0 10px; }
   .loc { flex: 1; min-width: 0; position: relative; padding: 7px 3px 6px; text-align: center; clip-path: var(--cut-x); background: linear-gradient(168deg, #1b2656, #0f1630);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(34,232,255,.22); display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -263,10 +268,11 @@
   .loc.new { box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 0 0 1px var(--gold), 0 0 14px rgba(255,210,74,.5); }
   .loc.new svg { stroke: var(--gold); filter: drop-shadow(0 0 3px rgba(255,210,74,.8)); }
   .loc.new span { color: var(--gold); }
+  .lochead { font-size: 9px; letter-spacing: .3em; color: var(--dim); text-transform: uppercase; margin: 2px 4px 6px; display: flex; justify-content: space-between; }
   #startb { font-size: 24px; min-height: 64px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; }
   #startb svg { width: 26px; height: 26px; fill: currentColor; }
-  .startw { width: min(100%, 420px); margin: 0 auto; --glow: rgba(34,232,255,.35); }
-  #loadline { font: 10px var(--mono); letter-spacing: .2em; color: var(--dim); height: 16px; text-align: center; margin-top: 6px; text-transform: uppercase; }
+  .startw { width: min(100%, 420px); margin: 8px auto 0; --glow: rgba(34,232,255,.35); }
+  #loadline { font: 9px var(--mono); letter-spacing: .2em; color: var(--dim); height: 12px; line-height: 12px; text-align: center; margin-top: 2px; text-transform: uppercase; }
 
   /* rows: missions / tasks (layered cards with an icon column) */
   .row { margin-bottom: 10px; --glow: rgba(34,232,255,.14); }
@@ -421,10 +427,11 @@
 
   @media (min-aspect-ratio: 4/3) {
     #home .hh { padding-top: calc(10px + var(--sat)); }
-    .wordmark span { font-size: 26px; } .wordmark span + span { font-size: 22px; }
-    .card .mono { font-size: clamp(80px, 22vh, 120px); }
-    .card .story { -webkit-line-clamp: 2; }
-    .card .name { font-size: clamp(24px, 4vh, 32px); }
+    .wordmark span { font-size: 24px; } .wordmark span + span { font-size: 20px; }
+    .hinfo .story { -webkit-line-clamp: 2; font-size: 12px; }
+    .hinfo .name { font-size: clamp(30px, 6vh, 44px); }
+    .hinfo .title { margin-top: 3px; }
+    .ward { margin: 6px 0 0; } .startw { margin-top: 6px; } .ofit { min-height: 36px; } .sw { width: 44px; height: 44px; } .sw::before { width: 32px; height: 32px; }
     .locs { margin-bottom: 6px; } .loc { padding: 5px 3px 4px; } .loc svg { width: 16px; height: 16px; }
     #startb { min-height: 54px; font-size: 20px; }
     .tabs { padding-top: 4px; } .tab { min-height: 48px; }
@@ -436,7 +443,7 @@
 <canvas id="c"></canvas>
 <div id="hud"></div>
 
-<!-- HOME: header (wordmark, best, bank) / one pane per tab (src/home.js fills them) / tab bar -->
+<!-- HOME: header (wordmark, best, bank) / one pane per tab (src/home.js fills them; PLAYERS = the showcase) / tab bar -->
 <div class="screen on" id="home">
   <div class="field"><i></i><i></i></div>
   <header class="hh">
@@ -448,10 +455,16 @@
   </header>
   <main class="hbody">
     <section class="pane on" id="pane-players">
-      <div class="phead"><b><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Select your runner</b><em id="h-who">1 / 3</em></div>
-      <div class="car" id="h-car"><button class="arrow l" id="h-prev" type="button" aria-label="Previous">&#8249;</button><div class="track" id="h-track"></div><canvas id="h-turntable" aria-hidden="true"></canvas><button class="arrow r" id="h-next" type="button" aria-label="Next">&#8250;</button></div>
-      <div class="dots" id="h-dots"></div>
-      <div class="locs" id="h-locs"></div>
+      <div class="show" id="h-car">
+        <div class="glow"></div><div class="beam"></div><div class="floor"></div>
+        <canvas id="h-turntable" aria-hidden="true"></canvas>
+        <div class="pager">Select your runner<b id="h-who">1 / 3</b></div>
+        <button class="arrow l" id="h-prev" type="button" aria-label="Previous">&#8249;</button>
+        <button class="arrow r" id="h-next" type="button" aria-label="Next">&#8250;</button>
+        <div class="dots" id="h-dots"></div>
+      </div>
+      <div class="hinfo" id="h-info"><div class="name d" id="h-name"></div><div class="title" id="h-title"></div><p class="story" id="h-story"></p></div>
+      <div class="ward" id="h-ward" hidden><div class="outfits" id="h-outfits"></div><div class="swatches" id="h-swatches"></div></div>
       <div class="bw startw"><button class="abtn cy stripe" id="startb" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3l14 9-14 9z"/></svg>Run</button></div>
       <div id="loadline">loading</div>
     </section>
@@ -504,6 +517,6 @@
   </div></div></div>
 </div>
 
-<script type="module" src="./src/main.js?v=202609240703"></script>
+<script type="module" src="./src/main.js?v=202609241141"></script>
 </body>
 </html>

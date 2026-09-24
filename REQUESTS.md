@@ -3,6 +3,14 @@
 Everything the owner has asked for, in their words where possible, with status. Update the status
 column as work lands; never delete a line.
 
+## 2026-09-24: runners page and wardrobe
+
+| # | Request | Status |
+|---|---|---|
+| 26 | Runners page: characters WAVE at the player (not a figurine turntable); same capabilities for all, so remove speed/jump/luck; the build fills the screen with name and story under | done: full-screen live hero facing the player, breathing, shifting weight, looking around and WAVING every few seconds; name and story under; stats and loadout removed |
+| 27 | Run characters well and detailed built | done: all three heroes rebuilt with faces (eyes, brows, nose, lips, ears), fingered hands, cloth with hems, seams and folds, real footwear; 20-26k tris per outfit |
+| 28 | Clothing options per character (3 unique outfits each) with colour options, chosen on the selection screen | done: 3 outfits x 4 colourways per hero (Kaito: Last Ronin / Ashigaru / Street Ronin; Yuzu: Shrine Courier / Festival Yukata / Night Courier; Raiden: Neon Mechanic / Street Oni / Rider), chosen on the runners page, saved per character, worn in the run |
+
 ## 2026-09-24: second Alpha Rush batch
 
 | # | Request | Status |

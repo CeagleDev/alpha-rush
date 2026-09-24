@@ -66,7 +66,7 @@ export function burst(x, y, z, color, n = 24, speed = 3.2) {
 
 let t = 0, trailT = 0;
 export function update(dt = 0.016) {
-  if (!ctx || !pts) return;
+  if (!ctx || !pts || /[?&]nofx=1/.test(location.search)) return;
   const st = ctx.state; t += dt;
   // particles
   for (let i = 0; i < alive; i++) {

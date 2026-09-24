@@ -28,7 +28,7 @@
  * The speed ramp is a pure function of distance (9 → 20 m/s, +0.6 per 150 m), so ?gate=1 is
  * satisfied by construction; the stumble factor multiplies it.
  */
-import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609240703';
+import { mergePerJoint, RunnerAnim, countMeshes } from './anim.js?v=202609241141';
 
 const HERO_ALBEDO = 0.62;
 // INPUT BUFFER (Subway Surfers, Temple Run): a swipe that lands while the runner cannot act on it yet -
@@ -99,20 +99,20 @@ export async function init(ctx) {
   // THE CHOSEN HERO (home.js writes state.characterAsset before 'start'). All three are prepared at boot so a
   // switch on the home screen is instant; a hero whose asset is missing falls back to the plain runner.
   await prepareHero(ctx, 'runner');
-  await prepareHero(ctx, s.characterAsset || 'runner');
-  root = heroes.get(s.characterAsset || 'runner') || heroes.get('runner');
+  await prepareHero(ctx, s.characterAsset || 'runner', wardrobe(s));
+  root = heroes.get(heroKey(s.characterAsset || 'runner', wardrobe(s))) || heroes.get('runner');
   if (!root) { root = new THREE.Group(); root.userData.placeholder = true; }
   // (albedo scaling and the per-joint merge happen in prepareHero(), once per hero; see the note there)
   drawInfo = root.userData.drawInfo || { before: countMeshes(root), after: countMeshes(root) };
   obj.add(root);
   ctx.scene.add(obj);
   anim = new RunnerAnim(THREE, root);
-  for (const name of ['hero_ronin', 'hero_kitsune', 'hero_oni']) prepareHero(ctx, name);   // not awaited
+  // a chosen outfit is built on 'start' (or the moment it is picked on the home screen); see swapHero
 
   reset();
   const ev = ctx.events;
   if (ev && typeof ev.on === 'function') {
-    ev.on('start', () => { swapHero(s.characterAsset || 'runner'); reset(); });
+    ev.on('start', () => { swapHero(s.characterAsset || 'runner', wardrobe(s)); reset(); });
     ev.on('death', (p) => { if (P.mode !== 'dead') enterDead(p && p.reason ? p.reason : 'caught', false); });
   }
   s.playerDraws = drawInfo.after;   // NEW, informational: runner draw calls after the per-joint merge
@@ -362,11 +362,14 @@ const heroes = new Map();
 // (asphalt ~0.04, timber ~0.08 linear) and the lamps are strong to match; a garment at a real-world 0.5 is
 // then ten times the brightest thing around it and reads as self-lit - the owner's "unusual glow". Each
 // hero's materials are scaled once here (cloned, so nothing shared is touched); hue is unchanged.
-async function prepareHero(ctx, name) {
-  if (heroes.has(name)) return heroes.get(name);
+const wardrobe = (s) => ({ outfit: s.outfit || '', palette: s.palette || '' });
+const heroKey = (name, v) => name + (v && (v.outfit || v.palette) ? `#${v.outfit}/${v.palette}` : '');
+async function prepareHero(ctx, name, v = null) {
+  const key = heroKey(name, v);
+  if (heroes.has(key)) return heroes.get(key);
   const THREE = ctx.THREE;
   let asset = null;
-  try { asset = await ctx.assets.get(name, { keepHierarchy: true }); } catch (e) { asset = null; }
+  try { asset = await ctx.assets.get(name, { keepHierarchy: true, variant: v && (v.outfit || v.palette) ? v : undefined }); } catch (e) { asset = null; }
   if (!asset || asset.userData?.placeholder || !(asset.userData && asset.userData.joints)) { if (name !== 'runner') console.warn('[player] hero not available:', name); return null; }
   { const seen = new Map();
     asset.traverse((o) => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
@@ -375,11 +378,17 @@ async function prepareHero(ctx, name) {
   const before = countMeshes(asset);
   const info = mergePerJoint(THREE, asset);
   asset.userData.drawInfo = { before, ...info, after: countMeshes(asset) };
-  heroes.set(name, asset);
+  heroes.set(key, asset);
   return asset;
 }
-function swapHero(name) {
-  const next = heroes.get(name) || heroes.get('runner');
+function swapHero(name, v = null) {
+  const key = heroKey(name, v);
+  if (!heroes.has(key)) {
+    // not built yet (a wardrobe change on the home screen): build it and swap the moment it lands
+    prepareHero(C, name, v).then((g) => { if (g && C.state.characterAsset === name && heroKey(name, wardrobe(C.state)) === key) swapHero(name, v); });
+    if (!heroes.has(name)) return;
+  }
+  const next = heroes.get(key) || heroes.get(name) || heroes.get('runner');
   if (!next || next === root || !obj) return;
   obj.remove(root); root = next; obj.add(root);
   anim = new RunnerAnim(C.THREE, root);

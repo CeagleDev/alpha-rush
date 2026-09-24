@@ -29,7 +29,7 @@
  * Buses: sfx 0 dB, home -14 dB, run -6 dB, ambience -9 dB → world (pause lowpass) → master → limiter. `?mute=1`
  * (config.MUTE) disables everything.
  */
-import config from './config.js?v=202609240703';
+import config from './config.js?v=202609241141';
 
 const DB = (db) => Math.pow(10, db / 20);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

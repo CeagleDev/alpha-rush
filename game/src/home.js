@@ -1,34 +1,43 @@
 /**
- * home.js — the HOME screen (UI pass 2): character select carousel, the five tabs, header chips, the
- * LOCATIONS strip, the inline SVG icon set. (index.html owns the CSS.)
+ * home.js — the HOME screen (UI pass 3): the PLAYERS tab is the SHOWCASE (the live hero full-screen, name /
+ * title / story under, the WARDROBE row), the other four tabs, header chips, the inline SVG icon set.
+ * (index.html owns the CSS.)
  *
- *   ROSTER        the three characters (id, name, title, asset, story, colours, stats). player.js may read
+ *   ROSTER        the three characters (id, name, title, asset, story, colour theme). player.js may read
  *                 state.character / state.characterAsset, which main.js writes from selected() before 'start'.
  *   POWER_UI      the five power-ups' names, colours, icons and copy (magnet, omamori, x2, sneakers, surge)
  *   ICON          the icon set (24 x 24 stroke icons; the power-up emblems are filled art) — hud.js reuses it
- *   init(ctx)     builds the carousel, dots, locations and tab bar into #home, restores the saved selection
- *   selected()    the ROSTER entry currently in the middle of the carousel
+ *   init(ctx)     builds the showcase, the tab bar and the panes into #home, restores the saved selection
+ *   selected()    the ROSTER entry on show;  choose(id)  select by id
+ *   wardrobe()    { outfit, palette } ids on show for the selected hero (null when the hero has no OUTFITS)
  *   show() / hide() / refresh()     main.js shows HOME at boot and after quit(); 'start' hides it (hud.js)
  *
- * The active card's art area is covered by `<canvas id="h-turntable">` (in index.html, positioned over the
- * centre card, pointer-events none) that src/showcase.js renders the live hero into; the monogram panel stays
- * BEHIND it as the fallback. The canvas carries data-hero="<id>" and a 'select' event {id, asset} is emitted on
- * every change. Every pane other than PLAYERS is re-rendered from progress.js each time it is opened, so
- * nothing here runs per frame. The stat bars and the HOME TURF / FAVOURITE loadout chips on the cards are
- * presentational flavour only (the runner does not read them).
+ * THE SHOWCASE. `<canvas id="h-turntable">` covers the whole `.show` box (edge to edge, transparent); src/showcase.js
+ * (not this file) renders the selected hero into it, facing the player, waving and idling, and reads the canvas
+ * size every frame — this file only lays it out, sets the colour theme (--c1 / --c2 / --cg on #h-car) and keeps
+ * data-hero / data-asset / data-outfit / data-palette on the canvas. Arrows, a swipe or a tap on the canvas edges
+ * change hero; a 1/3 pager and dots show where you are. Under it: NAME, title, the story. Nothing else.
+ *
+ * THE WARDROBE (work/v2/HERO_API.md). Each hero module may export OUTFITS (3, each with 4 palettes). They are
+ * read by importing the module dynamically ('../assets/<asset>.js' + the cache stamp) — the same file the
+ * asset loader builds from, but only its OUTFITS table is read here; no geometry is built. A module without
+ * OUTFITS (or that fails to load) shows NO wardrobe row. The choice is written to state.outfit / state.palette
+ * (ids) whenever it changes and on every hero change (that hero's saved wardrobe is restored), persisted by
+ * progress.js as save.wardrobe[charId] = { outfit, palette }; player.js reads state.outfit / state.palette at
+ * 'start' and showcase.js rebuilds the live hero on the 'wardrobe' event / state change. Emits 'select'
+ * {id, asset, outfit, palette} on every hero change and 'wardrobe' {id, asset, outfit, palette} on every
+ * wardrobe change. Every pane other than PLAYERS is re-rendered from progress.js each time it is opened, so
+ * nothing here runs per frame. The LOCATIONS strip lives at the top of the ACHIEVEMENTS tab.
  */
+const MODULE_V = '?v=202609240703';   // the cache stamp every src import carries (index.html / main.js)
 export const ROSTER = [
-  { id: 'ronin', name: 'KAITO', title: 'The Last Ronin', asset: 'hero_ronin', mono: 'K', c1: '#2a2e8c', c2: '#ff2d3a', fg: '#fff', glow: 'rgba(255,45,58,.35)', turf: 'yokocho', fav: 'omamori',
-    story: 'A masterless swordsman who sold his armour and kept the blade. He runs the night streets to outpace the debt collectors’ dogs.',
-    stats: { speed: 3, jump: 4, luck: 2 } },
-  { id: 'kitsune', name: 'YUZU', title: 'Shrine Courier', asset: 'hero_kitsune', mono: 'Y', c1: '#efe9f4', c2: '#ff4a1c', fg: '#1a1020', glow: 'rgba(255,74,28,.35)', turf: 'torii', fav: 'magnet',
-    story: 'A fox-spirit messenger who carries talismans between shrines. The pack is hunting the bells on her belt.',
-    stats: { speed: 4, jump: 3, luck: 4 } },
-  { id: 'oni', name: 'RAIDEN', title: 'Neon Oni', asset: 'hero_oni', mono: 'R', c1: '#ff7a1a', c2: '#22e8ff', fg: '#1a0e00', glow: 'rgba(34,232,255,.4)', turf: 'rooftops', fav: 'sneakers',
-    story: 'A rooftop mechanic who built his own jet-boots and stole the wrong scooter. Now every dog in the ward wants him.',
-    stats: { speed: 5, jump: 5, luck: 1 } },
+  { id: 'ronin', name: 'KAITO', title: 'The Last Ronin', asset: 'hero_ronin', c1: '#2a2e8c', c2: '#ff2d3a', glow: 'rgba(255,45,58,.35)',
+    story: 'A masterless swordsman who sold his armour and kept the blade. He runs the night streets to outpace the debt collectors’ dogs.' },
+  { id: 'kitsune', name: 'YUZU', title: 'Shrine Courier', asset: 'hero_kitsune', c1: '#efe9f4', c2: '#ff4a1c', glow: 'rgba(255,74,28,.35)',
+    story: 'A fox-spirit messenger who carries talismans between shrines. The pack is hunting the bells on her belt.' },
+  { id: 'oni', name: 'RAIDEN', title: 'Neon Oni', asset: 'hero_oni', c1: '#ff7a1a', c2: '#22e8ff', glow: 'rgba(34,232,255,.4)',
+    story: 'A rooftop mechanic who built his own jet-boots and stole the wrong scooter. Now every dog in the ward wants him.' },
 ];
-const STAT_KEYS = [['speed', 'Speed', 'speed'], ['jump', 'Jump', 'jump'], ['luck', 'Luck', 'luck']];
 
 // ---------------------------------------------------------------- icons (inline SVG, no images)
 const S = (d, extra = '') => `<svg viewBox="0 0 24 24" aria-hidden="true"${extra}>${d}</svg>`;
@@ -99,29 +108,96 @@ const bar = (have, goal) => `<div class="bar"><b data-w="${pct(have, goal)}" sty
 const alpha = (n) => `${ICON.tau}${fmt(n)} ALPHA`;
 
 export function selected() { return ROSTER[idx]; }
-/** Select by roster id (tools and tests; the tab bar uses the carousel). */
+/** Select by roster id (tools and tests; the arrows / swipe use the index). */
 export function choose(id) { const i = ROSTER.findIndex((r) => r.id === id); if (i >= 0) select(i); return i >= 0; }
+/** The wardrobe on show for the selected hero: { outfit, palette } ids, or null when it has no OUTFITS. */
+export function wardrobe() { const r = ROSTER[idx]; return r && ward[r.id] ? { ...ward[r.id] } : null; }
 
-function cardHtml(r, i) {
-  const segs = (n) => Array.from({ length: 5 }, (_, k) => `<b${k < n ? ' class="on"' : ''}></b>`).join('');
-  const inner = `<div class="art"><div class="ring"></div><div class="floor"></div><div class="idx d" style="color:var(--fg)">runner<b>0${i + 1}</b></div><div class="mono d">${r.mono}</div><div class="tag d">${esc(r.id)}</div></div>
-    <div class="info"><div class="name d">${esc(r.name)}</div><div class="title">${esc(r.title)}</div><p class="story">${esc(r.story)}</p>
-    <div class="stats">${STAT_KEYS.map(([k, l, ic]) => `<div class="st"><i>${ICON[ic]}${l}</i><div class="segs">${segs(r.stats[k])}</div></div>`).join('')}</div>
-    <div class="loadout"><div>${ICON[(LOCATIONS.find((l) => l[0] === r.turf) || LOCATIONS[0])[2]]}<span><i>home turf</i><b>${esc((LOCATIONS.find((l) => l[0] === r.turf) || LOCATIONS[0])[1])}</b></span></div><div>${ICON[POWER_UI[r.fav].icon].replace('<svg ', '<svg class="pw" ')}<span><i>favourite</i><b>${esc(POWER_UI[r.fav].name)}</b></span></div></div></div>`;
-  return card('card', inner, `--c1:${r.c1};--c2:${r.c2};--fg:${r.fg};--cg:${r.glow}`).replace('class="pc card"', `class="pc card" data-i="${i}"`);
+// ---------------------------------------------------------------- the wardrobe (OUTFITS of each hero module)
+const outfitsOf = new Map();   // hero id -> Promise<[{id, name, desc, palettes:[{id, name, swatch:[3 hex]}]}] | null>
+const ward = {};               // hero id -> { outfit, palette } (the current, validated choice)
+const HEX = /^#[0-9a-f]{3,8}$/i;
+function normalise(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const o of list) {
+    if (!o || typeof o !== 'object' || !o.id || !Array.isArray(o.palettes) || !o.palettes.length) continue;
+    const palettes = o.palettes.filter((p) => p && typeof p === 'object' && p.id).map((p) => ({
+      id: String(p.id), name: String(p.name || p.id),
+      swatch: Array.from({ length: 3 }, (_, k) => (Array.isArray(p.swatch) && HEX.test(String(p.swatch[k] || '')) ? String(p.swatch[k]) : (Array.isArray(p.swatch) && HEX.test(String(p.swatch[0] || '')) ? String(p.swatch[0]) : '#5a6a8a'))) }));
+    if (palettes.length) out.push({ id: String(o.id), name: String(o.name || o.id), desc: String(o.desc || ''), palettes });
+  }
+  return out.length ? out : null;
+}
+/** The OUTFITS table of a hero module (cached per hero; null when the module has none or fails to load). */
+function loadOutfits(r) {
+  if (outfitsOf.has(r.id)) return outfitsOf.get(r.id);
+  const p = import(`../assets/${r.asset}.js${MODULE_V}`).then((m) => normalise(m && m.OUTFITS)).catch((e) => { console.warn('[home] no OUTFITS for', r.asset, e && e.message); return null; });
+  outfitsOf.set(r.id, p);
+  return p;
+}
+/** Validate a {outfit, palette} pair against the table: unknown ids fall back to the first outfit / first palette. */
+function validWard(list, w) {
+  const o = (w && list.find((x) => x.id === w.outfit)) || list[0];
+  const p = (w && o.palettes.find((x) => x.id === w.palette)) || o.palettes[0];
+  return { outfit: o.id, palette: p.id };
+}
+function writeWard(r, w, persist) {
+  ward[r.id] = w ? { outfit: w.outfit, palette: w.palette } : null;
+  if (ctx) { ctx.state.outfit = w ? w.outfit : null; ctx.state.palette = w ? w.palette : null; }
+  if (el.tt) { if (w) { el.tt.dataset.outfit = w.outfit; el.tt.dataset.palette = w.palette; } else { delete el.tt.dataset.outfit; delete el.tt.dataset.palette; } }
+  if (persist && w && P && P.setWardrobe) P.setWardrobe(r.id, w.outfit, w.palette);
+}
+function renderWardrobe(r, list) {
+  if (!el.ward) return;
+  if (!list) { el.ward.hidden = true; el.outfits.innerHTML = ''; el.swatches.innerHTML = ''; return; }
+  const w = ward[r.id] || validWard(list, null);
+  const cur = list.find((o) => o.id === w.outfit) || list[0];
+  const pal = cur.palettes.find((p) => p.id === w.palette) || cur.palettes[0];
+  el.outfits.innerHTML = list.map((o, i) => `<button class="ofit${o.id === cur.id ? ' on' : ''}" type="button" data-outfit="${esc(o.id)}" title="${esc(o.desc || o.name)}"><b>${esc(o.name)}</b><small>${o.id === cur.id ? esc(pal.name) : `outfit ${i + 1}`}</small></button>`).join('');
+  el.swatches.innerHTML = cur.palettes.map((p) => `<button class="sw${p.id === pal.id ? ' on' : ''}" type="button" data-palette="${esc(p.id)}" title="${esc(p.name)}" aria-label="${esc(p.name)}" style="--s1:${esc(p.swatch[0])};--s2:${esc(p.swatch[1])};--s3:${esc(p.swatch[2])}"></button>`).join('');
+  el.ward.hidden = false;
+}
+/** A tap on an outfit chip or a colour swatch: validate, write to state, persist, re-render, tell the showcase. */
+async function pick(outfit, palette) {
+  const r = ROSTER[idx], list = await loadOutfits(r);
+  if (!list || ROSTER[idx] !== r) return;
+  const cur = ward[r.id] || validWard(list, null);
+  const w = validWard(list, { outfit: outfit || cur.outfit, palette: outfit && outfit !== cur.outfit ? null : (palette || cur.palette) });
+  if (w.outfit === cur.outfit && w.palette === cur.palette && ward[r.id]) { renderWardrobe(r, list); return; }
+  writeWard(r, w, true);
+  renderWardrobe(r, list);
+  if (ctx && ctx.events) ctx.events.emit('wardrobe', { id: r.id, asset: r.asset, outfit: w.outfit, palette: w.palette });
 }
 
 function select(i, persist = true) {
   idx = (i + ROSTER.length) % ROSTER.length;
   const r = ROSTER[idx];
-  el.track.style.transform = `translateX(calc(6% - ${idx * 88}%))`;   // cards are 86% + 1% margins each side
-  [...el.track.children].forEach((c, k) => c.classList.toggle('on', k === idx));
+  if (el.car) { el.car.style.setProperty('--c1', r.c1); el.car.style.setProperty('--c2', r.c2); el.car.style.setProperty('--cg', r.glow); }
+  if (el.info) el.info.style.setProperty('--c2', r.c2);
+  if (el.name) el.name.textContent = r.name;
+  if (el.title) el.title.textContent = r.title;
+  if (el.story) el.story.textContent = r.story;
   [...el.dots.children].forEach((c, k) => c.classList.toggle('on', k === idx));
   if (el.who) el.who.textContent = `${idx + 1} / ${ROSTER.length}`;
   if (el.tt) { el.tt.dataset.hero = r.id; el.tt.dataset.asset = r.asset; }
   if (ctx) { ctx.state.character = r.id; ctx.state.characterAsset = r.asset; }
   if (persist && P && P.setCharacter) P.setCharacter(r.id);
-  if (ctx && ctx.events) ctx.events.emit('select', { id: r.id, asset: r.asset });
+  // this hero's wardrobe: the saved pair goes on state at once (player.js / showcase.js validate through build());
+  // the OUTFITS table, once it arrives, validates it, renders the row and writes the validated ids back
+  const saved = ward[r.id] || (P && P.wardrobe ? P.wardrobe(r.id) : null);
+  writeWard(r, saved && saved.outfit ? saved : null, false);
+  if (el.ward) el.ward.hidden = !ward[r.id];
+  if (ctx && ctx.events) ctx.events.emit('select', { id: r.id, asset: r.asset, outfit: ctx.state.outfit, palette: ctx.state.palette });
+  loadOutfits(r).then((list) => {
+    if (ROSTER[idx] !== r) return;
+    if (!list) { writeWard(r, null, false); renderWardrobe(r, null); return; }
+    const w = validWard(list, ward[r.id] || saved);
+    const changed = !ward[r.id] || ward[r.id].outfit !== w.outfit || ward[r.id].palette !== w.palette;
+    writeWard(r, w, false);
+    renderWardrobe(r, list);
+    if (changed && ctx && ctx.events) ctx.events.emit('wardrobe', { id: r.id, asset: r.asset, outfit: w.outfit, palette: w.palette });
+  });
 }
 
 function setTab(id) {
@@ -138,13 +214,13 @@ function renderHeader() {
   if (el.bank) el.bank.textContent = fmt(P.bank ? P.bank() : 0);
 }
 
-/** The LOCATIONS strip under the carousel: five known tiles, one hidden until progress.revealed() has it. */
+/** The LOCATIONS strip at the top of the ACHIEVEMENTS tab: four known tiles, one hidden until progress.revealed() has it. */
 function renderLocs() {
-  if (!el.locs) return;
+  const box = $('h-locs'); if (!box) return;
   const rev = P && P.revealed ? P.revealed() : [];
   const has = rev.includes(HIDDEN_LOC.id);
   const name = has && P.revealName ? P.revealName(HIDDEN_LOC.id) : '';
-  el.locs.innerHTML = LOCATIONS.map(([, n, ic]) => `<div class="loc">${ICON[ic]}<span>${esc(n)}</span></div>`).join('') +
+  box.innerHTML = LOCATIONS.map(([, n, ic]) => `<div class="loc">${ICON[ic]}<span>${esc(n)}</span></div>`).join('') +
     (has ? `<div class="loc new">${ICON.expressway}<span>${esc(name || HIDDEN_LOC.id)}</span><small>new</small></div>`
          : `<div class="loc lock">${ICON.lock}<span>???</span><small>at ${HIDDEN_LOC.at}</small></div>`);
 }
@@ -181,8 +257,11 @@ function renderPane(id) {
     animateBars(pane);
   } else if (id === 'achievements') {
     const a = P.achievements(), n = a.filter((x) => x.unlocked).length, pay = P.ACH_PAY || 100;
-    pane.innerHTML = `<div class="phead"><b>${ICON.trophy}Achievements</b><em>${n} / ${a.length} unlocked</em></div><div class="grid">` +
+    const rev = P.revealed ? P.revealed().length : 0;
+    pane.innerHTML = `<div class="lochead"><span>Locations</span><span>${LOCATIONS.length + rev} / ${LOCATIONS.length + 1} found</span></div><div class="locs" id="h-locs"></div>
+      <div class="phead"><b>${ICON.trophy}Achievements</b><em>${n} / ${a.length} unlocked</em></div><div class="grid">` +
       a.map((x) => card('s badge' + (x.unlocked ? ' un' : ''), `${ICON.lock.replace('<svg ', '<svg class="lock" ')}<div class="hex">${ICON[ACH_ICON[x.id]] || esc(x.tag)}</div><div class="bn">${esc(x.name)}</div><div class="bd">${esc(x.desc)}</div><div class="rw">${ICON.tau}${x.unlocked ? 'paid' : '+' + pay}</div>`)).join('') + '</div>';
+    renderLocs();
   } else if (id === 'powerups') {
     const lv = P.powerLevels(), bank = P.bank(), T = (ctx.modules.powerups && ctx.modules.powerups.TYPES) || {};
     pane.innerHTML = `<div class="phead"><b>${ICON.bolt}Power-ups</b><em class="bankline">${ICON.tau}bank ${fmt(bank)}</em></div>` + Object.keys(POWER_UI).map((k) => {
@@ -199,30 +278,34 @@ function renderPane(id) {
   }
 }
 
-export function refresh() { renderHeader(); renderLocs(); renderPane(tab); }
+export function refresh() { renderHeader(); renderPane(tab); }
 export function show() { refresh(); const h = $('home'); if (h) h.classList.add('on'); }
 export function hide() { const h = $('home'); if (h) h.classList.remove('on'); }
 
 export async function init(c) {
   ctx = c; P = c.modules && c.modules.progress;
-  el = { track: $('h-track'), dots: $('h-dots'), tabs: $('h-tabs'), best: $('h-best'), bank: $('h-bank'), who: $('h-who'), car: $('h-car'), locs: $('h-locs'), tt: $('h-turntable') };
-  if (!el.track) return;
-  el.track.innerHTML = ROSTER.map(cardHtml).join('');
+  el = { dots: $('h-dots'), tabs: $('h-tabs'), best: $('h-best'), bank: $('h-bank'), who: $('h-who'), car: $('h-car'), tt: $('h-turntable'),
+    info: $('h-info'), name: $('h-name'), title: $('h-title'), story: $('h-story'), ward: $('h-ward'), outfits: $('h-outfits'), swatches: $('h-swatches') };
+  if (!el.car) return;
   el.dots.innerHTML = ROSTER.map(() => '<i></i>').join('');
   el.tabs.innerHTML = TABS.map(([id, label, ic]) => `<button class="tab" type="button" data-tab="${id}">${ICON[ic]}<span>${label}</span></button>`).join('');
   el.tabs.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
   $('h-prev').addEventListener('click', () => select(idx - 1));
   $('h-next').addEventListener('click', () => select(idx + 1));
-  // swipe (any pointer) and tap on a side card
+  // swipe (any pointer) anywhere on the showcase; a tap on its left / right third also steps
   let px = 0, py = 0, pid = null;
   el.car.addEventListener('pointerdown', (e) => { if (e.target.closest('.arrow')) return; pid = e.pointerId; px = e.clientX; py = e.clientY; });
   el.car.addEventListener('pointerup', (e) => {
     if (e.pointerId !== pid) return; pid = null;
     const dx = e.clientX - px, dy = e.clientY - py;
     if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) { select(idx + (dx < 0 ? 1 : -1)); return; }
-    if (Math.hypot(dx, dy) < 12) { const card = e.target.closest('.card'); if (card && Number(card.dataset.i) !== idx) select(Number(card.dataset.i)); }
+    if (Math.hypot(dx, dy) < 12) { const b = el.car.getBoundingClientRect(), f = (e.clientX - b.left) / Math.max(1, b.width); if (f < 0.3) select(idx - 1); else if (f > 0.7) select(idx + 1); }
   });
   el.car.addEventListener('pointercancel', () => { pid = null; });
+  if (el.ward) el.ward.addEventListener('click', (e) => {
+    const o = e.target.closest('[data-outfit]'), p = e.target.closest('[data-palette]');
+    if (o) pick(o.dataset.outfit, null); else if (p) pick(null, p.dataset.palette);
+  });
   $('pane-powerups').addEventListener('click', (e) => {
     const b = e.target.closest('[data-up]'); if (!b || !P) return;
     if (P.upgradePower(b.dataset.up)) { renderHeader(); renderPane('powerups'); }
@@ -231,7 +314,7 @@ export async function init(c) {
   const si = Math.max(0, ROSTER.findIndex((r) => r.id === saved));
   select(si, false);
   setTab('players');
-  renderHeader(); renderLocs();
+  renderHeader();
   c.events.on('bank', renderHeader);
   c.events.on('death', renderHeader);
   c.events.on('reveal', renderLocs);

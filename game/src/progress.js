@@ -1,7 +1,8 @@
 /**
  * progress.js — score, the score MULTIPLIER, MISSIONS, the saved best, and (UI v2) everything else that
  * persists: the ALPHA BANK (the pickups are called Alpha in the UI, 'coin' events in code), the chosen character,
- * power-up LEVELS (five, incl. 'surge'), three DAILY tasks, twelve ACHIEVEMENTS and the REVEALED locations (UI pass 2).
+ * power-up LEVELS (five, incl. 'surge'), three DAILY tasks, twelve ACHIEVEMENTS, the REVEALED locations (UI pass 2)
+ * and each character's WARDROBE (outfit + palette ids, UI pass 3).
  * One save object, key 'ar.save.v1' (the old 'md.save.v1' is not migrated).
  *
  *   init(ctx)     loads the save, builds the current mission set, listens to the run
@@ -12,6 +13,8 @@
  *   revealed() / revealName(id) / reveal(id, label)   locations the game has revealed ('reveal' event {id, label}), persisted
  *   nextMissions()  the three mission texts of the NEXT set (home.js preview strip); dailyPreview() = tomorrow's tasks
  *   character() / setCharacter(id)          persisted selection (home.js writes, main.js reads before 'start')
+ *   wardrobe(charId) / setWardrobe(charId, outfit, palette)   per-character outfit + palette ids (UI pass 3), persisted as
+ *                 save.wardrobe[charId] = {outfit, palette}; home.js writes them to state.outfit / state.palette, player.js reads
  *   powerLevels() / powerCost(t) / upgradePower(t)   levels 1-5; level n -> n+1 costs 200*n bank Alpha (keys: magnet omamori x2 sneakers surge)
  *   daily()       [{id, text, have, goal, done, pay}] three tasks seeded by the date, reset daily, pay into the bank
  *   achievements()[{id, name, desc, tag, unlocked}]
@@ -146,10 +149,25 @@ function addBank(n) { n |= 0; if (!n) return; save.bank = Math.max(0, (save.bank
 export function bank() { return save ? save.bank | 0 : 0; }
 export function character() { return save ? save.character : 'ronin'; }
 export function setCharacter(id) { if (!save || !id || save.character === id) return; save.character = id; S.character = id; dirty = true; store(); }
+/** The saved {outfit, palette} ids of a character (UI pass 3), or null when nothing was chosen yet. Ids are opaque here:
+ *  home.js validates them against the hero module's OUTFITS and the hero's build() falls back on unknown ids. */
+export function wardrobe(charId) {
+  const w = save && save.wardrobe && charId ? save.wardrobe[charId] : null;
+  return w && typeof w === 'object' && w.outfit ? { outfit: String(w.outfit), palette: w.palette ? String(w.palette) : null } : null;
+}
+export function setWardrobe(charId, outfit, palette) {
+  if (!save || !charId || !outfit) return false;
+  if (!save.wardrobe || typeof save.wardrobe !== 'object') save.wardrobe = {};
+  const cur = save.wardrobe[charId];
+  if (cur && cur.outfit === outfit && cur.palette === palette) return false;
+  save.wardrobe[charId] = { outfit: String(outfit), palette: palette ? String(palette) : null };
+  if (S && S.character === charId) { S.outfit = save.wardrobe[charId].outfit; S.palette = save.wardrobe[charId].palette; }
+  dirty = true; store(); return true;
+}
 
 function freshSave() {
   return { v: 1, set: 0, have: [0, 0, 0], done: [false, false, false], best: 0, bank: 0, character: 'ronin',
-    power: { magnet: 1, omamori: 1, x2: 1, sneakers: 1, surge: 1 }, daily: null, ach: {}, runs: 0, coinsTotal: 0, powerTotal: 0, chars: {}, revealed: {} };
+    power: { magnet: 1, omamori: 1, x2: 1, sneakers: 1, surge: 1 }, daily: null, ach: {}, runs: 0, coinsTotal: 0, powerTotal: 0, chars: {}, revealed: {}, wardrobe: {} };
 }
 
 function missionsView() {
@@ -223,8 +241,10 @@ export async function init(c) {
   if (!save.ach || typeof save.ach !== 'object') save.ach = {};
   if (!save.chars || typeof save.chars !== 'object') save.chars = {};
   if (!save.revealed || typeof save.revealed !== 'object') save.revealed = {};
+  if (!save.wardrobe || typeof save.wardrobe !== 'object') save.wardrobe = {};
   ensureDaily();
   S.score = 0; S.mult = 1; S.newBest = false; S.character = save.character;
+  { const w = wardrobe(save.character); S.outfit = w ? w.outfit : null; S.palette = w ? w.palette : null; }   // home.js re-writes these on select
   publish();
   const ev = c.events;
   ev.on('start', () => {
@@ -266,7 +286,7 @@ export function update(dt) {
 
 export function summary() {
   return { best: save.best | 0, newBest: !!S.newBest, mult: S.baseMult || 1, set: save.set | 0, missions: missionsView(),
-    bank: save.bank | 0, character: save.character, powerLevel: { ...save.power }, runs: save.runs | 0, revealed: revealed() };
+    bank: save.bank | 0, character: save.character, powerLevel: { ...save.power }, runs: save.runs | 0, revealed: revealed(), wardrobe: wardrobe(save.character) };
 }
 /** Tomorrow's three tasks (preview only; nothing is stored). */
 export function dailyPreview() { const d = new Date(); d.setDate(d.getDate() + 1); return genDaily(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`).map((x) => ({ id: x.id, text: x.text, goal: x.goal, pay: x.pay })); }

@@ -32,10 +32,10 @@
  * Returned instances carry userData: assetName, lights (local space), placeholder (bool),
  * nativeSize (from assetlib). Nothing else on ctx/state is written by this module.
  */
-import { ASSET } from '../assetlib.js?v=202609240703';
-import { applySurfaces } from '../surfaces.js?v=202609240703';
-import { wrapTHREE, CHAMFER } from './chamfer.js?v=202609240703';
-import * as textures from './textures.js?v=202609240703';
+import { ASSET } from '../assetlib.js?v=202609241141';
+import { applySurfaces } from '../surfaces.js?v=202609241141';
+import { wrapTHREE, CHAMFER } from './chamfer.js?v=202609241141';
+import * as textures from './textures.js?v=202609241141';
 
 /**
  * Placeholder sizes [w, h, d] in metres, plus (optional) y0 = height of the base above the ground
@@ -147,24 +147,31 @@ export function has(name) {
   return p;
 }
 
-function wrapperUrl(name) {
-  if (wrappers.has(name)) return wrappers.get(name);
+// VARIANTS (work/v2/HERO_API.md): a module may export `build(THREE, { outfit, palette })` alongside its
+// default. `get(name, { variant })` then builds THAT outfit/colourway; each variant gets its own wrapper
+// URL, so assetlib's prototype cache keeps one prototype per variant and clones stay cheap.
+function wrapperUrl(name, variant = null) {
+  const vkey = variant ? JSON.stringify(variant) : '';
+  const key = name + '#' + vkey;
+  if (wrappers.has(key)) return wrappers.get(key);
   const assetUrl = assetsBase + name + '.js';
   const chamferUrl = new URL('./chamfer.js', import.meta.url).href;
   const selfUrl = import.meta.url;
-  const src = `import build from ${JSON.stringify(assetUrl)};
+  const src = `import * as M from ${JSON.stringify(assetUrl)};
 import { wrapTHREE } from ${JSON.stringify(chamferUrl)};
 import { _meta } from ${JSON.stringify(selfUrl)};
+const V = ${vkey || 'null'};
 export default function (THREE) {
-  const g = build(wrapTHREE(THREE));
+  const T = wrapTHREE(THREE);
+  const g = (V && typeof M.build === 'function') ? M.build(T, V) : M.default(T);
   _meta(${JSON.stringify(name)}, g, THREE);
   return g;
 }
 `;
   let url;
   try { url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' })); }
-  catch (e) { url = assetUrl; }      // no Blob: plain load, no chamfer, no lights
-  wrappers.set(name, url);
+  catch (e) { url = assetUrl; }      // no Blob: plain load, no chamfer, no lights, no variants
+  wrappers.set(key, url);
   return url;
 }
 
@@ -173,7 +180,8 @@ export async function get(name, opts = {}) {
   const present = await has(name);
   let inst = null;
   if (present) {
-    inst = await ASSET(wrapperUrl(name), { surfaces: true, ...opts });
+    const { variant, ...rest } = opts;
+    inst = await ASSET(wrapperUrl(name, variant && (variant.outfit || variant.palette) ? { outfit: variant.outfit || '', palette: variant.palette || '' } : null), { surfaces: true, ...rest });
     if (!inst.children.length && !meta.has(name)) {
       if (!said.has(name)) { said.add(name); console.warn(`[assets] ${name}: built nothing — placeholder instead`); }
       inst = null;
