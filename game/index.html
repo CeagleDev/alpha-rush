@@ -517,6 +517,18 @@
   </div></div></div>
 </div>
 
-<script type="module" src="./src/main.js?v=202609242356"></script>
+<script type="module" src="./src/main.js?v=202609250002"></script>
+<!--preload--><script>
+(function () {
+  var s = document.querySelector('script[type=module][src*="src/main.js"]');
+  var q = s ? (s.getAttribute('src').split('?')[1] || '') : ''; q = q ? '?' + q : '';
+  var h = document.head, add = function (href, rel, as) { var l = document.createElement('link'); l.rel = rel; l.href = href; if (as) { l.as = as; l.crossOrigin = 'anonymous'; } h.appendChild(l); };
+  var T = 'https://cdn.jsdelivr.net/npm/three@0.169.0/';
+  add(T + 'build/three.module.js', 'modulepreload'); add(T + 'examples/jsm/utils/BufferGeometryUtils.js', 'modulepreload'); add(T + 'examples/jsm/csm/CSM.js', 'modulepreload');
+  ["rig.js","assetlib.js","surfaces.js","src/anim.js","src/assets.js","src/audio.js","src/camera.js","src/chamfer.js","src/chunks.js","src/coins.js","src/config.js","src/farband.js","src/fx.js","src/home.js","src/hud.js","src/input.js","src/lighting.js","src/main.js","src/obstacles.js","src/pack.js","src/perf.js","src/player.js","src/powerups.js","src/progress.js","src/roadfx.js","src/showcase.js","src/textures.js","src/track.js","src/zones/rooftops.js","src/zones/torii.js"].forEach(function (f) { add(f + q, 'modulepreload'); });
+  add('assets/index.json', 'preload', 'fetch');
+  ["ac_duct_cluster","ac_unit_low","alley_road_chunk","ashtray_stand","awning_strut_low","bamboo_clump","banner_cluster_low","beer_keg","bicycle_parked","bins_bags","cable_span","cardboard_boxes","cedar_trunk","concrete_divider","cooler_bin","crate_stack","dog_mutt","dog_shiba","dog_spitz","drink_cases","electrical_box","expressway_deck","fallen_bicycle","fallen_log","fire_ext_box","gantry_board_low","gas_cylinders","guard_rail","hero_kitsune","hero_oni","hero_ronin","kei_van","lantern_string","laundry_line","laundry_rail","laundry_span","litter_set","menu_board","moss_boulder","neon_billboard","neon_sign_vertical","noren_string","paper_lantern","parked_sedan","pickup_magnet","pickup_omamori","pickup_sneakers","pickup_surge","pickup_x2","plank_bridge","plant_pots","post_box","ramp_chunk","road_cones","roadworks_barrier","roof_tank_block","roof_water_tank","rooftop_deck_chunk","rooftop_hut","rooftop_water_tank","runner","satellite_dish","scooter","shimenawa_bar","shophouse_a","shophouse_b","shophouse_c","shophouse_d","shrine_fox_statue","shrine_offering_box","sign_gantry","sodium_lamp","standing_lightbox","stone_lantern_lit","stool_table_set","talisman_rope","tau_coin","tin_awning","torii_gate","torii_path_chunk","traffic_mirror","tv_antenna","umbrella_stand","utility_pole","vending_machine","vent_stack","vertical_sign","wall_lightbox","yatai_cart"].forEach(function (n) { add('assets/' + n + '.js', 'modulepreload'); });
+})();
+</script><!--/preload-->
 </body>
 </html>

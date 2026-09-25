@@ -36,7 +36,7 @@
  * Buses: sfx 0 dB, home -14 dB, run -6 dB, ambience -9 dB → world (pause lowpass) → master → limiter. `?mute=1`
  * (config.MUTE) disables everything.
  */
-import config from './config.js?v=202609242356';
+import config from './config.js?v=202609250002';
 
 const DB = (db) => Math.pow(10, db / 20);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -662,7 +662,11 @@ export async function init(c) {
   on('achievement', () => SFX.achievement());
   on('reveal', () => SFX.reveal());
   // the music files start downloading now; nothing waits for them (a track whose file is not decoded yet plays its synth)
-  if (!config.MUTE) safe(() => { fetchMusic(MUSIC.home); fetchMusic(MUSIC.run); });
+  // The music files (1 MB) wait until the game is READY: fetched at init they shared the 4G link with the
+  // code and models the game needs to start, and cost the jam's 20 s load budget. The synth covers the
+  // first seconds, and a file that lands crossfades in over it.
+  if (!config.MUTE) { const go = () => safe(() => { fetchMusic(MUSIC.home); fetchMusic(MUSIC.run); });
+    const wait = () => (globalThis.__READY__ ? setTimeout(go, 400) : setTimeout(wait, 250)); wait(); }
   // the HOME track needs a gesture: the first tap / key anywhere (a tab, the carousel) unlocks and starts it
   if (!config.MUTE && typeof document !== 'undefined') {
     const first = () => { unlock(); for (const e of ['pointerdown', 'touchend', 'keydown']) document.removeEventListener(e, first, true); };

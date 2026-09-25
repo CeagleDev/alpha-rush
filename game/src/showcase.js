@@ -13,7 +13,7 @@
  * Cost: one hero (<= 26k tris), three lights, no post, only while the home screen shows.
  */
 import * as THREE from 'three';
-import { mergePerJoint } from './anim.js?v=202609242356';
+import { mergePerJoint } from './anim.js?v=202609250002';
 
 let ctx = null, canvas = null, renderer = null, scene = null, cam = null, pivot = null, hero = null, heroKey = '', J = null, rest = null;
 let t = 0, wavePhase = -1, nextWave = 2.2, loading = null;

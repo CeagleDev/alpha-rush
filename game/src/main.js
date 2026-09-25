@@ -24,15 +24,15 @@
  * window.__GAME__ is rebuilt every frame with every field in tools/GATE_CONTRACT.md.
  */
 import * as THREE from 'three';
-import { createRig } from '../rig.js?v=202609242356';
-import config from './config.js?v=202609242356';
-import * as input from './input.js?v=202609242356';
-import * as hud from './hud.js?v=202609242356';
-import * as audio from './audio.js?v=202609242356';
-import * as roadfx from './roadfx.js?v=202609242356';   // wet-road reflections + contact shadows (see ARCH.md addendum)
-import * as home from './home.js?v=202609242356';
-import * as showcase from './showcase.js?v=202609242356';   // the live hero on the home screen
-import * as fx from './fx.js?v=202609242356';               // pickup bursts, power-up visuals, the surge aura       // HOME screen: character select, tabs (UI v2)
+import { createRig } from '../rig.js?v=202609250002';
+import config from './config.js?v=202609250002';
+import * as input from './input.js?v=202609250002';
+import * as hud from './hud.js?v=202609250002';
+import * as audio from './audio.js?v=202609250002';
+import * as roadfx from './roadfx.js?v=202609250002';   // wet-road reflections + contact shadows (see ARCH.md addendum)
+import * as home from './home.js?v=202609250002';
+import * as showcase from './showcase.js?v=202609250002';   // the live hero on the home screen
+import * as fx from './fx.js?v=202609250002';               // pickup bursts, power-up visuals, the surge aura       // HOME screen: character select, tabs (UI v2)
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
